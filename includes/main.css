@@ -1,0 +1,193 @@
+BODY {
+  margin:0;
+  background : transparent url(http://www.quickplayfrontend.com/public/style_images/fenix/bg.jpg) no-repeat fixed 50% 0px;
+  color : rgb(114, 118, 129);
+  font-family : verdana;
+  font-size : 12px;
+  }
+
+
+a{
+  color : #3028d9;
+  background : transparent none; 
+}
+
+a:hover{
+  color : #CC3333;
+  background : transparent none; 
+}
+
+h3{
+  font-weight : bolder;
+}
+
+img {
+  border: 0;
+}
+     
+div.welcome{
+  background : Black none;
+  color : White;
+  font-weight : 700;
+  font-size : 0.9em;
+  margin  : 0em;
+  padding : 0.2em;
+  text-align : center;
+}
+div.maincontainer{
+  margin : 0;
+  border-radius: 10px 10px 10px 10px;
+  padding: 10px;
+  line-height: 120%;
+  box-shadow: 0px 5px 9px rgba(0, 0, 0, 0.1);
+
+  width : auto;
+}
+
+div.sidebar{
+  float : left;
+  width : 20%;
+  margin : 0;
+  margin-top : 0.5em;
+  padding : 0;
+  height : auto;
+  text-align : center;
+}
+
+div.maincontent{
+  float : left;
+  width : 80%;
+  margin-top : 0.5em;
+}
+
+div.menu{
+  border : 0.2em ridge grey;
+  background : transparent none;
+  color : Black;
+  margin-right : 0.3em;
+  margin-bottom : 0.4em;
+}
+
+div.menuelement{
+  border-bottom: thin ridge Black;
+  background : #f4f5f8 none;
+  color : Black;
+}
+
+div.menuelement a{
+  display : block;
+  margin: 0;
+  padding: 2px;
+  background : transparent none;
+}
+
+div.about{
+  border : thin solid White;
+  background : White none;
+  color : Black;
+  padding : 0.2em;
+  margin-bottom : 0.4em;
+}
+
+div.newshead{
+  border : none;
+  border-top : 2px solid Black;
+  border-left : 2px solid Black;
+  background : #f4f5f8 none;
+  color : black;
+  padding : 0.1em;
+  padding-left : 1em;
+}
+
+div.newscontent{
+  padding : 0.1em 0.4em;
+  border-left : 2px solid black;
+  border-bottom : 1px solid #f4f5f8; 
+  background : White none;
+  color : Black;
+  text-align : justify;
+}
+
+div.newsfooter{
+  font-size : 0.8em;
+  border : none;
+  border-left : 2px solid black;
+  border-bottom : 1px solid black;
+  background : #f4f5f8 none;
+  color : black;
+  padding : 0.1em;
+  padding-left : 1em;
+  text-align : right;
+  margin-bottom : 1em;
+}
+
+div.features{
+  padding : 0.4em 0.2em;
+  border : thin solid White;
+  border-top : 2px solid black;
+  border-bottom : 2px solid black;
+  margin-bottom : 0.2em;
+  background : white none;
+  color : Black;
+  text-align : justify;
+  font-size : 1em;
+}
+
+div.adminmenu{
+  padding : 0.4em 0.2em;
+  border : thin solid White;
+  border-top : 2px solid black;
+  border-bottom : 2px solid black;
+  margin-bottom : 1em;
+  background : white none;
+  color : Black;
+  text-align : justify;
+  font-size : 1em;
+}
+div.fenix-content {
+    padding: 10px;
+    background: none repeat scroll 0% 0% rgb(255, 255, 255);
+    border-radius: 10px 10px 10px 10px;
+    line-height: 120%;
+    overflow: auto;
+
+}
+
+div.branding{
+	min-height:100px;
+        min-width:980px;
+        padding:0 10px;
+        
+}
+div.code {
+    background-color: rgb(248, 248, 248);
+    border: 1px solid rgb(204, 204, 204);
+    line-height: 19px;
+    overflow: auto;
+    padding: 6px 10px;
+    border-radius: 3px 3px 3px 3px;
+    font-size: 11px;
+    font-family: Consolas,"Liberation Mono",Courier,monospace;
+    margin: 0px 2px;
+    white-space: nowrap;
+
+}
+
+div.logo {
+  vertical-align: middle;
+  border: 0px none;
+  margin: 0px;
+  padding: 0px;
+}
+
+div.header_bar {
+    border-radius: 0px 0px 4px 4px;
+    background: url("http://www.quickplayfrontend.com/public/style_images/fenix/opacity.png") repeat scroll 0% 0% transparent;
+    padding: 0px;
+    min-width: 980px;
+    margin: 0px;
+}
+
+
+  
+

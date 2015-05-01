@@ -1,0 +1,140 @@
+BODY {
+  margin:0;
+  background : white none;
+  color : Black;
+  font-family : Tahoma, Sans-Serif;
+  font-size : 1.1em;
+  }
+
+a{
+  color : #3028d9;
+  background : transparent none; 
+}
+
+a:hover{
+  color : #CC3333;
+  background : transparent none; 
+}
+
+h3{
+  font-weight : bolder;
+}
+
+img {
+  border: 0;
+}
+     
+div.welcome{
+  background : Black none;
+  color : White;
+  font-weight : 700;
+  font-size : 0.9em;
+  margin  : 0em;
+  padding : 0.2em;
+  text-align : center;
+}
+div.maincontainer{
+  margin : 0;
+  width : auto;
+}
+
+div.sidebar{
+  float : left;
+  width : 20%;
+  margin : 0;
+  margin-top : 0.5em;
+  padding : 0;
+  height : auto;
+  text-align : center;
+}
+
+div.maincontent{
+  float : left;
+  width : 80%;
+  margin-top : 0.5em;
+}
+
+div.menu{
+  border : 0.2em ridge grey;
+  background : transparent none;
+  color : Black;
+  margin-right : 0.3em;
+  margin-bottom : 0.4em;
+}
+
+div.menuelement{
+  border-bottom: thin ridge Black;
+  background : #f4f5f8 none;
+  color : Black;
+}
+
+div.menuelement a{
+  display : block;
+  margin: 0;
+  padding: 2px;
+  background : transparent none;
+}
+
+div.about{
+  border : thin solid White;
+  background : White none;
+  color : Black;
+  padding : 0.2em;
+  margin-bottom : 0.4em;
+}
+
+div.newshead{
+  border : none;
+  border-top : 2px solid Black;
+  border-left : 2px solid Black;
+  background : #f4f5f8 none;
+  color : black;
+  padding : 0.1em;
+  padding-left : 1em;
+}
+
+div.newscontent{
+  padding : 0.1em 0.4em;
+  border-left : 2px solid black;
+  border-bottom : 1px solid #f4f5f8; 
+  background : White none;
+  color : Black;
+  text-align : justify;
+}
+
+div.newsfooter{
+  font-size : 0.8em;
+  border : none;
+  border-left : 2px solid black;
+  border-bottom : 1px solid black;
+  background : #f4f5f8 none;
+  color : black;
+  padding : 0.1em;
+  padding-left : 1em;
+  text-align : right;
+  margin-bottom : 1em;
+}
+
+div.features{
+  padding : 0.4em 0.2em;
+  border : thin solid White;
+  border-top : 2px solid black;
+  border-bottom : 2px solid black;
+  margin-bottom : 0.2em;
+  background : white none;
+  color : Black;
+  text-align : justify;
+  font-size : 1em;
+}
+
+div.adminmenu{
+  padding : 0.4em 0.2em;
+  border : thin solid White;
+  border-top : 2px solid black;
+  border-bottom : 2px solid black;
+  margin-bottom : 1em;
+  background : white none;
+  color : Black;
+  text-align : justify;
+  font-size : 1em;
+}

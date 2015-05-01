@@ -1,0 +1,117 @@
+BODY {
+  background : #99CCFF none;
+  color : Black;
+  font-family : Tahoma, Arial,Sans-Serif;
+  font-size : 1.1em;
+  }
+
+a{
+	color : #3399CC;
+	background : transparent none; 
+}
+
+a:hover{
+	color : #CC3333;
+	background : transparent none; 
+}
+
+h3{
+	font-weight : bolder;
+}
+
+img {
+    border: 0;
+}
+     
+div.welcome{
+	background : Black none;
+	color : White;
+	font-weight : 700;
+	font-size : 1.2em;
+	margin  : 0.5em;
+	padding : 0.1em;
+	text-transform : capitalize;
+}
+div.maincontainer{
+	width : auto;
+}
+
+div.sidebar{
+	float : left;
+	width : 20%;
+	margin : 0;
+	padding : 0;
+	height : auto;
+	text-align : center;
+}
+
+div.maincontent{
+   float : left;
+   width : 80%;
+}
+
+div.menu{
+	border : 0.2em ridge Black;
+	background : White none;
+	color : Black;
+	margin-right : 0.3em;
+	margin-bottom : 0.4em;
+}
+
+div.menuelement{
+   border-bottom: thin ridge Black;
+   padding : 0.15em;
+   background : transparent none;
+   color : Black;
+}
+
+div.menuelement a{
+  display : block;
+  margin: 0;
+  padding: 2px;
+  background : transparent none;
+}
+
+div.about{
+	border : thin solid White;
+	background : White none;
+	color : Black;
+	padding : 0.2em;
+	margin-bottom : 0.4em;
+}
+
+div.newshead{
+	border : thin solid White;
+	background : #666666 none;
+	color : White;
+	padding : 0.1em;
+}
+
+div.newscontent{
+	padding : 0.1em;
+	border : thin solid White;
+	background : White none;
+	color : Black;
+	text-align : justify;
+}
+
+div.newsfooter{
+        font-size : 0.8em;
+        border : none;
+        background : white none;
+        color : black;
+        padding : 0.1em;
+        padding-left : 1em;
+        text-align : right;
+        margin-bottom : 2em;
+}
+
+div.features{
+	padding : 0.1em;
+	border : thin solid White;
+	margin-bottom : 0.2em;
+	background : #FFFFCC none;
+	color : Black;
+	text-align : justify;
+	font-size : 1em;
+}
