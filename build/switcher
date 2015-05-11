@@ -1,0 +1,36 @@
+#! /bin/bash
+# 
+# basic build system for editing. 
+# creds are kept above repo. 
+# No flags gets us blank configs for repo
+
+pathToSecrets="../../secrets"
+
+if [[ "$1" = "--local" ]]; then
+	echo "local selected"
+	cp $pathToSecrets/class.database_local.php ../includes/class.database.php
+	cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
+	cp $pathToSecrets/LocalSettings_local.php ../wiki/LocalSettings.php
+	cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
+
+elif [[ "$1" = "--live" ]]; then
+	echo "live selected"
+	cp $pathToSecrets/class.database.php ../includes/class.database.php
+	cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
+	cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
+	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
+
+else
+	echo "$1"
+	echo "secrets blanked"
+	cp class.database_blank.php ../includes/class.database.php
+	cp AdminSettings_blank.php ../wiki/AdminSettings.php
+	cp LocalSettings_blank.php ../wiki/LocalSettings.php
+	cp wp-config_blank.php ../blog/wp-config.php
+fi
+
+open -n /Applications/MAMP/MAMP.app --args -AppCommandLineArg
+
+
+
+
