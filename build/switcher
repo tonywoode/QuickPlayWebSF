@@ -6,6 +6,14 @@
 
 pathToSecrets="../../secrets"
 
+function blankem {
+echo "secrets blanked"
+	cp class.database_blank.php ../includes/class.database.php
+	cp AdminSettings_blank.php ../wiki/AdminSettings.php
+	cp LocalSettings_blank.php ../wiki/LocalSettings.php
+	cp wp-config_blank.php ../blog/wp-config.php
+}
+
 if [[ "$1" = "--local" ]]; then
 	echo "local selected"
 	cp $pathToSecrets/class.database_local.php ../includes/class.database.php
@@ -21,15 +29,13 @@ elif [[ "$1" = "--live" ]]; then
 	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
 
 else
-	echo "$1"
-	echo "secrets blanked"
-	cp class.database_blank.php ../includes/class.database.php
-	cp AdminSettings_blank.php ../wiki/AdminSettings.php
-	cp LocalSettings_blank.php ../wiki/LocalSettings.php
-	cp wp-config_blank.php ../blog/wp-config.php
+	echo "no flags"
+	blankem	
 fi
 
-open -n /Applications/MAMP/MAMP.app --args -AppCommandLineArg
+open -nW /Applications/MAMP/MAMP.app --args -AppCommandLineArg && { echo "shutting down and blanking"; blankem; }
+#And when we close, we go back to blank...
+
 
 
 
