@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# this appeared to be the best non-screen/tmux/expect solution
+# http://stackoverflow.com/questions/7114990/pseudo-terminal-will-not-be-allocated-because-stdin-is-not-a-terminal
+db="q122303_qp"
+dbuser="q122303admin"
+
+ssh butter100fly,quickplay@shell.sourceforge.net create
+
+# need to copy in environment varibles to the ssh session
+# http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
+ssh -t butter100fly,quickplay@shell.sourceforge.net " db="$db"; dbuser="$dbuser"; $( cat <<'EOT'
+
+echo "user is $USER"
+cd /home/project-web/quickplay
+echo "directory changed to"; pwd
+echo "Enter database password:"
+read secret
+echo "Showing databases"
+mysql -h mysql-q -u "$dbuser" -p$secret -e 'show databases;'
+
+mysqldump -h mysql-q -u "$dbuser" -p --opt "$db" --password=$secret > "$db".sql
+EOT
+)"
+
+# rsync interprets ":" as separator between host and port (i. e. host:port)
+#  so we cannot use %T or %H:%M:%S here, so we use %H-%M-%S
+date=`date "+%FT%H-%M-%S"` 
+dbBackupFolder="../../database/"
+dbBackupFile="$dbBackupFolder""$db"-"$date"
+
+# copy the old databse off
+echo "backing up the live database "$db" to $dbBackupFile"
+
+# see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
+rsync -P butter100fly,quickplay@shell.sourceforge.net:/home/project-web/quickplay/"$db".sql "$dbBackupFile".sql 
+
+# http://stackoverflow.com/questions/12845206/check-if-file-exists-on-remote-host-with-ssh/
+#Upload new sql
+
+
+#you’ll need to run DROP DATABASE {{name}}; first
+#and CREATE DATABASE {{name}};
+#mysql DROP DATABASE q122303_qp;
+#mysql CREATE DATABASE q122303_qp;
+
+# then 
+#mysql -h 192.x.x.x -u root DB_NAME < db_dump.sql
+
+echo "done"
+#ssh butter100fly,quickplay@shell.sourceforge.net shutdown
+
+
