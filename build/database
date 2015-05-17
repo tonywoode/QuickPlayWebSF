@@ -4,12 +4,13 @@
 # http://stackoverflow.com/questions/7114990/pseudo-terminal-will-not-be-allocated-because-stdin-is-not-a-terminal
 db="q122303_qp"
 dbuser="q122303admin"
+sflogin="butter100fly,quickplay@shell.sourceforge.net"
 
-ssh butter100fly,quickplay@shell.sourceforge.net create
+ssh $sflogin create
 
-# need to copy in environment varibles to the ssh session
+# NOTE: Dupes of env var names - need to copy in environment varibles to the ssh session
 # http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
-ssh -t butter100fly,quickplay@shell.sourceforge.net " db="$db"; dbuser="$dbuser"; $( cat <<'EOT'
+ssh -t $sflogin " db="$db"; dbuser="$dbuser"; $( cat <<'EOT'
 
 echo "user is $USER"
 cd /home/project-web/quickplay
@@ -33,7 +34,7 @@ dbBackupFile="$dbBackupFolder""$db"-"$date"
 echo "backing up the live database "$db" to $dbBackupFile"
 
 # see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
-rsync -P butter100fly,quickplay@shell.sourceforge.net:/home/project-web/quickplay/"$db".sql "$dbBackupFile".sql 
+rsync -P $sflogin:/home/project-web/quickplay/"$db".sql "$dbBackupFile".sql 
 
 # http://stackoverflow.com/questions/12845206/check-if-file-exists-on-remote-host-with-ssh/
 #Upload new sql
@@ -48,6 +49,6 @@ rsync -P butter100fly,quickplay@shell.sourceforge.net:/home/project-web/quickpla
 #mysql -h 192.x.x.x -u root DB_NAME < db_dump.sql
 
 echo "done"
-#ssh butter100fly,quickplay@shell.sourceforge.net shutdown
+#ssh $sflogin shutdown
 
 
