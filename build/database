@@ -5,40 +5,44 @@
 db="q122303_qp"
 dbuser="q122303admin"
 sflogin="butter100fly,quickplay@shell.sourceforge.net"
+workingDir="/home/project-web/quickplay"
+# rsync interprets ":" as separator between host and port (i. e. host:port)
+#  so we cannot use %T or %H:%M:%S here, so we use %H-%M-%S
+date=`date "+%FT%H-%M-%S"` 
+sqlFolder="../../database"
+sqlArchiveFolder="$sqlFolder/archive"
+sqlArchiveFile="$sqlArchiveFolder""$db"-"$date"
+sqlLiveFile="$sqlFolder/$db.sql"
 
 ssh $sflogin create
-
 # NOTE: Dupes of env var names - need to copy in environment varibles to the ssh session
 # http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
-ssh -t $sflogin " db="$db"; dbuser="$dbuser"; $( cat <<'EOT'
 
+#login via ssh, show the db's, then export an sql to workingFolder
+ssh -t $sflogin " db="$db"; dbuser="$dbuser"; workingDir="$workingDir"; $( cat <<'EOT'
 echo "user is $USER"
-cd /home/project-web/quickplay
+cd $workingDir
 echo "directory changed to"; pwd
 echo "Enter database password:"
 read secret
 echo "Showing databases"
 mysql -h mysql-q -u "$dbuser" -p$secret -e 'show databases;'
 
-mysqldump -h mysql-q -u "$dbuser" -p --opt "$db" --password=$secret > "$db".sql
+mysqldump -h mysql-q -u "$dbuser" -p --opt "$db" --password=$secret > "$db"OLD.sql
 EOT
 )"
 
-# rsync interprets ":" as separator between host and port (i. e. host:port)
-#  so we cannot use %T or %H:%M:%S here, so we use %H-%M-%S
-date=`date "+%FT%H-%M-%S"` 
-dbBackupFolder="../../database/"
-dbBackupFile="$dbBackupFolder""$db"-"$date"
-
 # copy the old databse off
-echo "backing up the live database "$db" to $dbBackupFile"
+echo "backing up the current live database "$dbOLD.sql" to $sqlArchiveFile"
 
-# see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
-rsync -P $sflogin:/home/project-web/quickplay/"$db".sql "$dbBackupFile".sql 
+#see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
+rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql 
 
-# http://stackoverflow.com/questions/12845206/check-if-file-exists-on-remote-host-with-ssh/
+#TODO: http://stackoverflow.com/questions/12845206/check-if-file-exists-on-remote-host-with-ssh/
 #Upload new sql
 
+echo "Transferring your local db to the server"
+rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 
 #you’ll need to run DROP DATABASE {{name}}; first
 #and CREATE DATABASE {{name}};
