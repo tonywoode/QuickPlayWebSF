@@ -5,6 +5,9 @@
 # No flags gets us blank configs for repo
 
 pathToSecrets="../../secrets"
+mySQLDir="/Applications/MAMP/Library/bin"
+db="q122303_qp"
+sqlSaveDir="../../database"
 
 function blankem {
 echo "secrets blanked"
@@ -28,12 +31,33 @@ elif [[ "$1" = "--live" ]]; then
 	cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
 	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
 
+elif [[ "$1" = "--exportSQL" ]]; then
+	echo "exportSQL selected - press start server on MAMP!"
+	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
+	#wait 5 secs to give time to do that
+	SECS=5
+	while [[ 0 -ne $SECS ]]; do
+    	echo "$SECS.."
+    	sleep 1
+    	SECS=$[$SECS-1]
+	done
+	echo "local MAMP MySQL password please:"
+  	$mySQLDir/mysqldump -u root -p "$db" > "$sqlSaveDir/$db".sql
+  	if [[ -f  "$sqlSaveDir/$db".sql ]]; then
+  		echo "database exporting ok" 
+  	else 
+  		printf '%s not created!\n' "$sqlSaveDir/$db".sql
+  	fi
+  	exit
 else
 	echo "no flags"
 	blankem	
 fi
 
-open -nW /Applications/MAMP/MAMP.app --args -AppCommandLineArg && { echo "shutting down and blanking"; blankem; }
+open -nW /Applications/MAMP/MAMP.app --args -AppCommandLineArg && {
+  echo "shutting down and blanking"; 
+  blankem; 
+}
 #And when we close, we go back to blank...
 
 
