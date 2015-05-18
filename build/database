@@ -44,13 +44,12 @@ rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql
 echo "Transferring your local db to the server"
 rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 
-#you’ll need to run DROP DATABASE {{name}}; first
-#and CREATE DATABASE {{name}};
-#mysql DROP DATABASE q122303_qp;
-#mysql CREATE DATABASE q122303_qp;
-
-# then 
-#mysql -h 192.x.x.x -u root DB_NAME < db_dump.sql
+#drop the old database
+mysql -h mysql-q -u "$dbuser" -p$secret -e "DROP DATABASE "$db";"
+#make a new database
+mysql -h mysql-q -u "$dbuser" -p$secret -e "CREATE DATABASE "$db";"
+# populate the new database with the file - note lack of 'e' ""
+mysql -h mysql-q -u "$dbuser" -p$secret "$db" < "$db".sql;
 
 echo "done"
 #ssh $sflogin shutdown
