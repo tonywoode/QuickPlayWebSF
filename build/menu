@@ -1,0 +1,18 @@
+#!/bin/bash
+
+while true; do
+	echo "What shall we do now?"
+	echo "	1. Edit the website locally"
+	echo "	2. Take the website live"
+	echo "	3. Export the SQL"
+	echo "	4. Quit and blank secrets so its safe to commit"
+	
+	read -p "-> " response
+	case $response in
+		1) echo "Local Mode"; ./switcher --local;;
+		2) echo "Going live" ./switcher --live;;
+		3) echo "Exporting the SQL"; ./switcher --exportSQL;;
+		4) echo "exiting..."; ./switcher; break;; 
+		*) echo 'Try again';;
+	esac
+done
