@@ -32,6 +32,7 @@ if [[ "$1" = "--local" ]]; then
 	cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
 	cp $pathToSecrets/LocalSettings_local.php ../wiki/LocalSettings.php
 	cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
+	echo "***SHUT MAMP WHEN YOU'RE DONE***"
 	startMAMP
 
 elif [[ "$1" = "--live" ]]; then
@@ -43,7 +44,8 @@ elif [[ "$1" = "--live" ]]; then
 	exit
 
 elif [[ "$1" = "--exportSQL" ]]; then
-	echo "exportSQL selected - press start server on MAMP!"
+	echo "exportSQL selected"
+	$MAMPDir/bin/start.sh
 	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
 	#wait 5 secs to give time to do that
 	SECS=5
@@ -53,12 +55,16 @@ elif [[ "$1" = "--exportSQL" ]]; then
     	SECS=$[$SECS-1]
 	done
 	echo "local MySQL password please:"
-  	$mySQLDir/mysqldump -u root -p "$db" > "$sqlSaveDir/$db".sql
-  	if [[ -f  "$sqlSaveDir/$db".sql ]]; then
-  		echo "database exporting ok" 
-  	else 
-  		printf '%s not created!\n' "$sqlSaveDir/$db".sql
-  	fi
+  	$mySQLDir/mysqldump -u root -p "$db" > "$sqlSaveDir/$db".sql && {
+  		echo "finished!"
+  		$MAMPDir/bin/stop.sh
+
+  	}
+  	#if [[ -f  "$sqlSaveDir/$db".sql ]]; then
+  	#	echo "database exporting ok" 
+  	#else 
+  	#	printf '%s not created!\n' "$sqlSaveDir/$db".sql
+  	#fi
   	exit
 
 elif [[ "$1" = "--blankem" ]]; then
@@ -66,11 +72,11 @@ elif [[ "$1" = "--blankem" ]]; then
 	blankem
 	exit
 
-elif [[ "$1" = "--localMySQL" ]]; then
+elif [[ "$1" = "--localCMD" ]]; then
 	echo "entering command line"
 	$MAMPDir/bin/start.sh
 	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
-	echo "TYPE THIS: $mySQLDir/mysql -u root -p "$db" -e """
+	echo "TYPE THIS: $mySQLDir/mysql -u root -p "$db" -e \"\""
 	echo "***SHUT MAMP WHEN YOU'RE DONE***"
 	exit
 else

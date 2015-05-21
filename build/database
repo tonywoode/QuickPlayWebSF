@@ -52,6 +52,6 @@ mysql -h mysql-q -u "$dbuser" -p$secret -e "CREATE DATABASE "$db";"
 mysql -h mysql-q -u "$dbuser" -p$secret "$db" < "$db".sql;
 
 echo "done"
-#ssh $sflogin shutdown
+ssh $sflogin shutdown
 
 

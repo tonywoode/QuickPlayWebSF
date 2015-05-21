@@ -1,5 +1,7 @@
 #!/bin/bash
 
+warn=echo "***SHUT MAMP WHEN YOU'RE DONE***"
+
 while true; do
 	echo "What shall we do now?"
 	echo "	1. Edit the website locally"
@@ -14,7 +16,7 @@ while true; do
 		1) echo "Local Mode"; ./switcher --local;;
 		2) echo "Going live"; ./switcher --live;;
 		3) echo "Exporting the SQL"; ./switcher --exportSQL;;
-		4) echo "Local SQL Command line"; ./switcher --localMySQL; exit;;
+		4) echo "Local SQL Command line"; ./switcher --localCMD; exit;;
 		5) echo "exiting..."; ./switcher --blankem; break;; 
 		*) echo "Try again";;
 	esac
