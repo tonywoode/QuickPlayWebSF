@@ -14,7 +14,7 @@ while true; do
 		1) echo "Local Mode"; ./switcher --local;;
 		2) echo "Going live"; ./switcher --live;;
 		3) echo "Exporting the SQL"; ./switcher --exportSQL;;
-		4) echo "Local SQL Command line"; ./switcher --localMySQL;;
+		4) echo "Local SQL Command line"; ./switcher --localMySQL; exit;;
 		5) echo "exiting..."; ./switcher --blankem; break;; 
 		*) echo "Try again";;
 	esac

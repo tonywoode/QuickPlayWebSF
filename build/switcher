@@ -32,6 +32,7 @@ if [[ "$1" = "--local" ]]; then
 	cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
 	cp $pathToSecrets/LocalSettings_local.php ../wiki/LocalSettings.php
 	cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
+	startMAMP
 
 elif [[ "$1" = "--live" ]]; then
 	echo "live selected"
@@ -39,6 +40,7 @@ elif [[ "$1" = "--live" ]]; then
 	cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
 	cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
 	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
+	exit
 
 elif [[ "$1" = "--exportSQL" ]]; then
 	echo "exportSQL selected - press start server on MAMP!"
@@ -65,16 +67,20 @@ elif [[ "$1" = "--blankem" ]]; then
 	exit
 
 elif [[ "$1" = "--localMySQL" ]]; then
-	echo "bloody hell"
-	$mySQLDir/mysqldump -u root -p "$db";
-
+	echo "entering command line"
+	$MAMPDir/bin/start.sh
+	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
+	echo "TYPE THIS: $mySQLDir/mysql -u root -p "$db" -e """
+	echo "***SHUT MAMP WHEN YOU'RE DONE***"
+	exit
 else
 	echo "no flags"
 	blankem	
 fi
 
-startMAMP && {
+# always blank when we fall through
+
   echo "shutting down and blanking"; 
   blankem; 
-}
+
 
