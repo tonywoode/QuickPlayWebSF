@@ -26,16 +26,7 @@ function blankem {
 	cp wp-config_blank.php ../blog/wp-config.php
 }
 
-if [[ "$1" = "--local" ]]; then
-	echo "local selected"
-	cp $pathToSecrets/class.database_local.php ../includes/class.database.php
-	cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
-	cp $pathToSecrets/LocalSettings_local.php ../wiki/LocalSettings.php
-	cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
-	echo "***SHUT MAMP WHEN YOU'RE DONE***"
-	startMAMP
-
-elif [[ "$1" = "--exportSQL" ]]; then
+function exportSQL {
 	echo "exportSQL selected"
 	$MAMPDir/bin/start.sh
 	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
@@ -50,23 +41,37 @@ elif [[ "$1" = "--exportSQL" ]]; then
   	$mySQLDir/mysqldump -u root -p "$db" > "$sqlSaveDir/$db".sql && {
   		echo "finished!"
   		$MAMPDir/bin/stop.sh
-
   	}
-  	#if [[ -f  "$sqlSaveDir/$db".sql ]]; then
-  	#	echo "database exporting ok" 
-  	#else 
-  	#	printf '%s not created!\n' "$sqlSaveDir/$db".sql
-  	#fi
   	exit
+}
+
+if [[ "$1" = "--local" ]]; then
+	echo "local selected"
+	cp $pathToSecrets/class.database_local.php ../includes/class.database.php
+	cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
+	cp $pathToSecrets/LocalSettings_local.php ../wiki/LocalSettings.php
+	cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
+	echo "***SHUT MAMP WHEN YOU'RE DONE***"
+	startMAMP
+
+elif [[ "$1" = "--exportSQL" ]]; then
+	exportSQL
 
 elif [[ "$1" = "--live" ]]; then
 	echo "live selected"
+	# first export the sql
+	exportSQL
+	# then change the config files to the live versions
 	cp $pathToSecrets/class.database.php ../includes/class.database.php
 	cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
 	cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
 	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
+	# then sync the website
+	./site
+	# then we sync the databaes
+	./database
 	exit
-	
+
 elif [[ "$1" = "--blankem" ]]; then
 	echo "blanking and exiting"
 	blankem
