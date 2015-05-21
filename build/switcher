@@ -35,14 +35,6 @@ if [[ "$1" = "--local" ]]; then
 	echo "***SHUT MAMP WHEN YOU'RE DONE***"
 	startMAMP
 
-elif [[ "$1" = "--live" ]]; then
-	echo "live selected"
-	cp $pathToSecrets/class.database.php ../includes/class.database.php
-	cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
-	cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
-	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
-	exit
-
 elif [[ "$1" = "--exportSQL" ]]; then
 	echo "exportSQL selected"
 	$MAMPDir/bin/start.sh
@@ -67,6 +59,14 @@ elif [[ "$1" = "--exportSQL" ]]; then
   	#fi
   	exit
 
+elif [[ "$1" = "--live" ]]; then
+	echo "live selected"
+	cp $pathToSecrets/class.database.php ../includes/class.database.php
+	cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
+	cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
+	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
+	exit
+	
 elif [[ "$1" = "--blankem" ]]; then
 	echo "blanking and exiting"
 	blankem
