@@ -8,9 +8,18 @@ pathToSecrets="../../secrets"
 mySQLDir="/Applications/MAMP/Library/bin"
 db="q122303_qp"
 sqlSaveDir="../../database"
+MAMPDir="/Applications/MAMP"
+
+function startMAMP {
+	echo "starting MAMP"
+	$MAMPDir/bin/start.sh
+	open -nW $MAMPDir/MAMP.app --args -AppCommandLineArg
+	$MAMPDir/bin/stop.sh
+
+}
 
 function blankem {
-echo "secrets blanked"
+	echo "secrets blanked"
 	cp class.database_blank.php ../includes/class.database.php
 	cp AdminSettings_blank.php ../wiki/AdminSettings.php
 	cp LocalSettings_blank.php ../wiki/LocalSettings.php
@@ -41,7 +50,7 @@ elif [[ "$1" = "--exportSQL" ]]; then
     	sleep 1
     	SECS=$[$SECS-1]
 	done
-	echo "local MAMP MySQL password please:"
+	echo "local MySQL password please:"
   	$mySQLDir/mysqldump -u root -p "$db" > "$sqlSaveDir/$db".sql
   	if [[ -f  "$sqlSaveDir/$db".sql ]]; then
   		echo "database exporting ok" 
@@ -49,18 +58,23 @@ elif [[ "$1" = "--exportSQL" ]]; then
   		printf '%s not created!\n' "$sqlSaveDir/$db".sql
   	fi
   	exit
+
+elif [[ "$1" = "--blankem" ]]; then
+	echo "blanking and exiting"
+	blankem
+	exit
+
+elif [[ "$1" = "--localMySQL" ]]; then
+	echo "bloody hell"
+	$mySQLDir/mysqldump -u root -p "$db";
+
 else
 	echo "no flags"
 	blankem	
 fi
 
-open -nW /Applications/MAMP/MAMP.app --args -AppCommandLineArg && {
+startMAMP && {
   echo "shutting down and blanking"; 
   blankem; 
 }
-#And when we close, we go back to blank...
-
-
-
-
 

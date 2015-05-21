@@ -5,14 +5,17 @@ while true; do
 	echo "	1. Edit the website locally"
 	echo "	2. Take the website live"
 	echo "	3. Export the SQL"
-	echo "	4. Quit and blank secrets so its safe to commit"
+	echo "	4. Enter LocalSQL command line"
+	echo "	5. Quit and blank secrets so its safe to commit"
+	
 	
 	read -p "-> " response
 	case $response in
 		1) echo "Local Mode"; ./switcher --local;;
-		2) echo "Going live" ./switcher --live;;
+		2) echo "Going live"; ./switcher --live;;
 		3) echo "Exporting the SQL"; ./switcher --exportSQL;;
-		4) echo "exiting..."; ./switcher; break;; 
-		*) echo 'Try again';;
+		4) echo "Local SQL Command line"; ./switcher --localMySQL;;
+		5) echo "exiting..."; ./switcher --blankem; break;; 
+		*) echo "Try again";;
 	esac
 done
