@@ -25,4 +25,5 @@ set vars [lindex $argv end]
 send "$vars\r"
 
 # give me a shell
-#interact
+send "echo type exit to carry on\r"
+interact

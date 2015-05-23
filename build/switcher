@@ -5,10 +5,9 @@
 # No flags gets us blank configs for repo
 
 pathToSecrets="../../secrets"
-mySQLDir="/Applications/MAMP/Library/bin"
-db="q122303_qp"
-sqlSaveDir="../../database"
 MAMPDir="/Applications/MAMP"
+mySQLDir="$MAMPDir/Library/bin"
+
 
 function startMAMP {
 	echo "starting MAMP"
@@ -38,7 +37,7 @@ function exportSQL {
     	SECS=$[$SECS-1]
 	done
 	echo "local MySQL password please:"
-  	$mySQLDir/mysqldump -u root -p "$db" > "$sqlSaveDir/$db".sql && {
+  	$mySQLDir/mysqldump -u root -p "$db" > "$sqlFolder/$db".sql && {
   		echo "finished!"
   		$MAMPDir/bin/stop.sh
   	}

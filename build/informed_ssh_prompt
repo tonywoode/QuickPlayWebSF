@@ -1,3 +1,0 @@
-#!/bin/bash
-ssh $sflogin create
-./exp ssh $sflogin "$SSHEnvVars"

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-sflogin="butter100fly,quickplay@shell.sourceforge.net"
 secret_file_to_test="../includes/class.database.php"
 
 # first test to see if I remembered to unblank the secrets
