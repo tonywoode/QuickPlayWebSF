@@ -1,20 +1,30 @@
 #!/bin/bash
+#be in this directory whatever happens
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 cd "${DIR}"
 
-warn="***SHUT MAMP WHEN YOU'RE DONE***"
+# DECLARE AND EXPORT ALL SHARED CONSTS
 
+# this is about the remote database
 declare -x db="q122303_qp"
 declare -x dbuser="q122303admin"
+
+#this about the remote site
 declare -x sflogin="butter100fly,quickplay@shell.sourceforge.net"
 declare -x workingDir="/home/project-web/quickplay"
-# rsync interprets ":" as separator between host and port (i. e. host:port)
+
+#and we want to send all those to the ssh session later
+declare -x SSHEnvVars="db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir";"
+
+#all these involve saving the DB locally
+#  rsync interprets ":" as separator between host and port (i. e. host:port)
 #  so we cannot use %T or %H:%M:%S here, so we use %H-%M-%S
 declare -x date=`date "+%FT%H-%M-%S"` 
 declare -x sqlFolder="../../database"
 declare -x sqlArchiveFolder="$sqlFolder/archive"
-declare -x sqlArchiveFile="$sqlArchiveFolder""$db"-"$date"
+declare -x sqlArchiveFile="$sqlArchiveFolder"/"$db"-"$date"
 declare -x sqlLiveFile="$sqlFolder/$db.sql"
-declare -x SSHEnvVars="db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir";"
+
+warn="***SHUT MAMP WHEN YOU'RE DONE***"
 
 ./menu
