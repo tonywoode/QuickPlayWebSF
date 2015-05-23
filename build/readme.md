@@ -8,7 +8,7 @@ We use two external folders
 				- in archive find the backup we take of the REMOTE db - named by date
 2) secrets	- there are 3 brands of each file:
 				*_blank - the ones its safe to push to git
-				*_local - the ones with the mamp creadentials
+				*_local - the ones with the mamp credentials
 				* - the ones that are only for live 
 
 ### Considerations

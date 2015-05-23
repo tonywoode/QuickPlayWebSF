@@ -1,7 +1,7 @@
 #! /bin/bash
-# 
-# basic build system for editing. 
-# creds are kept above repo. 
+
+# basic build system for editing. creds are kept above repo. 
+
 # No flags gets us blank configs for repo
 
 function startMAMP {
@@ -24,14 +24,14 @@ function exportSQL {
 	echo "exportSQL selected"
 	$MAMPDir/bin/start.sh
 	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
-	echo "must have an sql server to backup - wait 5 secs for MAMP to startup"
+	echo "We'll need an sql server to backup from - wait 5 secs for MAMP to startup"
 	SECS=5
 	while [[ 0 -ne $SECS ]]; do
     	echo "$SECS.."
     	sleep 1
     	SECS=$[$SECS-1]
 	done
-	echo "local MySQL password please:"
+	echo "Need your local MySQL password please:"
   	$mySQLDir/mysqldump -u root -p "$db" > "$sqlFolder/$db".sql && {
   		echo "Success - dababase saved to "$sqlFolder/$db".sql "
   		read -n1 -r -p "Press any key to continue..."

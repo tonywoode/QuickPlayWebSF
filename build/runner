@@ -35,6 +35,6 @@ declare -x secret_file_to_diff="$pathToSecrets/class.database_blank.php"
 declare -x MAMPDir="/Applications/MAMP"
 declare -x mySQLDir="$MAMPDir/Library/bin"
 
-warn="***SHUT MAMP WHEN YOU'RE DONE***"
+declare -x warn="***SHUT MAMP WHEN YOU'RE DONE***"
 
 ./menu
