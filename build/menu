@@ -1,0 +1,23 @@
+#!/bin/bash
+while true; do
+	echo "What shall we do now?"
+	echo "	1. Edit the website locally"
+	echo "	2. Export the SQL"
+	echo "	3. Export SQL and take the website live"
+	echo "	4. Enter Local command line"
+	echo "	5. Enter SSH Remote command line"
+	echo "	quit. Quit and blank secrets so its safe to commit"
+	
+	
+	read -p "-> " response
+	case $response in
+		1) echo "Local Mode"; ./switcher --local;;
+		2) echo "Exporting the SQL"; ./switcher --exportSQL;;
+		3) echo "Exporting the SQL and Going live"; ./switcher --live;;
+		4) echo "Local SQL Command line"; ./switcher --localCMD; $SHELL; exit;;
+		5) echo "SSH Command Line"; ssh $sflogin create; ./exp ssh $sflogin "$SSHEnvVars";;
+		quit) echo "exiting..."; ./switcher --blankem; break;; 
+		*) echo "Try again";;
+	esac
+done
+$SHELL

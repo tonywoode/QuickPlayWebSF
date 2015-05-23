@@ -38,7 +38,7 @@ rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql
 echo "Transferring your local db to the server"
 rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 
-Dump2="$SSHEnvVars $( cat <<EOT
+replaceDB="$SSHEnvVars $( cat <<EOT
 	cd $workingDir
 	#drop the old database
 	mysql -h mysql-q -u "$dbuser" -p$secret -e "DROP DATABASE "$db";"
@@ -48,7 +48,7 @@ Dump2="$SSHEnvVars $( cat <<EOT
 	mysql -h mysql-q -u "$dbuser" -p$secret "$db" < "$db".sql;
 EOT
 )"
-./exp ssh $sflogin "$Dump2"
+./exp ssh $sflogin "$replaceDB"
 
 echo "done"
 ssh $sflogin shutdown

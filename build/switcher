@@ -19,10 +19,10 @@ function startMAMP {
 
 function blankem {
 	echo "secrets blanked"
-	cp class.database_blank.php ../includes/class.database.php
-	cp AdminSettings_blank.php ../wiki/AdminSettings.php
-	cp LocalSettings_blank.php ../wiki/LocalSettings.php
-	cp wp-config_blank.php ../blog/wp-config.php
+	cp $pathToSecrets/class.database_blank.php ../includes/class.database.php
+	cp $pathToSecrets/AdminSettings_blank.php ../wiki/AdminSettings.php
+	cp $pathToSecrets/LocalSettings_blank.php ../wiki/LocalSettings.php
+	cp $pathToSecrets/wp-config_blank.php ../blog/wp-config.php
 }
 
 function exportSQL {
