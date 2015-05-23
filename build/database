@@ -2,38 +2,32 @@
 
 # this appeared to be the best non-screen/tmux/expect solution
 # http://stackoverflow.com/questions/7114990/pseudo-terminal-will-not-be-allocated-because-stdin-is-not-a-terminal
-db="q122303_qp"
-dbuser="q122303admin"
-sflogin="butter100fly,quickplay@shell.sourceforge.net"
-workingDir="/home/project-web/quickplay"
-# rsync interprets ":" as separator between host and port (i. e. host:port)
-#  so we cannot use %T or %H:%M:%S here, so we use %H-%M-%S
-date=`date "+%FT%H-%M-%S"` 
-sqlFolder="../../database"
-sqlArchiveFolder="$sqlFolder/archive"
-sqlArchiveFile="$sqlArchiveFolder""$db"-"$date"
-sqlLiveFile="$sqlFolder/$db.sql"
 
 ssh $sflogin create
 # NOTE: Dupes of env var names - need to copy in environment varibles to the ssh session
 # http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
 
 #login via ssh, show the db's, then export an sql to workingFolder
-ssh -t $sflogin " db="$db"; dbuser="$dbuser"; workingDir="$workingDir"; $( cat <<'EOT'
+#ssh -t $sflogin "$SSHEnvVars"; $( cat <<'EOT'
+echo "I need the Remote database password please:"
+read -s secret
+
+DumpTheDB="$SSHEnvVars $( cat <<EOT
 	echo "user is $USER"
 	cd $workingDir
 	echo "directory changed to"; pwd
 	echo "Enter Remote database password:"
-	read secret
+	
 	echo "Showing databases"
 	mysql -h mysql-q -u "$dbuser" -p$secret -e 'show databases;'
-
-	mysqldump -h mysql-q -u "$dbuser" -p --opt "$db" --password=$secret > "$db"OLD.sql
+	echo "dumping the LIVE database to "$db"OLD.sql"
+	mysqldump -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"OLD.sql
 EOT
 )"
+./exp ssh $sflogin "$DumpTheDB"
 
 # copy the old databse off
-echo "backing up the current live database "$dbOLD.sql" to $sqlArchiveFile"
+echo "backing up the current LIVE database backup "$db"OLD.sql to $sqlArchiveFile"
 
 #see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
 rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql 
@@ -44,7 +38,7 @@ rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql
 echo "Transferring your local db to the server"
 rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 
-ssh -t $sflogin " db="$db"; dbuser="$dbuser"; workingDir="$workingDir"; $( cat <<'EOT'
+Dump2="$SSHEnvVars $( cat <<EOT
 	cd $workingDir
 	#drop the old database
 	mysql -h mysql-q -u "$dbuser" -p$secret -e "DROP DATABASE "$db";"
@@ -54,6 +48,7 @@ ssh -t $sflogin " db="$db"; dbuser="$dbuser"; workingDir="$workingDir"; $( cat <
 	mysql -h mysql-q -u "$dbuser" -p$secret "$db" < "$db".sql;
 EOT
 )"
+./exp ssh $sflogin "$Dump2"
 
 echo "done"
 ssh $sflogin shutdown

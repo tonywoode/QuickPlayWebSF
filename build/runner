@@ -10,6 +10,7 @@ declare -x sqlFolder="../../database"
 declare -x sqlArchiveFolder="$sqlFolder/archive"
 declare -x sqlArchiveFile="$sqlArchiveFolder""$db"-"$date"
 declare -x sqlLiveFile="$sqlFolder/$db.sql"
+declare -x SSHEnvVars="db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir";"
 
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
