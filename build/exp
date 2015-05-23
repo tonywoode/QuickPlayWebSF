@@ -1,0 +1,28 @@
+#!/usr/bin/expect
+# this is a method by which we can send ssh commands (here to set env variables),
+#   but then end up in a remote command prompt - idea came from answer from dmnc at end here:
+# http://stackoverflow.com/questions/4780893/use-expect-in-bash-script-to-provide-password-to-ssh-command
+
+# here for more general info on expect:
+# http://stackoverflow.com/questions/4780893/use-expect-in-bash-script-to-provide-password-to-ssh-command
+
+set timeout 20
+
+# args should be $ssh $my_host
+set cmd [lrange $argv 0 1]
+#login
+eval spawn $cmd
+
+#either we get a prompt, or die
+expect {
+  timeout { send_user "\nSomething went wrong.\n"; exit 1}
+  "*\$ "
+}
+
+#when we get the prompt, send the ssh command that follows the hostname passed in
+set vars [lindex $argv end]
+
+send "$vars\r"
+
+# give me a shell
+interact

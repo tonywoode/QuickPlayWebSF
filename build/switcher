@@ -42,7 +42,7 @@ function exportSQL {
   		echo "finished!"
   		$MAMPDir/bin/stop.sh
   	}
-  	exit
+  	
 }
 
 if [[ "$1" = "--local" ]]; then

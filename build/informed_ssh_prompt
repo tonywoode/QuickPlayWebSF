@@ -1,0 +1,3 @@
+#!/bin/bash
+ssh $sflogin create
+./exp ssh butter100fly,quickplay@shell.sourceforge.net "db="$db"; dbuser="$dbuser"; workingDir="$workingDir";"
