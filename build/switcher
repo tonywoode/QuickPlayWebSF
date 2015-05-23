@@ -4,11 +4,6 @@
 # creds are kept above repo. 
 # No flags gets us blank configs for repo
 
-pathToSecrets="../../secrets"
-MAMPDir="/Applications/MAMP"
-mySQLDir="$MAMPDir/Library/bin"
-
-
 function startMAMP {
 	echo "starting MAMP"
 	$MAMPDir/bin/start.sh
@@ -29,7 +24,7 @@ function exportSQL {
 	echo "exportSQL selected"
 	$MAMPDir/bin/start.sh
 	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
-	#wait 5 secs to give time to do that
+	echo "must have an sql server to backup - wait 5 secs for MAMP to startup"
 	SECS=5
 	while [[ 0 -ne $SECS ]]; do
     	echo "$SECS.."
@@ -38,7 +33,8 @@ function exportSQL {
 	done
 	echo "local MySQL password please:"
   	$mySQLDir/mysqldump -u root -p "$db" > "$sqlFolder/$db".sql && {
-  		echo "finished!"
+  		echo "Success - dababase saved to "$sqlFolder/$db".sql "
+  		read -n1 -r -p "Press any key to continue..."
   		$MAMPDir/bin/stop.sh
   	}
   	
@@ -50,7 +46,7 @@ if [[ "$1" = "--local" ]]; then
 	cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
 	cp $pathToSecrets/LocalSettings_local.php ../wiki/LocalSettings.php
 	cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
-	echo "***SHUT MAMP WHEN YOU'RE DONE***"
+	echo $warn
 	startMAMP
 
 elif [[ "$1" = "--exportSQL" ]]; then
@@ -60,14 +56,14 @@ elif [[ "$1" = "--live" ]]; then
 	echo "live selected"
 	# first export the sql
 	exportSQL
-	# then change the config files to the live versions
+	echo "changing the config files to the live versions"
 	cp $pathToSecrets/class.database.php ../includes/class.database.php
 	cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
 	cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
 	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
-	# then sync the website
+	echo "syncing the website"
 	./site
-	# then we sync the databaes
+	echo "next, syncing the databaes"
 	./database
 	exit
 
@@ -81,7 +77,7 @@ elif [[ "$1" = "--localCMD" ]]; then
 	$MAMPDir/bin/start.sh
 	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
 	echo "TYPE THIS: $mySQLDir/mysql -u root -p "$db" -e \"\""
-	echo "***SHUT MAMP WHEN YOU'RE DONE***"
+	echo $warn
 	exit
 else
 	echo "no flags"
@@ -89,8 +85,7 @@ else
 fi
 
 # always blank when we fall through
-
-  echo "shutting down and blanking"; 
-  blankem; 
+echo "shutting down and blanking"; 
+blankem; 
 
 

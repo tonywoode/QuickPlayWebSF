@@ -13,9 +13,9 @@ while true; do
 	case $response in
 		1) echo "Local Mode"; ./switcher --local;;
 		2) echo "Exporting the SQL"; ./switcher --exportSQL;;
-		3) echo "Exporting the SQL and Going live"; ./switcher --live;;
+		3) echo "Exporting the SQL and Going live"; $createLoginShell; ./switcher --live;;
 		4) echo "Local SQL Command line"; ./switcher --localCMD; $SHELL; exit;;
-		5) echo "SSH Command Line"; ssh $sflogin create; ./exp ssh $sflogin "$SSHEnvVars";;
+		5) echo "SSH Command Line"; $createLoginShell; ./exp ssh $sflogin "$SSHEnvVars";;
 		quit) echo "exiting..."; ./switcher --blankem; break;; 
 		*) echo "Try again";;
 	esac

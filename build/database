@@ -3,32 +3,26 @@
 # this appeared to be the best non-screen/tmux/expect solution
 # http://stackoverflow.com/questions/7114990/pseudo-terminal-will-not-be-allocated-because-stdin-is-not-a-terminal
 
-ssh $sflogin create
+
 # NOTE: Dupes of env var names - need to copy in environment varibles to the ssh session
 # http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
 
-#login via ssh, show the db's, then export an sql to workingFolder
-#ssh -t $sflogin "$SSHEnvVars"; $( cat <<'EOT'
+#login via ssh then export an sql to workingFolder
 echo "I need the Remote database password please:"
 read -s secret
 
 DumpTheDB="$SSHEnvVars $( cat <<EOT
-	echo "user is $USER"
-	cd $workingDir
-	echo "directory changed to"; pwd
-	echo "Enter Remote database password:"
-	
-	echo "Showing databases"
-	mysql -h mysql-q -u "$dbuser" -p$secret -e 'show databases;'
+	stty -echo
+	echo "directory changed to:"; pwd
 	echo "dumping the LIVE database to "$db"OLD.sql"
-	mysqldump -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"OLD.sql
+	mysqldump -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"OLD.sql && echo "database dumped onto remote server, let's transfer the DBs across..."
+	stty echo
 EOT
 )"
 ./exp ssh $sflogin "$DumpTheDB"
 
 # copy the old databse off
 echo "backing up the current LIVE database backup "$db"OLD.sql to $sqlArchiveFile"
-
 #see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
 rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql 
 
@@ -39,13 +33,13 @@ echo "Transferring your local db to the server"
 rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 
 replaceDB="$SSHEnvVars $( cat <<EOT
-	cd $workingDir
-	#drop the old database
+	echo drop the old db, make a new one, and populate it with the sql
+	stty -echo
 	mysql -h mysql-q -u "$dbuser" -p$secret -e "DROP DATABASE "$db";"
-	#make a new database
 	mysql -h mysql-q -u "$dbuser" -p$secret -e "CREATE DATABASE "$db";"
-	# populate the new database with the file - note lack of 'e' ""
 	mysql -h mysql-q -u "$dbuser" -p$secret "$db" < "$db".sql;
+	stty echo
+	echo done
 EOT
 )"
 ./exp ssh $sflogin "$replaceDB"
