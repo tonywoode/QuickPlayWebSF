@@ -1,0 +1,7 @@
+{
+  "name": "QuickPlay_release_version_info_updater",
+  "description": "When we have details of the release package, it must be cascaded to the website via this table. npm install",
+  "dependencies": {
+    "mysql": "^2.7.0"
+  }
+}
