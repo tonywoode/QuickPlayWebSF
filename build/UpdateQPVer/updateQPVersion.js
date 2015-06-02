@@ -6,8 +6,7 @@ var mysql     = require('mysql');
 var config	  = require('../../../secrets/config');
 var prompt    = require('./userInput');
 
-var version_id = 19,
-    version_name = '4.1.1',
+var version_name = '4.1.1',
     downloadURL = 'some made up damn thing',
     filesize = 'probably quite big';
 
@@ -38,7 +37,7 @@ the anonymous function we just defined has the same signature as showTable,
     prompt(function(result){ 
         //async-101: we can't call insertRow serially after show table, or it'll run both at the same time
         showTable(result, function(){
-            insertRow(version_id,version_name, downloadURL, filesize, result)
+            insertRow(version_name, downloadURL, filesize, result)
         });
     //here's why we use promises, this could become the callback pyramid of doom
     });
@@ -64,9 +63,9 @@ function showTable(result, next) {
     });
 }
 
-
-function insertRow(version_id,version_name, downloadURL, filesize, next) {
-    connection.query('INSERT INTO version values ("'+version_id+'","'+version_name+'","'+downloadURL+'", "'+filesize+'")',
+//insert the values for the next tuple - version_id in the table auto-increments
+function insertRow(version_name, downloadURL, filesize, next) {
+    connection.query('INSERT INTO version (version_name, download, filesize) values ("'+version_name+'","'+downloadURL+'", "'+filesize+'")',
         function (error, results, fields) {
         if (error) { console.log('ERRORS=', error); }
         if (results) { console.log('RESULTS=', results); }
