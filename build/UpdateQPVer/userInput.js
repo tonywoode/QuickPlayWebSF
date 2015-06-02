@@ -1,5 +1,9 @@
 var prompt     = require('prompt');
 
+version_name = '',
+downloadURL = '',
+filesize = '';
+
 module.exports = function(callback) {
 
 	prompt.start();
@@ -11,9 +15,12 @@ module.exports = function(callback) {
 	*/
 	prompt.get(schema, function (err, result) {
 	    console.log('Command-line input received:');
-	    console.log('  version_name: ' + result.version_name);
-		console.log('  downloadURL: ' + result.downloadURL);
-		console.log('  filesize: ' + result.filesize);
+	    console.log('  version_name: ' 	+ result.version_name);
+	    version_name = result.version_name;
+		console.log('  downloadURL: ' 	+ result.downloadURL);
+		downloadURL = result.downloadURL;
+		console.log('  filesize: ' 		+ result.filesize);
+		filesize = result.filesize;
 		callback(result);
 	  });
 
@@ -23,7 +30,7 @@ var schema = {
 	properties: {
 		version_name: {
 			type: 'string',
-			message: 'must be a string'
+			message: 'must be a string' //todo: must be a variation of semver
 		},
 		downloadURL: {
        		type: 'string',

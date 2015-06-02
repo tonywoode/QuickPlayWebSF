@@ -6,11 +6,6 @@ var mysql     = require('mysql');
 var config	  = require('../../../secrets/config');
 var prompt    = require('./userInput');
 
-var version_name = '4.1.1',
-    downloadURL = 'some made up damn thing',
-    filesize = 'probably quite big';
-
-
 var connection = mysql.createConnection({
     host        :   config.localdb.host,
     user        :   config.localdb.user,
@@ -28,6 +23,7 @@ connection.connect(function(err) {
 
     console.log('connected as id ' + connection.threadId);
     console.log('EXISTING VERSION TABLE FOLLOWS:');
+
 /*
 the anonymous function we just defined has the same signature as showTable,
  so we can just pass the reference to show table rather than defining n anonymous function
@@ -38,8 +34,7 @@ the anonymous function we just defined has the same signature as showTable,
         //async-101: we can't call insertRow serially after show table, or it'll run both at the same time
         showTable(result, function(){
             insertRow(version_name, downloadURL, filesize, result)
-        });
-    //here's why we use promises, this could become the callback pyramid of doom
+        }); //here's why we use promises, this could become the callback pyramid of doom
     });
 });
 
@@ -48,22 +43,16 @@ the anonymous function we just defined has the same signature as showTable,
 function showTable(result, next) {
     connection.query('select * from version', function (error, results, fields) {
         // error will be an Error if one occurred during the query
-        if (error) {
-            console.log('ERRORS=', error);
-        }
+        if (error) { console.log('ERRORS=', error); }
         // results will contain the results of the query
-        if (results) {
-            console.log('RESULTS=', results);
-        }
+        if (results) { console.log('RESULTS=', results); }
         // fields will contain information about the returned results fields (if any)
-        if (fields) {
-            console.log('FIELDS=', fields);
-        }
+        if (fields) { console.log('FIELDS=', fields); }
         next(result);
     });
 }
 
-//insert the values for the next tuple - version_id in the table auto-increments
+//insert values for the next tuple - primary key version_id in the table auto-increments
 function insertRow(version_name, downloadURL, filesize, next) {
     connection.query('INSERT INTO version (version_name, download, filesize) values ("'+version_name+'","'+downloadURL+'", "'+filesize+'")',
         function (error, results, fields) {
