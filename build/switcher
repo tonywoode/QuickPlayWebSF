@@ -12,24 +12,27 @@ function blankem {
 	cp $pathToSecrets/wp-config_blank.php ../blog/wp-config.php
 }
 
+function timer {
+	SECS=5
+		while [[ 0 -ne $SECS ]]; do
+    		echo "$SECS.."
+    		sleep 1
+    		SECS=$[$SECS-1]
+		done
+}
+
 function exportSQL {
 	echo "exportSQL selected"
 	$MAMPDir/bin/start.sh
 	open $MAMPDir/MAMP.app --args -AppCommandLineArg
 	echo "We'll need an sql server to backup from - wait 5 secs for MAMP to startup"
-	SECS=5
-	while [[ 0 -ne $SECS ]]; do
-    	echo "$SECS.."
-    	sleep 1
-    	SECS=$[$SECS-1]
-	done
+	timer
 	echo "Need your local MySQL password please:"
   	$mySQLDir/mysqldump -u root -p "$db" > "$sqlFolder/$db".sql && {
-  		echo "Success - dababase saved to "$sqlFolder/$db".sql "
+  		echo "Success - database saved to "$sqlFolder/$db".sql "
   		read -n1 -r -p "Press any key to continue..."
   		$MAMPDir/bin/stop.sh
   	}
-  	
 }
 
 if [[ "$1" = "--local" ]]; then
@@ -43,6 +46,13 @@ if [[ "$1" = "--local" ]]; then
 	echo "TYPE THIS: $mySQLDir/mysql -u root -p "$db" -e \"\""
 	echo $warn
 	exit
+
+elif [[ "$1" = "--versionInfo" ]]; then
+	$MAMPDir/bin/start.sh
+	open $MAMPDir/MAMP.app --args -AppCommandLineArg
+	echo "We'll need an sql server to save to - wait 5 secs for MAMP to startup"
+	timer
+	node ./updateQPVer/updateQPVersion.js #yes you need to install node
 
 elif [[ "$1" = "--exportSQL" ]]; then
 	exportSQL
