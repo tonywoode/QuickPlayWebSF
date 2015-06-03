@@ -1,21 +1,19 @@
 #!/bin/bash
 while true; do
 	echo "What shall we do now?"
-	echo "	1. Edit the website locally"
+	echo "	1. Edit the website locally, with command line too"
 	echo "	2. Export the SQL"
 	echo "	3. Export the SQL and take the website live"
-	echo "	4. Enter Local command line"
-	echo "	5. Enter SSH Remote command line"
+	echo "	4. Enter SSH Remote command line"
 	echo "	9. Quit and blank secrets so its safe to commit"
 	
 	
 	read -p "-> " response
 	case $response in
-		1) echo "Ok, Local Mode"; ./switcher --local;;
+		1) echo "Ok, Local SQL Command line"; ./switcher --local; $SHELL; ./switcher --blankem;;
 		2) echo "Ok, Exporting the SQL"; ./switcher --exportSQL;;
 		3) echo "Ok, Exporting SQL and Going live"; $createLoginShell; ./switcher --live;;
-		4) echo "Ok, Local SQL Command line"; ./switcher --localCMD; $SHELL; exit;;
-		5) echo "Ok, SSH Command Line"; $createLoginShell; ./exp ssh $sflogin "$SSHEnvVars";;
+		4) echo "Ok, SSH Command Line"; $createLoginShell; ./exp ssh $sflogin "$SSHEnvVars";;
 		9) echo "Ok, exiting, blankly..."; ./switcher --blankem; break;; 
 		*) echo "Try again";;
 	esac

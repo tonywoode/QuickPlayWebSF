@@ -4,14 +4,6 @@
 
 # No flags gets us blank configs for repo
 
-function startMAMP {
-	echo "starting MAMP"
-	$MAMPDir/bin/start.sh
-	open -nW $MAMPDir/MAMP.app --args -AppCommandLineArg
-	$MAMPDir/bin/stop.sh
-
-}
-
 function blankem {
 	echo "secrets blanked"
 	cp $pathToSecrets/class.database_blank.php ../includes/class.database.php
@@ -23,7 +15,7 @@ function blankem {
 function exportSQL {
 	echo "exportSQL selected"
 	$MAMPDir/bin/start.sh
-	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
+	open $MAMPDir/MAMP.app --args -AppCommandLineArg
 	echo "We'll need an sql server to backup from - wait 5 secs for MAMP to startup"
 	SECS=5
 	while [[ 0 -ne $SECS ]]; do
@@ -41,13 +33,16 @@ function exportSQL {
 }
 
 if [[ "$1" = "--local" ]]; then
-	echo "local selected"
+	echo "entering command line"
 	cp $pathToSecrets/class.database_local.php ../includes/class.database.php
 	cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
 	cp $pathToSecrets/LocalSettings_local.php ../wiki/LocalSettings.php
 	cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
+	$MAMPDir/bin/start.sh
+	open $MAMPDir/MAMP.app --args -AppCommandLineArg
+	echo "TYPE THIS: $mySQLDir/mysql -u root -p "$db" -e \"\""
 	echo $warn
-	startMAMP
+	exit
 
 elif [[ "$1" = "--exportSQL" ]]; then
 	exportSQL
@@ -69,16 +64,10 @@ elif [[ "$1" = "--live" ]]; then
 
 elif [[ "$1" = "--blankem" ]]; then
 	echo "blanking and exiting"
+	$MAMPDir/bin/stop.sh
 	blankem
 	exit
 
-elif [[ "$1" = "--localCMD" ]]; then
-	echo "entering command line"
-	$MAMPDir/bin/start.sh
-	open /Applications/MAMP/MAMP.app --args -AppCommandLineArg
-	echo "TYPE THIS: $mySQLDir/mysql -u root -p "$db" -e \"\""
-	echo $warn
-	exit
 else
 	echo "no flags"
 	blankem	
