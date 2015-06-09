@@ -26,7 +26,7 @@ connection.connect(function(err) {
 
 /*
 the anonymous function we just defined has the same signature as showTable,
- so we can just pass the reference to show table rather than defining n anonymous function
+ so we can just pass the reference to show table rather than defining an anonymous function
  you could just go prompt(showTable); you only need anonymous function if you're going to change 
  the signature or if there is no named function to invoke
  */

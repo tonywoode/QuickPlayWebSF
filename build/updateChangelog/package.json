@@ -1,5 +1,7 @@
 {
   "dependencies": {
+  	"mysql": "^2.7.0",
+  	"prompt": "^0.2.14",
     "pandoc-bin": "^0.1.2"
   }
 }
