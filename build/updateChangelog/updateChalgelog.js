@@ -6,7 +6,8 @@ var fs 			= require('fs'),
 	mysql     	= require('mysql'),
 	execFile 	= require('child_process').execFile,
 	optipng 	= require('pandoc-bin').path,
-	prompt  	= require('prompt');
+	prompt  	= require('prompt'),
+	tony		= 5, //my id in the qp database
 	date 		= new Date().toISOString().slice(0, 10).replace('T', ' ');
 
 var config	  	= require('../../../secrets/config'),
@@ -24,7 +25,7 @@ var connection = mysql.createConnection({
 printWhatWeStartWith(function(callback){ 
        yesorno(function(answer){
             pandocIt(answer, function() {
-            	insertChangelog(date, getVersion(), 'the stuff from the log', '5');
+            	insertChangelog(date, getVersion(), 'the stuff from the log', tony);
             });
         });
        
