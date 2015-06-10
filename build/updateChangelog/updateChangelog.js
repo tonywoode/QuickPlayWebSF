@@ -9,6 +9,7 @@ var fs 			= require('fs'),
 	prompt  	= require('prompt'),
 	tony		= 5, //my id in the qp database
 	date 		= new Date().toISOString().slice(0, 10).replace('T', ' ');
+	changeText = fs.readFileSync('changelogHTML', 'ascii');
 
 var config	  	= require('../../../secrets/config'),
 	changelogLF	='../../../../Release/changelogLF',
@@ -25,7 +26,7 @@ var connection = mysql.createConnection({
 printWhatWeStartWith(function(callback){ 
        yesorno(function(answer){
             pandocIt(answer, function() {
-            	insertChangelog(date, getVersion(), 'the stuff from the log', tony);
+            	insertChangelog(date, getVersion(), changeText, tony);
             });
         });
        
@@ -94,7 +95,7 @@ function getVersion() {
 
 	var filename 	= '../../../../QuickPlayFrontend/Version.txt';
 	var pattern = new RegExp(/^THISVERSION=v(.*)/);
-	var text = fs.readFileSync(filename, 'ascii')
+	var text = fs.readFileSync(filename, 'ascii');
 	var match = text.match(pattern);
 	var version = (match[1]);
 	return version
