@@ -2,11 +2,12 @@
 We use the changelog and version info produced via git of the lastest quickplay changes,
  we produce an html update of those changes for the sourceforge website
 */
-var file 		= require('fs'),
+var fs 			= require('fs'),
 	mysql     	= require('mysql'),
 	execFile 	= require('child_process').execFile,
 	optipng 	= require('pandoc-bin').path,
 	prompt  	= require('prompt');
+	date 		= new Date().toISOString().slice(0, 10).replace('T', ' ');
 
 var config	  	= require('../../../secrets/config'),
 	changelogLF	='../../../../Release/changelogLF',
@@ -23,7 +24,7 @@ var connection = mysql.createConnection({
 printWhatWeStartWith(function(callback){ 
        yesorno(function(answer){
             pandocIt(answer, function() {
-            	insertChangelog('random_date', 'random_version', 'the stuff from the log', '5');
+            	insertChangelog(date, getVersion(), 'the stuff from the log', '5');
             });
         });
        
@@ -31,7 +32,7 @@ printWhatWeStartWith(function(callback){
 
 function printWhatWeStartWith (callback) {	
 	console.log('existing text:');
-	var changelog = file.readFileSync(changelogLF);
+	var changelog = fs.readFileSync(changelogLF);
 	console.log('' + changelog);
 	callback();
 
@@ -63,8 +64,8 @@ function yesorno (next) { //next holds the address of the fucntion i declared on
 
 }
 
-function pandocIt (answer, next) {	
-	if ( answer==='y' ) {
+function pandocIt (doItOrNot, next) {	
+	if ( doItOrNot==='y' ) {
 		execFile(optipng, argsToPandoc, function (err, stdout, stderr) {
 		    console.log(stdout);
 		    if ( err ) { console.log(err); } //else prints null
@@ -86,6 +87,16 @@ function insertChangelog(date_posted, version, changelog, author_id) {
         connection.end(); //todo: move
     });
 
+}
+
+function getVersion() {
+
+	var filename 	= '../../../../QuickPlayFrontend/Version.txt';
+	var pattern = new RegExp(/^THISVERSION=v(.*)/);
+	var text = fs.readFileSync(filename, 'ascii')
+	var match = text.match(pattern);
+	var version = (match[1]);
+	return version
 }
 
 
