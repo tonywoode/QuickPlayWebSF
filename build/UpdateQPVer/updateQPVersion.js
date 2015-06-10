@@ -22,7 +22,6 @@ connection.connect(function(err) {
     }
 
     console.log('connected as id ' + connection.threadId);
-    console.log('EXISTING VERSION TABLE FOLLOWS:');
 
 /*
 the anonymous function we just defined has the same signature as showTable,
@@ -30,17 +29,16 @@ the anonymous function we just defined has the same signature as showTable,
  you could just go prompt(showTable); you only need anonymous function if you're going to change 
  the signature or if there is no named function to invoke
  */
-    prompt(function(result){ 
-        //async-101: we can't call insertRow serially after show table, or it'll run both at the same time
-        showTable(result, function(){
+prompt(function(result){ 
+    //async-101: we can't call insertRow serially after show table, or it'll run both at the same time
+    showTable(result, function(){
             insertRow(version_name, downloadURL, filesize, result)
-        }); //here's why we use promises, this could become the callback pyramid of doom
+            }); //here's why we use promises, this could become the callback pyramid of doom
     });
 });
 
-
-
 function showTable(result, next) {
+    console.log('EXISTING VERSION TABLE FOLLOWS:');
     connection.query('select * from version', function (error, results, fields) {
         // error will be an Error if one occurred during the query
         if (error) { console.log('ERRORS=', error); }

@@ -2,16 +2,15 @@
 We use the changelog and version info produced via git of the lastest quickplay changes,
  we produce an html update of those changes for the sourceforge website
 */
-var file 		= require('fs')
-var mysql     	= require('mysql');
-var execFile 	= require('child_process').execFile;
-var optipng 	= require('pandoc-bin').path;
-var prompt  	= require('prompt');
+var file 		= require('fs'),
+	mysql     	= require('mysql'),
+	execFile 	= require('child_process').execFile,
+	optipng 	= require('pandoc-bin').path,
+	prompt  	= require('prompt');
 
-var config	  	= require('../../../secrets/config');
-var changelogLF	='../../../../Release/changelogLF';
-var argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF]; //,'-o', 'changelogHTML']
-var decision;
+var config	  	= require('../../../secrets/config'),
+	changelogLF	='../../../../Release/changelogLF',
+	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF]; //,'-o', 'changelogHTML']
 
 var connection = mysql.createConnection({
     host        :   config.localdb.host,
@@ -19,6 +18,15 @@ var connection = mysql.createConnection({
     password    :   config.localdb.password,
     port        :   config.localdb.port,
     database    :   config.localdb.database
+});
+
+printWhatWeStartWith(function(callback){ 
+       yesorno(function(answer){
+            pandocIt(answer, function() {
+            	insertChangelog('random_date', 'random_version', 'the stuff from the log', '5');
+            });
+        });
+       
 });
 
 function printWhatWeStartWith (callback) {	
@@ -29,14 +37,12 @@ function printWhatWeStartWith (callback) {
 
 }
 
-printWhatWeStartWith(function(callback){ 
-       var answer = yesorno(function(){
-            pandocIt(answer);
-        });
-       
-});
 
-function yesorno (next) {
+function yesorno (next) { //next holds the address of the fucntion i declared on line 33
+	// dbc - assert everything is okay before the real work starts
+	if (typeof next !== 'function' && next.length !== 1)
+		throw new Error('next must be a function that takes 1 argument');
+
 	prompt.start();
 	prompt.colors = false;
 	var property = {
@@ -52,20 +58,33 @@ function yesorno (next) {
 	  // Log the results.
 	  console.log('  result: ' + result.yesno);
 	  decision = result.yesno;
-	  next(result);
+	  next(result.yesno);
 	});
 
 }
 
-function pandocIt (answer) {	
-	if ( decision==='y' ) {
+function pandocIt (answer, next) {	
+	if ( answer==='y' ) {
 		execFile(optipng, argsToPandoc, function (err, stdout, stderr) {
 		    console.log(stdout);
 		    if ( err ) { console.log(err); } //else prints null
 		    console.log(stderr);
+		    if ( !err ) { next(); } //heres the callback....
 		});
 	
 	}
+
+}
+
+//insert values for the next tuple - primary key id in the table auto-increments
+function insertChangelog(date_posted, version, changelog, author_id) {
+	connection.query('INSERT INTO changes (date_posted, title, changes, author_id) values ("'+date_posted+'", "'+version+'", "'+changelog+'", "'+author_id+'")',
+		function (error, results, fields) {
+        if (error) { console.log('ERRORS=', error); }
+        if (results) { console.log('RESULTS=', results); }
+        if (fields) { console.log('FIELDS=', fields); }
+        connection.end(); //todo: move
+    });
 
 }
 
