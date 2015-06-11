@@ -52,7 +52,15 @@ elif [[ "$1" = "--versionInfo" ]]; then
 	open $MAMPDir/MAMP.app --args -AppCommandLineArg
 	echo "We'll need an sql server to save to - wait 5 secs for MAMP to startup"
 	timer
-	node ./updateQPVer/updateQPVersion.js #yes you need to install node
+	(node ./updateQPVer/updateQPVersion.js) || echo "you need to install node"
+
+
+elif [[ "$1" = "--changelog" ]]; then
+	$MAMPDir/bin/start.sh
+	open $MAMPDir/MAMP.app --args -AppCommandLineArg
+	echo "We'll need an sql server to save to - wait 5 secs for MAMP to startup"
+	timer
+	(node ./updateChangelog/updateChangelog.js) || echo "you need to install node"	
 
 elif [[ "$1" = "--exportSQL" ]]; then
 	exportSQL
