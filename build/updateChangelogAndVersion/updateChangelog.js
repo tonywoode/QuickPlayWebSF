@@ -7,13 +7,19 @@ var fs 			= require('fs'),
 	execFile 	= require('child_process').execFile,
 	optipng 	= require('pandoc-bin').path,
 	prompt  	= require('prompt'),
+	getVersion = require('./getVersion'),
+	version    = getVersion(),
 	tony		= 5, //my id in the qp database
-	date 		= new Date().toISOString().slice(0, 10).replace('T', ' ');
-	changeText = fs.readFileSync('changelogHTML', 'ascii');
+	date 		= new Date().toISOString().slice(0, 10).replace('T', ' '),
+	//interestingly, though require is rooted in this file's dir, fs appears rooted in the callers dir one level up
+	changeText = fs.readFileSync('updateChangelogAndVersion/changelogHTML', 'ascii'),
 
-var config	  	= require('../../../secrets/config'),
-	changelogLF	='../../../../Release/changelogLF',
+	//so this is rooted in the js scripts folder:
+   	config	  	= require('../../../secrets/config'),
+   	//whilst this is rooted in the build folder (parent):
+	changelogLF	= '../../../Release/changelogLF',
 	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF]; //,'-o', 'changelogHTML']
+
 
 var connection = mysql.createConnection({
     host        :   config.localdb.host,
@@ -91,14 +97,5 @@ function insertChangelog(date_posted, version, changelog, author_id) {
 
 }
 
-function getVersion() {
-
-	var filename 	= '../../../../QuickPlayFrontend/Version.txt';
-	var pattern = new RegExp(/^THISVERSION=v(.*)/);
-	var text = fs.readFileSync(filename, 'ascii');
-	var match = text.match(pattern);
-	var version = (match[1]);
-	return version
-}
 
 

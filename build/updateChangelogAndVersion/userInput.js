@@ -1,11 +1,9 @@
 var prompt     = require('prompt');
 
-version_name = '',
 downloadURL = '',
 filesize = '';
 
 module.exports = function(callback) {
-
 	prompt.start();
 	prompt.message = 'Enter the new QuickPlay'.green;
 	prompt.delimiter = ' '.green;
@@ -15,8 +13,6 @@ module.exports = function(callback) {
 	*/
 	prompt.get(schema, function (err, result) {
 	    console.log('Command-line input received:');
-	    console.log('  version_name: ' 	+ result.version_name);
-	    version_name = result.version_name;
 		console.log('  downloadURL: ' 	+ result.downloadURL);
 		downloadURL = result.downloadURL;
 		console.log('  filesize: ' 		+ result.filesize);
@@ -28,10 +24,6 @@ module.exports = function(callback) {
 
 var schema = {
 	properties: {
-		version_name: {
-			type: 'string',
-			message: 'must be a string' //todo: must be a variation of semver
-		},
 		downloadURL: {
        		type: 'string',
        		message: 'must be a string'
