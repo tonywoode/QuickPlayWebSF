@@ -5,18 +5,27 @@ We use the changelog and version info produced via git of the lastest quickplay 
 var fs 			= require('fs'),
 	execFile 	= require('child_process').execFile,
 	optipng 	= require('pandoc-bin').path,	
-	getVersion = require( '' + __dirname + '/getVersion'),
-	version    = getVersion(),
-	tony		= 5, //my id in the qp database
-	date 		= new Date().toISOString().slice(0, 10).replace('T', ' '),
-	//interestingly, though require is rooted in this file's dir, fs appears rooted in the callers dir one level up
+	connection  = require('./dbConnect');
+/*
+In Node, __dirname is always the dir in which the currently executing script resides. 
+In other words, you typed __dirname into one of your script files and value would be 
+that file's directory. By contrast, . gives you the directory from which you ran the 
+node command in your terminal window (i.e. you working directory). 
+The exception is when you use . with require(), in which case it acts like __dirname.
+*/
+	//so whilst require is rooted in this file's dir, fs appears rooted in the callers dir one level up
 	changeText = fs.readFileSync('updateChangelogAndVersion/changelogHTML', 'ascii'),
 	//so this is rooted in the js scripts folder:
   	prompt  	= require('prompt'),
    	//whilst this is rooted in the build folder (parent):
 	changelogLF	= '../../../Release/changelogLF',
-	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF]; //,'-o', 'changelogHTML']
-	connection  = require('./dbConnect');
+	//so we can do this to avoid this ambiguity, but its a little ugly
+	getVersion = require( '' + __dirname + '/getVersion'),
+	version    = getVersion(),
+	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF], //,'-o', 'changelogHTML']
+
+	date 		= new Date().toISOString().slice(0, 10).replace('T', ' '),
+	tony		= 5; //my id in the qp database
 
 printWhatWeStartWith(function(callback){ 
        yesorno(function(answer){
