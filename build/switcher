@@ -43,7 +43,13 @@ if [[ "$1" = "--local" ]]; then
 	cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
 	$MAMPDir/bin/start.sh
 	open $MAMPDir/MAMP.app --args -AppCommandLineArg
-	echo "TYPE THIS: $mySQLDir/mysql -u root -p "$db" -e \"\""
+	echo "******************************************************"
+	echo "SQL command: $mySQLDir/mysql -u root -p "$db" -e \"\""
+	echo "SQL CMD: $mySQLDir/mysql -u root -p "$db" "
+	echo "These might be handy too:"
+	echo "delete from version where version_id=xxx;"
+	echo "alter table version AUTO_INCREMENT = 21; (but do the above first)"
+	echo "******************************************************"
 	echo $warn
 	exit
 

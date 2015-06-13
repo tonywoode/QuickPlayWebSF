@@ -3,31 +3,20 @@ We use the changelog and version info produced via git of the lastest quickplay 
  we produce an html update of those changes for the sourceforge website
 */
 var fs 			= require('fs'),
-	mysql     	= require('mysql'),
 	execFile 	= require('child_process').execFile,
-	optipng 	= require('pandoc-bin').path,
-	prompt  	= require('prompt'),
-	getVersion = require('./getVersion'),
+	optipng 	= require('pandoc-bin').path,	
+	getVersion = require( '' + __dirname + '/getVersion'),
 	version    = getVersion(),
 	tony		= 5, //my id in the qp database
 	date 		= new Date().toISOString().slice(0, 10).replace('T', ' '),
 	//interestingly, though require is rooted in this file's dir, fs appears rooted in the callers dir one level up
 	changeText = fs.readFileSync('updateChangelogAndVersion/changelogHTML', 'ascii'),
-
 	//so this is rooted in the js scripts folder:
-   	config	  	= require('../../../secrets/config'),
+  	prompt  	= require('prompt'),
    	//whilst this is rooted in the build folder (parent):
 	changelogLF	= '../../../Release/changelogLF',
 	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF]; //,'-o', 'changelogHTML']
-
-
-var connection = mysql.createConnection({
-    host        :   config.localdb.host,
-    user        :   config.localdb.user,
-    password    :   config.localdb.password,
-    port        :   config.localdb.port,
-    database    :   config.localdb.database
-});
+	connection  = require('./dbConnect');
 
 printWhatWeStartWith(function(callback){ 
        yesorno(function(answer){
@@ -39,13 +28,12 @@ printWhatWeStartWith(function(callback){
 });
 
 function printWhatWeStartWith (callback) {	
-	console.log('existing text:');
+	console.log('Here\'s the text pulled earlier:');
 	var changelog = fs.readFileSync(changelogLF);
 	console.log('' + changelog);
 	callback();
 
 }
-
 
 function yesorno (next) { //next holds the address of the fucntion i declared on line 33
 	// dbc - assert everything is okay before the real work starts

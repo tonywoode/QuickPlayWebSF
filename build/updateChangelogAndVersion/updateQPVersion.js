@@ -1,20 +1,11 @@
 /**
  * Reads the local copy of the qp database and updates QPVer
  */
-console.log('Current directory: ' + process.cwd());
-var mysql     = require('mysql');
-var config	  = require('../../../secrets/config');
-var prompt    = require('./userInput');
-var getVersion = require('./getVersion');
-var version    = getVersion();
 
-var connection = mysql.createConnection({
-    host        :   config.localdb.host,
-    user        :   config.localdb.user,
-    password    :   config.localdb.password,
-    port        :   config.localdb.port,
-    database    :   config.localdb.database
-});
+var prompt      = require('./userInput'),
+    getVersion  = require('./getVersion'),
+    version_name = getVersion(), //to force return value not function itself
+    connection  = require('./dbConnect');
 
 //the callback we pass to connect runs after we connect, or fail to
 connection.connect(function(err) {
@@ -31,7 +22,7 @@ the anonymous function we just defined has the same signature as showTable,
  you could just go prompt(showTable); you only need anonymous function if you're going to change 
  the signature or if there is no named function to invoke
  */
-    console.log('Enter the details for Version ' + getVersion());
+    console.log('Enter the details for Version ' + version_name);//force string return value not function code
 prompt(function(result){ 
     //async-101: we can't call insertRow serially after show table, or it'll run both at the same time
     showTable(result, function(){
@@ -55,8 +46,8 @@ function showTable(result, next) {
 
 //insert values for the next tuple - primary key version_id in the table auto-increments
 function insertRow(downloadURL, filesize, next) {
-    console.log('Enter the dsetails for Version ' + getVersion());
-    connection.query('INSERT INTO version (version, download, filesize) values ("'+version_name+'","'+downloadURL+'", "'+filesize+'")',
+    console.log('Enter the details for Version ' + version_name);
+    connection.query('INSERT INTO version (version_name, download, filesize) values ("'+version_name+'","'+downloadURL+'", "'+filesize+'")',
         function (error, results, fields) {
         if (error) { console.log('ERRORS=', error); }
         if (results) { console.log('RESULTS=', results); }
