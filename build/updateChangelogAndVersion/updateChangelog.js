@@ -14,15 +14,17 @@ node command in your terminal window (i.e. you working directory).
 The exception is when you use . with require(), in which case it acts like __dirname.
 */
 	//so whilst require is rooted in this file's dir, fs appears rooted in the callers dir one level up
-	changeText = fs.readFileSync('updateChangelogAndVersion/changelogHTML', 'ascii'),
+	
 	//so this is rooted in the js scripts folder:
   	prompt  	= require('prompt'),
-   	//whilst this is rooted in the build folder (parent):
+   	//whilst these are rooted in the build folder (parent):
 	changelogLF	= '../../../Release/changelogLF',
-	//so we can do this to avoid this ambiguity, but its a little ugly
+	changelogHTML = '../../../Release/changelogHTML'
+	changeText = fs.readFileSync('../../../Release/changelogHTML', 'ascii'),
+	//...we can do this to avoid this ambiguity, but its a little ugly
 	getVersion = require( '' + __dirname + '/getVersion'),
 	version    = getVersion(),
-	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF], //,'-o', 'changelogHTML']
+	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF,'-o', changelogHTML]
 
 	date 		= new Date().toISOString().slice(0, 10).replace('T', ' '),
 	tony		= 5; //my id in the qp database
@@ -37,7 +39,7 @@ printWhatWeStartWith(function(callback){
 });
 
 function printWhatWeStartWith (callback) {	
-	console.log('Here\'s the text pulled earlier:');
+	console.log('Updating changelog for ' + version + ': Here\'s the text pulled earlier:');
 	var changelog = fs.readFileSync(changelogLF);
 	console.log('' + changelog);
 	callback();
@@ -89,6 +91,15 @@ function insertChangelog(date_posted, version, changelog, author_id) {
         if (error) { console.log('ERRORS=', error); }
         if (results) { console.log('RESULTS=', results); }
         if (fields) { console.log('FIELDS=', fields); }
+    });
+         
+    connection.query('INSERT INTO news (date_posted, title, news, author_id) values ("'+date_posted+'", "QuickPlay '+version+' is released", "'+changelog+'", "'+author_id+'")',
+		function (error, results, fields) {
+        if (error) { console.log('ERRORS=', error); }
+        if (results) { console.log('RESULTS=', results); }
+        if (fields) { console.log('FIELDS=', fields); }
+
+
         connection.end(); //todo: move
     });
 
