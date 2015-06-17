@@ -41,7 +41,7 @@
             <a href="http://www.quickplayfrontend.com/">Forums</a>
           </div>
 	  <div class="menuelement">
-            <a href="http://quickplay.sf.net/wiki">Wiki</a>
+            <a href="wiki">Wiki</a>
           </div>
           <div class="menuelement">
              [Download|download]
