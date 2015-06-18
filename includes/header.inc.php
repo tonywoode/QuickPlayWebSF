@@ -53,7 +53,7 @@
             [Change Log|changelog]
           </div>
           <div class="menuelement">
-            <a href="http://quickplay.sf.net/wiki/index.php/Features">Features</a>
+            <a href="wiki/index.php/Features">Features</a>
           </div>
           <div class="menuelement">
             [Links|links]
