@@ -65,7 +65,7 @@
             [Source Code|sourcecode]
           </div>
           <div class="menuelement">
-            <a href="">Tutorials</a>
+            <a href="wiki/index.php/Category:User_Guides">Tutorials</a>
           </div>
         </div>
         
@@ -81,7 +81,7 @@
        
        <div class="menu">
 	<div class="menuelement">
-		<a href="http://sourceforge.net/projects/quickplay"><img src="http://sflogo.sourceforge.net/sflogo.php?group_id=122303&amp;type=15" width="150" height="40" alt="Get QuickPlay at SourceForge.net. Fast, secure and Free Open Source software 	downloads" />
+		<a href="http://sourceforge.net/projects/quickplay">Goto QuickPlay on Sourceforge<img src="http://sflogo.sourceforge.net/sflogo.php?group_id=122303&amp;type=15" width="150" height="40" alt="Get QuickPlay at SourceForge.net. Fast, secure and Free Open Source software 	downloads" />
 		</a>
 	</div>
 	<div class="menuelement">
