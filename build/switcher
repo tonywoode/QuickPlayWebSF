@@ -53,6 +53,11 @@ if [[ "$1" = "--local" ]]; then
 	echo $warn
 	exit
 
+elif [[ "$1" = "--releaseFile" ]]; then
+	version=$(node ./updateChangelogAndVersion/sendVersion.js) || echo "maybe you need to install node"
+	echo "version is $version"
+
+
 elif [[ "$1" = "--versionInfo" ]]; then
 	$MAMPDir/bin/start.sh
 	open $MAMPDir/MAMP.app --args -AppCommandLineArg
