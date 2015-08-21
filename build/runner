@@ -10,14 +10,17 @@ declare -x db="q122303_qp"
 declare -x dbuser="q122303admin"
 
 #this about the remote site. (rem: the workingDir is 'hidden' from ls unless we swap to it)
-declare -x sflogin="butter100fly,quickplay@shell.sourceforge.net"
+user="butter100fly"
+declare -x sflogin="$user,quickplay@shell.sourceforge.net"
+declare -x sfFileLogin="$user,quickplay@frs.sourceforge.net"
+declare -x sfFilePath="/home/frs/project/quickplay/quickplay"
 declare -x createLoginShell="ssh $sflogin create"
 declare -x workingDir="/home/project-web/quickplay"
 
 #and we want to send all those to the ssh session later
 #plus we ALWAYS switch to the working dir, as that's where to DB's are....
 #plus we want to always check if we've got a login shell, and make one if we haven't
-declare -x SSHEnvVars="db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir";"
+declare -x SSHEnvVars="db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir";sfFilePath="$sfFilePath";"
 
 #all these involve saving the DB locally
 #  rsync interprets ":" as separator between host and port (i. e. host:port)
