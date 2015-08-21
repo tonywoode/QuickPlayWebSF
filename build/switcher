@@ -58,8 +58,8 @@ elif [[ "$1" = "--releaseFile" ]]; then
 	folder="QuickPlay\ $version"
 	file="../../../Release/QP-v$version.zip"
 	echo "making the remote folder $folder and uploading $file to it"
-  rsync -e ssh "$file" "$sfFileLogin:$sfFilePath/$folder/"
-
+  rsync -P -e ssh "$file" "$sfFileLogin:$sfFilePath/$folder/" || { echo "some problem occurred" && exit; }
+  echo done
 
 elif [[ "$1" = "--versionInfo" ]]; then
 	$MAMPDir/bin/start.sh
