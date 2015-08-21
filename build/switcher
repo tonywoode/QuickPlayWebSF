@@ -55,7 +55,10 @@ if [[ "$1" = "--local" ]]; then
 
 elif [[ "$1" = "--releaseFile" ]]; then
 	version=$(node ./updateChangelogAndVersion/sendVersion.js) || echo "maybe you need to install node"
-	echo "version is $version"
+	folder="QuickPlay\ $version"
+	file="../../../Release/QP-v$version.zip"
+	echo "making the remote folder $folder and uploading $file to it"
+  rsync -e ssh "$file" "$sfFileLogin:$sfFilePath/$folder/"
 
 
 elif [[ "$1" = "--versionInfo" ]]; then
