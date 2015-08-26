@@ -1,11 +1,25 @@
 /**
  * Reads the local copy of the qp database and updates QPVer
  */
+var 		qpVer				= process.env.version, //quickplay version number we're releasing
+				qpZip				= process.env.localZipFile,
+				fs					= require("fs"),
+				stats				= fs.statSync(qpZip),
+				zipSizeInBytes = stats["size"],
+				zipSizeInMB = zipSizeInBytes / 1000000.0;
+
+				
+console.log("let's release:");
+console.log(qpVer);
+console.log("which is this size:");
+console.log(zipSizeInMB);
+process.exit();
 
 var prompt      = require('./userInput'),
     getVersion  = require('./getVersion'),
     version_name = getVersion(), //to force return value not function itself
     connection  = require('./dbConnect');
+
 
 //the callback we pass to connect runs after we connect, or fail to
 connection.connect(function(err) {

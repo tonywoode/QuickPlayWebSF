@@ -54,18 +54,16 @@ if [[ "$1" = "--local" ]]; then
 	exit
 
 elif [[ "$1" = "--releaseFile" ]]; then
-	version=$(node ./updateChangelogAndVersion/sendVersion.js) || echo "maybe you need to install node"
 	folder="QuickPlay\ $version"
-	file="../../../Release/QP-v$version.zip"
-	echo "making the remote folder $folder and uploading $file to it"
-  rsync -P -e ssh "$file" "$sfFileLogin:$sfFilePath/$folder/" || { echo "some problem occurred" && exit; }
+	echo "making the remote folder $folder and uploading $localZipFile to it"
+  rsync -P -e ssh "$localZipFile" "$sfFileLogin:$sfFilePath/$folder/" || { echo "some problem occurred" && exit; }
   echo done
  # now we need to set this as the default download for all platforms
  # (if we don't we'll see it as default for osx but it won't be for windows)
  # we do that on sf's allura platform like so:
  # https://sourceforge.net/p/forge/community-docs/Using%20the%20Release%20API/
  apikey=$(cat "../../secrets/SourceForgeReleaseAPIKey.txt")
- { curl -H "Accept: application/json" -X PUT -d "default=windows&default=mac&default=linux&default=bsd&default=solaris&default=others" -d "api_key=$apikey" "https://sourceforge.net/projects/quickplay/files/quickplay/QuickPlay $version/QP-v$version.zip"; } || echo "can't set default download for all operating systems using sourceforge api"
+ { curl -H "Accept: application/json" -X PUT -d "default=windows&default=mac&default=linux&default=bsd&default=solaris&default=others" -d "api_key=$apikey" "$sfFileURL"; } || echo "can't set default download for all operating systems using sourceforge api"
 
 elif [[ "$1" = "--versionInfo" ]]; then
 	$MAMPDir/bin/start.sh
