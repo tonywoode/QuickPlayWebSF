@@ -1,7 +1,7 @@
 var prompt     = require('prompt');
 
-downloadURL = '',
-filesize = '';
+var downloadURL = '',
+		filesize = '';
 
 module.exports = function(callback) {
 	prompt.start();

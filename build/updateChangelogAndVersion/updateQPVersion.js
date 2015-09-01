@@ -40,7 +40,7 @@ the anonymous function we just defined has the same signature as showTable,
 prompt(function(result){ 
     //async-101: we can't call insertRow serially after show table, or it'll run both at the same time
     showTable(result, function(){
-            insertRow(version_name, downloadURL, filesize, result)
+            insertRow(version_name, result.downloadURL, result.filesize, result)
             }); //here's why we use promises, this could become the callback pyramid of doom
     });
 });
