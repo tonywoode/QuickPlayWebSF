@@ -47,8 +47,8 @@ if [[ "$1" = "--local" ]]; then
 	echo "SQL command: $mySQLDir/mysql -u root -p "$db" -e \"\""
 	echo "SQL CMD: $mySQLDir/mysql -u root -p "$db" "
 	echo "These might be handy too:"
-	echo "delete from version/changes where version_id=xxx;"
-	echo "alter table version/changes AUTO_INCREMENT = 21; (but do the above first)"
+	echo "delete from version/changes/news where version_id=xxx;"
+	echo "alter table version/changes/news AUTO_INCREMENT = 21; (but do the above first)"
 	echo "******************************************************"
 	echo $warn
 	exit

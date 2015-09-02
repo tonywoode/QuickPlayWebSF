@@ -4,7 +4,7 @@ while true; do
 	echo "	1. Edit the website locally with command line too"
 	echo "	2. Upload the release file"
 	echo "	3. Enter Release File Info"
-	echo "	4. Update the Website Changelog"
+	echo "	4. Update the Website Changelog and News"
 	echo "	5. Export the SQL"
 	echo "	6. Export the SQL and take the website live"
 	echo "	7. Enter SSH Remote command line"
