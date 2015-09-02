@@ -1,24 +1,25 @@
 /**
  * Reads the local copy of the qp database and updates QPVer
  */
-var 		fs					= require("fs"),
-				connection  = require('./dbConnect'),
-			 	version_name = process.env.version, //quickplay version number we're releasing
-			qpZip       = process.env.localZipFile,
-			stats       = fs.statSync(qpZip),
-			zipSizeInBytes = stats["size"],
-			filesize = Math.floor(zipSizeInBytes / 1000000) + "MB";
-			downloadURL = process.env.sfFileURL; 
-/*
+var fs					= require("fs"),
+		connection  = require('./dbConnect'),
+		version_name = process.env.version, //quickplay version number we're releasing
+		qpZip       = process.env.localZipFile,
+		stats       = fs.statSync(qpZip),
+		zipSizeInBytes = stats["size"],
+		filesize = Math.floor(zipSizeInBytes / 1000000) + "MB",
+		downloadURL = process.env.sfFileURL; 
+
 function updateQPVerManually() { 
 	var prompt      = require('./userInput'),
 			getVersion  = require('./getVersion'),
 			version_name = getVersion(), //to force return value not function itself
 			downloadURl = result.downloadURL,
 			filesize		= result.filesize;
-			
+	
+	console.log('Enter the details for Version ' + version_name); //force string return value not function code
+
 }
-*/
 
 //the callback we pass to connect runs after we connect, or fail to
 connection.connect(function(err) {
@@ -26,17 +27,18 @@ connection.connect(function(err) {
         console.error('error connecting: ' + err.stack);
         return;
     }
-
     console.log('connected as id ' + connection.threadId);
+
 });
+
 /*
 the anonymous function we just defined has the same signature as showTable,
  so we can just pass the reference to show table rather than defining an anonymous function
  you could just go prompt(showTable); you only need anonymous function if you're going to change 
  the signature or if there is no named function to invoke
  */
-  //  console.log('Enter the details for Version ' + version_name);//force string return value not function code
-//prompt(function(result){ 
+
+//prompt(function(result){ //if we make the manual update we'll need to add this to the flow
     //async-101: we can't call insertRow serially after show table, or it'll run both at the same time
 		showTable(function() {
            insertRow(version_name, downloadURL, filesize)
@@ -52,13 +54,12 @@ function showTable(next) {
         if (results) { console.log('RESULTS=', results); }
         // fields will contain information about the returned results fields (if any)
         if (fields) { console.log('FIELDS=', fields); }
-        next();
+        next(); //call next function async
     });
 }
 
 //insert values for the next tuple - primary key version_id in the table auto-increments
 function insertRow(version_name, downloadURL, filesize) {
-    console.log('Enter the details for Version ' + version_name);
     connection.query('INSERT INTO version (version_name, download, filesize) values ("'+version_name+'","'+downloadURL+'", "'+filesize+'")',
         function (error, results, fields) {
         if (error) { console.log('ERRORS=', error); }
