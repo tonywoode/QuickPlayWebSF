@@ -2,10 +2,10 @@
 We use the changelog and version info produced via git of the lastest quickplay changes,
  we produce an html update of those changes for the sourceforge website
 */
-var fs 			= require('fs'),
-	execFile 	= require('child_process').execFile,
-	optipng 	= require('pandoc-bin').path,	
-	connection  = require('./dbConnect');
+var fs					= require('fs'),
+		execFile		= require('child_process').execFile,
+		optipng			= require('pandoc-bin').path,	
+		connection  = require('./dbConnect');
 /*
 In Node, __dirname is always the dir in which the currently executing script resides. 
 In other words, you typed __dirname into one of your script files and value would be 
@@ -13,16 +13,18 @@ that file's directory. By contrast, . gives you the directory from which you ran
 node command in your terminal window (i.e. you working directory). 
 The exception is when you use . with require(), in which case it acts like __dirname.
 */
-	//so whilst require is rooted in this file's dir, fs appears rooted in the callers dir one level up
-	
-	//so this is rooted in the js scripts folder:
+	// so whilst require is rooted in this file's dir, fs appears rooted in the callers dir one level up
+	// so this is rooted in the js scripts folder:
   	prompt  	= require('prompt'),
-   	//whilst these are rooted in the build folder (parent):
+   	
+	//whilst these are rooted in the build folder (parent):
 	changelogLF	= '../../../Release/changelogLF',
 	changelogHTML = '../../../Release/changelogHTML'
 	changeText = fs.readFileSync('../../../Release/changelogHTML', 'ascii'),
+	
 	//...we can do this to avoid this ambiguity, but its a little ugly
 	getVersion = require( '' + __dirname + '/getVersion'),
+	
 	version    = getVersion(),
 	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF,'-o', changelogHTML]
 
@@ -46,7 +48,7 @@ function printWhatWeStartWith (callback) {
 
 }
 
-function yesorno (next) { //next holds the address of the fucntion i declared on line 33
+function yesorno (next) { //next holds the address of the function i declared in yesorno's callsite currently on line 35
 	// dbc - assert everything is okay before the real work starts
 	if (typeof next !== 'function' && next.length !== 1)
 		throw new Error('next must be a function that takes 1 argument');
