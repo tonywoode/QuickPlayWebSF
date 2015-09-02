@@ -5,7 +5,7 @@ We use the changelog and version info produced via git of the lastest quickplay 
 var fs					= require('fs'),
 		execFile		= require('child_process').execFile,
 		optipng			= require('pandoc-bin').path,	
-		connection  = require('./dbConnect');
+		connection  = require('./dbConnect'),
 /*
 In Node, __dirname is always the dir in which the currently executing script resides. 
 In other words, you typed __dirname into one of your script files and value would be 
@@ -24,9 +24,9 @@ The exception is when you use . with require(), in which case it acts like __dir
 	
 	//...we can do this to avoid this ambiguity, but its a little ugly
 	getVersion = require( '' + __dirname + '/getVersion'),
-	
+
 	version    = getVersion(),
-	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF,'-o', changelogHTML]
+	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF,'-o', changelogHTML],
 
 	date 		= new Date().toISOString().slice(0, 10).replace('T', ' '),
 	tony		= 5; //my id in the qp database
