@@ -84,6 +84,25 @@ elif [[ "$1" = "--exportSQL" ]]; then
 	exportSQL
 
 elif [[ "$1" = "--live" ]]; then
+	# Check that no one has altered any files to the site	
+	datesFile="../../../Release/dates.txt"
+	datesText=$(cat "$datesFile")
+	echo "$datesText"
+	# substring that to get a python campatible date
+	lastDate=$(echo ${datesText:27})
+	# http://unix.stackexchange.com/a/24636
+	numdays=$(python -c "from datetime import date as d; print (d.today() - d($lastDate)).days")
+	echo "last push was $numdays days ago"
+	exit
+
+
+	# (on success) record the date we pushed. The minus format removes leading zeros which python wants
+	olddate=s$(date "+%Y, %-m, %-d")
+	echo "Saving  $olddate to $datesFile"
+	echo "Last pushed the website on: $olddate">"$datesFile"
+	cat $datesFile
+	exit
+	
 	echo "live selected"
 	# first export the sql
 	exportSQL
