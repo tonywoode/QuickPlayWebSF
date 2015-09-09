@@ -1,5 +1,23 @@
 #!/bin/bash
 
+
+chooser() {
+	echo "Do you want to stop? [y/n]"
+		read cf
+		cf=$(echo $cf | tr "[:upper:]" "[:lower:"])
+				if [[ "$cf" == "y" ]]; then
+					echo "exiting - you may need to blankem"
+					exit			 
+				fi
+				if [[ "$cf" == "n" ]]; then
+					echo "continuing"																  
+				fi
+			  if [[ "$cf" != [yn] ]]; then
+			    echo "Please respond with a [y/n]: "
+					chooser
+				fi
+}
+
 # first test to see if I remembered to unblank the secrets
 if ! diff "$secret_file_to_diff" "$secret_file_to_test"  >/dev/null ; then
   echo "Found some secrets...starting"
@@ -12,12 +30,40 @@ else
   exit
 fi
 
-#TODO: first we must make sure theres no differences introduced with the files on the server
+#first we must make sure theres no differences introduced with the files on the server
 
-#sync the local site to the server - remember to exclude the git folder, also exclude this folder
+datesFile="../../../Release/dates.txt"
+datesText=$(cat "$datesFile")
+echo "$datesText"
+# substring that to get a python campatible date
+lastDate=$(echo ${datesText:27})
+# http://unix.stackexchange.com/a/24636
+numdays=$(python -c "from datetime import date as d; print (d.today() - d($lastDate)).days")
+echo "last push was $numdays days ago"
+exit
+
+#now check that num days against regular files on the server
+numFileChanges=$(find $sflogin:/home/project-web/quickplay/htdocs/ -type f -mtime -$numdays | wc -l)
+
+if (( $numFileChanges > 0 )); then
+	echo "some files have changed on the server since you last pushed. Check...."
+	echo "here are those files"
+	echo $(find $sflogin:/home/project-web/quickplay/htdocs/ -type f -mtime -$numdays)
+	chooser()
+fi
+
+# sync
 rsync -avz --delete --exclude='build'  --exclude '.git' ../ $sflogin:/home/project-web/quickplay/htdocs/
 
+# TODO: only do the below on success
 echo "mirrored local folder to the server - done"
+
+# (on success) record the date we pushed. The minus format removes leading zeros which python wants
+olddate=s$(date "+%Y, %-m, %-d")
+echo "Saving  $olddate to $datesFile"
+echo "Last pushed the website on: $olddate">"$datesFile"
+cat $datesFile
+
 read -n1 -r -p "Press any key to continue..."
 
 
