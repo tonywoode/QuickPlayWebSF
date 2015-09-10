@@ -40,16 +40,19 @@ lastDate=$(echo ${datesText:27})
 # http://unix.stackexchange.com/a/24636
 numdays=$(python -c "from datetime import date as d; print (d.today() - d($lastDate)).days")
 echo "last push was $numdays days ago"
-exit
+
 
 #now check that num days against regular files on the server
-numFileChanges=$(find $sflogin:/home/project-web/quickplay/htdocs/ -type f -mtime -$numdays | wc -l)
+# http://stackoverflow.com/a/13528016/3536094
+declare -i numFileChanges=$(ssh $sflogin find /home/project-web/quickplay/htdocs/ -type f -mtime -$numdays | wc -l)
+# TODO - defensiveness needed - this will err on the side of wiping the server
+echo "there are $numFileChanges files more recent on the server"
 
 if (( $numFileChanges > 0 )); then
 	echo "some files have changed on the server since you last pushed. Check...."
 	echo "here are those files"
-	echo $(find $sflogin:/home/project-web/quickplay/htdocs/ -type f -mtime -$numdays)
-	chooser()
+	echo $(ssh $sflogin find /home/project-web/quickplay/htdocs/ -type f -mtime -$numdays)
+	chooser
 fi
 
 # sync
@@ -59,7 +62,7 @@ rsync -avz --delete --exclude='build'  --exclude '.git' ../ $sflogin:/home/proje
 echo "mirrored local folder to the server - done"
 
 # (on success) record the date we pushed. The minus format removes leading zeros which python wants
-olddate=s$(date "+%Y, %-m, %-d")
+olddate=$(date "+%Y, %-m, %-d")
 echo "Saving  $olddate to $datesFile"
 echo "Last pushed the website on: $olddate">"$datesFile"
 cat $datesFile
