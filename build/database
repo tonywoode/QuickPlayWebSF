@@ -11,6 +11,7 @@
 echo "I need the Remote database password please:"
 read -s secret
 
+# take a safety copy of the servers db before we wipe it
 DumpTheDB="$SSHEnvVars $( cat <<EOT
 	stty -echo
 	echo "directory changed to:"; pwd
@@ -21,19 +22,19 @@ EOT
 )"
 ./exp ssh $sflogin "$DumpTheDB"
 
-# copy the old databse off
+# copy that safety copy to my machine's db archive folder, namimg it by date
 echo "backing up the current LIVE database backup "$db"OLD.sql to $sqlArchiveFile"
 #see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
 rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql 
 
 #TODO: http://stackoverflow.com/questions/12845206/check-if-file-exists-on-remote-host-with-ssh/
-#Upload new sql
 
+#Upload new sql
 echo "Transferring your local db to the server"
 rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 
 replaceDB="$SSHEnvVars $( cat <<EOT
-	echo drop the old db, make a new one, and populate it with the sql
+	echo "drop the old db, make a new one, and populate it with the sql"
 	stty -echo
 	mysql -h mysql-q -u "$dbuser" -p$secret -e "DROP DATABASE "$db";"
 	mysql -h mysql-q -u "$dbuser" -p$secret -e "CREATE DATABASE "$db";"
