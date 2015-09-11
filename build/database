@@ -15,6 +15,30 @@ read -s secret
 DumpTheDB="$SSHEnvVars $( cat <<EOT
 	stty -echo
 	echo "directory changed to:"; pwd
+	echo "let's first look at the state of the database, dumping new compare copy"
+	mysqldump --skip-comments --skip-extended-insert -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
+	numDBChanges=$(diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql | wc -l)
+	if (( $numDBChanges > 0 )); then
+		echo "There have been changes on the server since the last push, take a look at this:"
+		diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql
+		chooser() {
+			echo "Do you want to stop? [y/n]"
+				read cf
+				cf=$(echo $cf | tr "[:upper:]" "[:lower:"])
+				if [[ "$cf" == "y" ]]; then
+					echo "exiting - you may need to blankem"
+				  exit
+				fi
+				if [[ "$cf" == "n" ]]; then
+					echo "continuing"
+				fi
+				if [[ "$cf" != [yn] ]]; then
+					echo "Please respond with a [y/n]: "
+					chooser
+				fi
+		}
+		chooser	
+	fi	
 	echo "dumping the LIVE database to "$db"OLD.sql"
 	mysqldump -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"OLD.sql && echo "database dumped onto remote server, let's transfer the DBs across..."
 	stty echo
@@ -39,6 +63,10 @@ replaceDB="$SSHEnvVars $( cat <<EOT
 	mysql -h mysql-q -u "$dbuser" -p$secret -e "DROP DATABASE "$db";"
 	mysql -h mysql-q -u "$dbuser" -p$secret -e "CREATE DATABASE "$db";"
 	mysql -h mysql-q -u "$dbuser" -p$secret "$db" < "$db".sql;
+	stty echo
+	echo "take an sql for later comparison next time we push"
+	stty -echo
+	mysqldump --skip-comments --skip-extended-insert -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_AFTER_LAST_UPDATE.sql && echo "dumped the compare version of the new db"
 	stty echo
 	echo done
 EOT
