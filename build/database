@@ -16,11 +16,11 @@ DumpTheDB="$SSHEnvVars $( cat <<EOT
 	stty -echo
 	echo "directory changed to:"; pwd
 	echo "let's first look at the state of the database, dumping new compare copy"
-	mysqldump --skip-comments --skip-extended-insert -h msql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
-declare -i	numDBChanges=$(diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql | wc -l)
+	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
+diff "q122303_qpCOMPARE_AFTER_LAST_UPDATE.sql" "q122303_qpCOMPARE_BEFORE_THIS_UPDATE.sql" | wc -l
 	if (($numDBChanges -ne  0)); then
 		echo "There have been changes on the server since the last push, take a look at this:"
-		diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql
+		diff "q122303_qpCOMPARE_AFTER_LAST_UPDATE.sql" "q122303_qpCOMPARE_BEFORE_THIS_UPDATE.sql"
 		chooser() {
 			echo "Do you want to stop? [y/n]"
 				read cf
@@ -66,7 +66,7 @@ replaceDB="$SSHEnvVars $( cat <<EOT
 	stty echo
 	echo "take an sql for later comparison next time we push"
 	stty -echo
-	mysqldump --skip-comments --skip-extended-insert -h msql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_AFTER_LAST_UPDATE.sql && echo "dumped the compare version of the new db"
+	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_AFTER_LAST_UPDATE.sql && echo "dumped the compare version of the new db"
 	stty echo
 	echo done
 EOT
