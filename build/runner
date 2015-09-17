@@ -5,9 +5,20 @@ cd "${DIR}"
 
 # DECLARE AND EXPORT ALL SHARED CONSTS
 
+# these are about the local site and resources
+declare -x pathToSecrets="../../secrets"
+declare -x secret_file_to_test="../includes/class.database.php"
+declare -x secret_file_to_diff="$pathToSecrets/class.database_blank.php"
+declare -x MAMPDir="/Applications/MAMP"
+declare -x mySQLDir="$MAMPDir/Library/bin"
+declare -x localPass=$( { cat $pathToSecrets/AdminSettings_local.php && echo '<?php echo $wgDBadminpassword ?>' ;}  | php )
+
+declare -x warn="***SHUT MAMP WHEN YOU'RE DONE***"
+
 # this is about the remote database
 declare -x db="q122303_qp"
 declare -x dbuser="q122303admin"
+declare -x remotePass=$( { cat $pathToSecrets/AdminSettings.php && echo '<?php echo $wgDBadminpassword ?>' ;}  | php )
 
 #this about the remote site. (rem: the workingDir is 'hidden' from ls unless we swap to it)
 user="butter100fly"
@@ -23,7 +34,7 @@ declare -x workingDir="/home/project-web/quickplay"
 #and we want to send all those to the ssh session later
 #plus we ALWAYS switch to the working dir, as that's where to DB's are....
 #plus we want to always check if we've got a login shell, and make one if we haven't
-declare -x SSHEnvVars="db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir";sfFilePath="$sfFilePath";"
+declare -x SSHEnvVars="localPass="$localPass"; remotePass="$remotePass"; db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir";sfFilePath="$sfFilePath";"
 
 #all these involve saving the DB locally
 #  rsync interprets ":" as separator between host and port (i. e. host:port)
@@ -33,14 +44,5 @@ declare -x sqlFolder="../../database"
 declare -x sqlArchiveFolder="$sqlFolder/archive"
 declare -x sqlArchiveFile="$sqlArchiveFolder"/"$db"-"$date"
 declare -x sqlLiveFile="$sqlFolder/$db.sql"
-
-# and these are about the local site and resources
-declare -x pathToSecrets="../../secrets"
-declare -x secret_file_to_test="../includes/class.database.php"
-declare -x secret_file_to_diff="$pathToSecrets/class.database_blank.php"
-declare -x MAMPDir="/Applications/MAMP"
-declare -x mySQLDir="$MAMPDir/Library/bin"
-
-declare -x warn="***SHUT MAMP WHEN YOU'RE DONE***"
 
 ./menu
