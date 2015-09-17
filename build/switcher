@@ -27,8 +27,7 @@ function exportSQL {
 	open $MAMPDir/MAMP.app --args -AppCommandLineArg
 	echo "We'll need an sql server to backup from - wait 5 secs for MAMP to startup"
 	timer
-	echo "Need your local MySQL password please:"
-  	$mySQLDir/mysqldump -u root -p "$db" > "$sqlFolder/$db".sql && {
+  	$mySQLDir/mysqldump -u root -p"$localPass" "$db" > "$sqlFolder/$db".sql && {
   		echo "Success - database saved to "$sqlFolder/$db".sql "
   		read -n1 -r -p "Press any key to continue..."
   		$MAMPDir/bin/stop.sh

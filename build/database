@@ -2,23 +2,19 @@
 
 # this appeared to be the best non-screen/tmux/expect solution
 # http://stackoverflow.com/questions/7114990/pseudo-terminal-will-not-be-allocated-because-stdin-is-not-a-terminal
-
+# but you really want to pay attention to the answer here http://stackoverflow.com/a/21761956/3536094 - in particular nowdocs and the need to single quote 'EOT' to turn a heredoc into a nowdoc
 
 # NOTE: Dupes of env var names - need to copy in environment varibles to the ssh session
 # http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
 
 #login via ssh then export an sql to workingFolder
-echo "I need the Remote database password please:"
-read -s secret
 
 # take a safety copy of the servers db before we wipe it
 DumpTheDB="$SSHEnvVars $( cat <<'EOT'
-echo " I need the Remote database password please:"
-secret=`read -s secret`
 stty -echo
 	echo "directory changed to:"; pwd
 	echo "let's first look at the state of the database, dumping new compare copy"
-	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
+	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
 	numDBChanges=$(diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql | wc -l)
 echo "number of changes is $numDBChanges"
 	if (($numDBChanges != 0)); then
@@ -26,7 +22,7 @@ echo "number of changes is $numDBChanges"
 		diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql
 	fi	
 	echo "dumping the LIVE database to "$db"OLD.sql"
-	mysqldump -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"OLD.sql && echo "database dumped onto remote server, let's transfer the DBs across..."
+	mysqldump -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"OLD.sql && echo "database dumped onto remote server, let's transfer the DBs across..."
 	stty echo
 EOT
 )"
@@ -46,13 +42,13 @@ rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 replaceDB="$SSHEnvVars $( cat <<EOT
 	echo "drop the old db, make a new one, and populate it with the sql"
 	stty -echo
-	mysql -h mysql-q -u "$dbuser" -p$secret -e "DROP DATABASE "$db";"
-	mysql -h mysql-q -u "$dbuser" -p$secret -e "CREATE DATABASE "$db";"
-	mysql -h mysql-q -u "$dbuser" -p$secret "$db" < "$db".sql;
+	mysql -h mysql-q -u "$dbuser" -p"$remotePass" -e "DROP DATABASE "$db";"
+	mysql -h mysql-q -u "$dbuser" -p"$remotePass" -e "CREATE DATABASE "$db";"
+	mysql -h mysql-q -u "$dbuser" -p"$remotePass"  "$db" < "$db".sql;
 	stty echo
 	echo "take an sql for later comparison next time we push"
 	stty -echo
-	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_AFTER_LAST_UPDATE.sql && echo "dumped the compare version of the new db"
+	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"COMPARE_AFTER_LAST_UPDATE.sql && echo "dumped the compare version of the new db"
 	stty echo
 	echo done
 EOT
