@@ -12,32 +12,18 @@ echo "I need the Remote database password please:"
 read -s secret
 
 # take a safety copy of the servers db before we wipe it
-DumpTheDB="$SSHEnvVars $( cat <<EOT
-	stty -echo
+DumpTheDB="$SSHEnvVars $( cat <<'EOT'
+echo " I need the Remote database password please:"
+secret=`read -s secret`
+stty -echo
 	echo "directory changed to:"; pwd
 	echo "let's first look at the state of the database, dumping new compare copy"
 	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
-diff "q122303_qpCOMPARE_AFTER_LAST_UPDATE.sql" "q122303_qpCOMPARE_BEFORE_THIS_UPDATE.sql" | wc -l
-	if (($numDBChanges -ne  0)); then
+	numDBChanges=$(diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql | wc -l)
+echo "number of changes is $numDBChanges"
+	if (($numDBChanges != 0)); then
 		echo "There have been changes on the server since the last push, take a look at this:"
-		diff "q122303_qpCOMPARE_AFTER_LAST_UPDATE.sql" "q122303_qpCOMPARE_BEFORE_THIS_UPDATE.sql"
-		chooser() {
-			echo "Do you want to stop? [y/n]"
-				read cf
-				cf=$(echo $cf | tr "[:upper:]" "[:lower:"])
-				if [[ "$cf" == "y" ]]; then
-					echo "exiting - you may need to blankem"
-				  exit
-				fi
-				if [[ "$cf" == "n" ]]; then
-					echo "continuing"
-				fi
-				if [[ "$cf" != [yn] ]]; then
-					echo "Please respond with a [y/n]: "
-					chooser
-				fi
-		}
-		chooser	
+		diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql
 	fi	
 	echo "dumping the LIVE database to "$db"OLD.sql"
 	mysqldump -h mysql-q -u "$dbuser" -p$secret --opt "$db" --password=$secret > "$db"OLD.sql && echo "database dumped onto remote server, let's transfer the DBs across..."
