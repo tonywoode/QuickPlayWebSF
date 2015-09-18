@@ -10,16 +10,34 @@
 #login via ssh then export an sql to workingFolder
 
 # take a safety copy of the servers db before we wipe it
+# i got the tables to exclude by saving a diff result and opening it linewise
 DumpTheDB="$SSHEnvVars $( cat <<'EOT'
 stty -echo
 	echo "directory changed to:"; pwd
 	echo "let's first look at the state of the database, dumping new compare copy"
-	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
+	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" --ignore-table=$db.qpwobjectcache --ignore-table=$db.qpwpage --ignore-table=$db.qpwsite_stats --ignore-table=$db.wp_options  > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
 	numDBChanges=$(diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql | wc -l)
 echo "number of changes is $numDBChanges"
 	if (($numDBChanges != 0)); then
 		echo "There have been changes on the server since the last push, take a look at this:"
 		diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql
+		chooser() {
+			echo "Do you want to stop? [y/n]"
+			read cf
+			cf=$(echo $cf | tr "[:upper:]" "[:lower:"])
+			if [[ "$cf" == "y" ]]; then
+				echo "exiting - you may need to blankem"
+				exit
+			fi
+			if [[ "$cf" == "n" ]]; then
+				echo "continuing"
+			fi
+			if [[ "$cf" != [yn] ]]; then
+				echo "Please respond with a [y/n]: "
+				chooser
+			fi
+		}
+		chooser
 	fi	
 	echo "dumping the LIVE database to "$db"OLD.sql"
 	mysqldump -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"OLD.sql && echo "database dumped onto remote server, let's transfer the DBs across..."
@@ -36,6 +54,7 @@ rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql
 #TODO: http://stackoverflow.com/questions/12845206/check-if-file-exists-on-remote-host-with-ssh/
 
 #Upload new sql
+# note (if I haven't changed it), that the heredoc can remain as one rather than a nowdoc as we have no brackets in this section
 echo "Transferring your local db to the server"
 rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 
@@ -48,7 +67,7 @@ replaceDB="$SSHEnvVars $( cat <<EOT
 	stty echo
 	echo "take an sql for later comparison next time we push"
 	stty -echo
-	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"COMPARE_AFTER_LAST_UPDATE.sql && echo "dumped the compare version of the new db"
+	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" --ignore-table=$db.qpwobjectcache --ignore-table=$db.qpwpage --ignore-table=$db.qpwsite_stats --ignore-table=$db.wp_options  > "$db"COMPARE_AFTER_LAST_UPDATE.sql && echo "dumped the compare version of the new db"
 	stty echo
 	echo done
 EOT
