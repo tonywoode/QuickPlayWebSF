@@ -11,20 +11,26 @@
 
 # take a safety copy of the servers db before we wipe it
 # i got the tables to exclude by saving a diff result and opening it linewise
-DumpTheDB="$SSHEnvVars $( cat <<'EOT'
-stty -echo
+DumpTheDB="$SSHEnvVars $( cat <<EOT
+	function dumpCompareSQL {
+		local thisOrLast="$1"
+		mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" --ignore-table=$db.qpwobjectcache --ignore-table=$db.qpwpage --ignore-table=$db.qpwsite_stats --ignore-table=$db.wp_options  > "$db"Compare$thisOrLast.sql && echo "dumped the compare version of the db"
+	}
+	stty -echo
 	echo "directory changed to:"; pwd
-	echo "let's first look at the state of the database, dumping new compare copy"
-	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" --ignore-table=$db.qpwobjectcache --ignore-table=$db.qpwpage --ignore-table=$db.qpwsite_stats --ignore-table=$db.wp_options  > "$db"COMPARE_BEFORE_THIS_UPDATE.sql && echo "dumped the compare version of the new db"
-	numDBChanges=$(diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql | wc -l)
-echo "number of changes is $numDBChanges"
-	if (($numDBChanges != 0)); then
+	echo "let's first look at the state of the database, dumping new compare copy..."
+	dumpCompareSQL "This"
+	# we really want an integer
+	declare -i numDBChanges=`diff "$db"CompareThis.sql "$db"CompareLast.sql | wc -l`
+	echo "number of changes is $numDBChanges"
+	# now avoid using brackets
+	if [[ $numDBChanges -ne 0 ]] ; then
 		echo "There have been changes on the server since the last push, take a look at this:"
-		diff "$db"COMPARE_AFTER_LAST_UPDATE.sql "$db"COMPARE_BEFORE_THIS_UPDATE.sql
-		chooser() {
+		diff "$db"CompareThis.sql "$db"CompareLast.sql
+		function chooser {
 			echo "Do you want to stop? [y/n]"
 			read cf
-			cf=$(echo $cf | tr "[:upper:]" "[:lower:"])
+			cf=`echo $cf | tr "[:upper:]" "[:lower:"]`
 			if [[ "$cf" == "y" ]]; then
 				echo "exiting - you may need to blankem"
 				exit
@@ -67,8 +73,8 @@ replaceDB="$SSHEnvVars $( cat <<EOT
 	stty echo
 	echo "take an sql for later comparison next time we push"
 	stty -echo
-	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" --ignore-table=$db.qpwobjectcache --ignore-table=$db.qpwpage --ignore-table=$db.qpwsite_stats --ignore-table=$db.wp_options  > "$db"COMPARE_AFTER_LAST_UPDATE.sql && echo "dumped the compare version of the new db"
 	stty echo
+	dumpCompareSQL "Last"
 	echo done
 EOT
 )"
