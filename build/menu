@@ -18,8 +18,8 @@ while true; do
 		3) echo "Ok gonna ask you about the strings";./switcher --versionInfo;;
 		4) echo "Ok, Update the Changelog";./switcher --changelog;;
 		5) echo "Ok, Exporting the SQL"; ./switcher --exportSQL;;
-		6) echo "Ok, Exporting SQL and Going live"; $createLoginShell; ./switcher --live;;
-		7) echo "Ok, SSH Command Line"; $createLoginShell; ./exp ssh $sflogin "$SSHEnvVars";;
+		6) echo "Ok, Exporting SQL and Going live"; ./switcher --live;;
+		7) echo "Ok, SSH Command Line"; ./switcher --SSHCmd;;
 		9) echo "Ok, exiting, blankly..."; ./switcher --blankem; break;; 
 		*) echo "Try again";;
 	esac

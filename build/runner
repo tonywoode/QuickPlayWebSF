@@ -28,7 +28,6 @@ declare -x sfFilePath="/home/frs/project/quickplay/quickplay"
 declare -x version=$(node ./updateChangelogAndVersion/sendVersion.js) || echo "maybe you need to install node"
 declare -x localZipFile="../../../Release/QP-v$version.zip"
 declare -x sfFileURL="https://sourceforge.net/projects/quickplay/files/quickplay/QuickPlay $version/QP-v$version.zip"
-declare -x createLoginShell="ssh $sflogin create"
 declare -x workingDir="/home/project-web/quickplay"
 
 #and we want to send all those to the ssh session later

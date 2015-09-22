@@ -34,6 +34,20 @@ function exportSQL {
   	}
 }
 
+function createLoginShell {
+	# check the sourceforge ssh key against our saved one - man-in-the-middle
+	sfloginFingerprint=$(ssh-keygen -r "$sflogin")
+	sfloginSaved=ssh-keygen -l -f ~/.ssh/known_hosts | grep shell.sourceforge.net | awk '{ print $2 }'
+	if [[ sfloginFingerprint != sfloginSaved]]; then
+		echo "the ssh key of $sflogin doesn't look right"
+		echo "I want $sflogin saved\nbut I got $sfloginFingerprint"
+		blankem
+		exit 1
+	else 	
+		ssh $sflogin create
+	fi
+}
+
 if [[ "$1" = "--local" ]]; then
 	echo "entering command line"
 	cp $pathToSecrets/class.database_local.php ../includes/class.database.php
@@ -84,6 +98,8 @@ elif [[ "$1" = "--exportSQL" ]]; then
 
 elif [[ "$1" = "--live" ]]; then
 	echo "live selected"
+	# give me login shell
+	createLoginShell
 	# first export the sql
 	exportSQL
 	echo "changing the config files to the live versions"
@@ -96,6 +112,11 @@ elif [[ "$1" = "--live" ]]; then
 	echo "next, syncing the databaes"
 	./database
 	exit
+
+elif [[ "$1 = "--SSHCmd" ]]; then
+	echo "SSH Command Line Starting"
+	createLoginShell
+	./exp ssh $sfLogin "$SSHEnvVars"
 
 elif [[ "$1" = "--blankem" ]]; then
 	echo "blanking and exiting"
