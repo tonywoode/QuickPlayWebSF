@@ -2,9 +2,9 @@
 
 # this appeared to be the best non-screen/tmux/expect solution
 # http://stackoverflow.com/questions/7114990/pseudo-terminal-will-not-be-allocated-because-stdin-is-not-a-terminal
-# but you really want to pay attention to the answer here http://stackoverflow.com/a/21761956/3536094 - in particular nowdocs and the need to single quote 'EOT' to turn a heredoc into a nowdoc
+# pay attention to the answer here http://stackoverflow.com/a/21761956/3536094 - in particular nowdocs and the need to single quote 'EOT' to turn a heredoc into a nowdoc
 
-# NOTE: Dupes of env var names - need to copy in environment varibles to the ssh session
+# NOTE: Dupes of env var names - need to copy in environment varibles to the ssh session to use interactively
 # http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
 
 #login via ssh then export an sql to workingFolder
@@ -13,7 +13,7 @@
 # i got the tables to exclude by saving a diff result and opening it linewise
 DumpTheDB="$SSHEnvVars $( cat <<EOT
 	function dumpCompareSQL {
-		local thisOrLast="$1"
+		thisOrLast="$1"
 		mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" --ignore-table=$db.qpwobjectcache --ignore-table=$db.qpwpage --ignore-table=$db.qpwsite_stats --ignore-table=$db.wp_options  > "$db"Compare$thisOrLast.sql && echo "dumped the compare version of the db"
 	}
 	stty -echo
