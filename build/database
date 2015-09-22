@@ -21,29 +21,16 @@ DumpTheDB="$SSHEnvVars $( cat <<EOT
 	echo "let's first look at the state of the database, dumping new compare copy..."
 	dumpCompareSQL "This"
 	# we really want an integer
-	declare -i numDBChanges=`diff "$db"CompareThis.sql "$db"CompareLast.sql | wc -l`
+	numDBChanges=`diff "$db"CompareThis.sql "$db"CompareLast.sql | wc -l`
 	echo "number of changes is $numDBChanges"
 	# now avoid using brackets
-	if [[ $numDBChanges -ne 0 ]] ; then
+	if [[ $numDBChanges -ne 0 ]]
+ 	then
 		echo "There have been changes on the server since the last push, take a look at this:"
 		diff "$db"CompareThis.sql "$db"CompareLast.sql
-		function chooser {
-			echo "Do you want to stop? [y/n]"
-			read cf
-			cf=`echo $cf | tr "[:upper:]" "[:lower:"]`
-			if [[ "$cf" == "y" ]]; then
-				echo "exiting - you may need to blankem"
-				exit
-			fi
-			if [[ "$cf" == "n" ]]; then
-				echo "continuing"
-			fi
-			if [[ "$cf" != [yn] ]]; then
-				echo "Please respond with a [y/n]: "
-				chooser
-			fi
-		}
-		chooser
+		echo "Do you want to continue? [y/n]" && read answer
+		if echo "$answer" | grep -q "^y" ;then echo "continuing"
+		else echo "exiting - you may need to blankem" && exit
 	fi	
 	echo "dumping the LIVE database to "$db"OLD.sql"
 	mysqldump -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"OLD.sql && echo "database dumped onto remote server, let's transfer the DBs across..."

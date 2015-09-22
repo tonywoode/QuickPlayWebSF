@@ -1,23 +1,5 @@
 #!/bin/bash
 
-
-chooser() {
-	echo "Do you want to stop? [y/n]"
-		read cf
-		cf=$(echo $cf | tr "[:upper:]" "[:lower:"])
-				if [[ "$cf" == "y" ]]; then
-					echo "exiting - you may need to blankem"
-					exit			 
-				fi
-				if [[ "$cf" == "n" ]]; then
-					echo "continuing"																  
-				fi
-			  if [[ "$cf" != [yn] ]]; then
-			    echo "Please respond with a [y/n]: "
-					chooser
-				fi
-}
-
 # first test to see if I remembered to unblank the secrets
 if ! diff "$secret_file_to_diff" "$secret_file_to_test"  >/dev/null ; then
   echo "Found some secrets...starting"
@@ -51,8 +33,10 @@ echo "there are $numFileChanges files more recent on the server"
 if (( $numFileChanges > 0 )); then
 	echo "some files have changed on the server since you last pushed. Check...."
 	echo "here are those files"
-	echo $(ssh $sflogin find /home/project-web/quickplay/htdocs/ -type f -mtime -$numdays)
-	chooser
+	echo $(ssh $sflogin find /home/project-web/quickplay/htdocs/ -type f -mtime -$numdays
+	echo "Do you want to continue? [y/n]" && read answer
+	if echo "$answer" | grep -q "^y" ;then echo "continuing"
+	else echo "exiting - you may need to blankem" && exit	
 fi
 
 # sync
