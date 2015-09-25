@@ -61,7 +61,7 @@ DumpTheDB="$SSHEnvVars $dumpCompare $dumpSQL $(cat <<'EOT'
 		else echo "exiting - you may need to blankem" && exit
 		fi
 	fi	
-	cho "dumping the LIVE database to "$db"OLD.sql"
+	echo "dumping the LIVE database to "$db"OLD.sql"
 	dumpSQL
 	stty echo 
 EOT
@@ -87,8 +87,8 @@ replace="$(cat <<EOT
 	mysql -h mysql-q -u "$dbuser" -p"$remotePass" -e "DROP DATABASE "$db";"
 	mysql -h mysql-q -u "$dbuser" -p"$remotePass" -e "CREATE DATABASE "$db";"
 	mysql -h mysql-q -u "$dbuser" -p"$remotePass"  "$db" < "$db".sql;
-	stty echo;
-	}
+	stty echo
+	};
 EOT
 )"
 

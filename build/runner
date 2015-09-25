@@ -33,7 +33,7 @@ declare -x workingDir="/home/project-web/quickplay"
 #and we want to send all those to the ssh session later
 #plus we ALWAYS switch to the working dir, as that's where to DB's are....
 #plus we want to always check if we've got a login shell, and make one if we haven't
-declare -x SSHEnvVars="db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir"; sfFilePath="$sfFilePath"; 
+declare -x SSHEnvVars=" db="$db"; dbuser="$dbuser"; workingDir="$workingDir";cd "$workingDir"; sfFilePath="$sfFilePath"; " 
 
 #all these involve saving the DB locally
 #  rsync interprets ":" as separator between host and port (i. e. host:port)

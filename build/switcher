@@ -99,14 +99,14 @@ elif [[ "$1" = "--live" ]]; then
 	cp $pathToSecrets/wp-config.php ../blog/wp-config.php
 	echo "syncing the website"
 	./site
-	echo "next, syncing the databaes"
+	echo "next, syncing the database"
 	./database
 	exit
 
 elif [[ "$1" = "--SSHCmd" ]]; then
 	echo "SSH Command Line Starting"
 	createLoginShell
-	./exp ssh $sfLogin "$SSHEnvVars"
+	./exp ssh $sflogin "$SSHEnvVars"
 
 elif [[ "$1" = "--blankem" ]]; then
 	echo "blanking and exiting"
