@@ -8,19 +8,43 @@
 
 # function that dumps a compare copy of the db to diff for any changes I didnt make
 # I worked out which tables to exclude by saving a diff result and opening it linewise
-dumpCompare="$(cat <<'EOT'
-stty -echo
+# Note the lack of '' on the EOT below, means its a heredoc, variables are expanded locally
+#		hence the need to escape the $s on $thisOrLast - both are run on the server not client
+#		why? Chiefly to avoid sending the password as a variable....
+
+
+dumpCompare="$(cat <<EOT
+#stty -echo
 function dumpCompareSQL {
-	thisOrLast="$1"
-	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" --ignore-table=$db.qpwobjectcache --ignore-table=$db.qpwpage --ignore-table=$db.qpwsite_stats --ignore-table=$db.wp_options  > "$db"Compare$thisOrLast.sql && echo "dumped the compare version of the db"
+	thisOrLast="\$1"
+	mysqldump --skip-comments --skip-extended-insert -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" --ignore-table=$db.qpwobjectcache --ignore-table=$db.qpwpage --ignore-table=$db.qpwsite_stats --ignore-table=$db.wp_options  > "$db"Compare\$thisOrLast.sql && echo "dumped the compare version of the db as "$db"Compare\$thisOrLast.sql"
 stty echo
 };
 EOT
 )"
 
-# define a nowdoc to run an SQL compare and export over SSH
+# So, in effect, escaping the $ in these vars is a way to run variables on a remote machine in a heredoc,
+#		and in a moment we'll see how to do the opposite: run commands locally when we are essentially sending a nowdoc
+
+# same idea here, this function gets made locally with the locally stored password variable, then gets used in the script. 
+dumpSQL="$(cat <<EOT
+	stty -echo
+	function dumpSQL { 
+	mysqldump -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"OLD.sql && echo "database dumped on remote svr, let's transfer the DB across..."
+	stty echo 
+	};
+EOT
+)"
+
+# define a set of ssh commands, including a main nowdoc, to run an SQL compare and export over SSH
 # take a safety copy of the servers db before we wipe it
-DumpTheDB="$SSHEnvVars $dumpCompare $(cat <<'EOT'
+# HERE we see how send locally-expanded functions to an ssh session:
+#				capture them as variables (semicolon termination is a good idea)
+#				and call the variables as you would function calls
+#				Note how I have to include the variable in the ssh call
+#				THEN call the function that lies within it in the nowdoc.
+#				(I'm not advocating any of this, just showing it can be done....)
+DumpTheDB="$SSHEnvVars $dumpCompare $dumpSQL $(cat <<'EOT'
 	stty -echo 
 	echo "directory changed to:"; pwd
 	echo "let's first look at the state of the database, dumping new compare copy..."
@@ -28,7 +52,6 @@ DumpTheDB="$SSHEnvVars $dumpCompare $(cat <<'EOT'
 	stty -echo
 	numDBChanges=`diff "$db"CompareThis.sql "$db"CompareLast.sql | wc -l`
 	echo "number of changes is $numDBChanges"
-	echo "are we getting here"
 	if [[ $numDBChanges -ne 0 ]];	then
 		echo "There have been changes on the server since the last push, take a look at this:"
 		diff "$db"CompareThis.sql "$db"CompareLast.sql
@@ -38,11 +61,11 @@ DumpTheDB="$SSHEnvVars $dumpCompare $(cat <<'EOT'
 		fi
 	fi	
 	echo "dumping the LIVE database to "$db"OLD.sql"
-	mysqldump -h mysql-q -u "$dbuser" -p"$remotePass" --opt "$db" --password="$remotePass" > "$db"OLD.sql && echo "database dumped on remote svr, let's transfer the DB across..."
+	dumpSQL
 	stty echo 
 EOT
 )"
-# run that nowdoc
+# run that set of SSH commands
 ./exp ssh $sflogin "$DumpTheDB"
 
 # copy that safety copy to my machine's db archive folder, namimg it by date
