@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/bash 
 
 # basic build system for editing. creds are kept above repo. 
 
@@ -35,17 +35,7 @@ function exportSQL {
 }
 
 function createLoginShell {
-	# check the sourceforge ssh key against our saved one - man-in-the-middle
-	sfloginFingerprint=$(ssh-keygen -r "$sflogin")
-	sfloginSaved=ssh-keygen -l -f ~/.ssh/known_hosts | grep shell.sourceforge.net | awk '{ print $2 }'
-	if [[ sfloginFingerprint != sfloginSaved]]; then
-		echo "the ssh key of $sflogin doesn't look right"
-		echo "I want $sflogin saved\nbut I got $sfloginFingerprint"
-		blankem
-		exit 1
-	else 	
 		ssh $sflogin create
-	fi
 }
 
 if [[ "$1" = "--local" ]]; then
@@ -113,7 +103,7 @@ elif [[ "$1" = "--live" ]]; then
 	./database
 	exit
 
-elif [[ "$1 = "--SSHCmd" ]]; then
+elif [[ "$1" = "--SSHCmd" ]]; then
 	echo "SSH Command Line Starting"
 	createLoginShell
 	./exp ssh $sfLogin "$SSHEnvVars"
@@ -130,7 +120,7 @@ else
 fi
 
 # always blank when we fall through
-echo "shutting down and blanking"; 
-blankem; 
+echo "shutting down and blanking" 
+blankem 
 
 
