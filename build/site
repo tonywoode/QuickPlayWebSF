@@ -41,16 +41,14 @@ echo "there are $numFileChanges files more recent on the server"
 fi
 
 # sync
-rsync -avz --delete --exclude='build'  --exclude '.git' ../ $sflogin:/home/project-web/quickplay/htdocs/
-
-# TODO: only do the below on success
-echo "mirrored local folder to the server - done"
-
-# (on success) record the date we pushed. The minus format removes leading zeros which python wants
-olddate=$(date "+%Y, %-m, %-d")
-echo "Saving  $olddate to $datesFile"
-echo "Last pushed the website on: $olddate">"$datesFile"
-cat $datesFile
+rsync -avz --delete --exclude='build'  --exclude '.git' ../ $sflogin:/home/project-web/quickplay/htdocs/ && {
+	echo "mirrored local folder to the server - done"
+	# (on success) record the date we pushed. The minus format removes leading zeros which python wants
+	olddate=$(date "+%Y, %-m, %-d")
+	echo "Saving  $olddate to $datesFile"
+	echo "Last pushed the website on: $olddate">"$datesFile"
+	cat $datesFile;
+}
 
 read -n1 -r -p "Press any key to continue..."
 
