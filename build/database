@@ -1,18 +1,19 @@
 #!/bin/bash 
 
-# this appeared to be the best non-screen/tmux/expect solution
-# http://stackoverflow.com/questions/7114990/pseudo-terminal-will-not-be-allocated-because-stdin-is-not-a-terminal
-# in particular nowdocs and the need to single quote 'EOT' to turn a heredoc into a nowdoc
-# NOTE: Dupes of env var names - need to copy in environment varibles to the ssh session to use interactively
-# http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
+# Checks with a diff, and then replaces, the server website database of QuickPlay, with a local version I've updated
+#			* gives opportunity to review via choice menus and interactive shell pauses
+#			* this appeared to be the best non-screen/tmux/expect solution:
+#						http://stackoverflow.com/questions/7114990/pseudo-terminal-will-not-be-allocated-because-stdin-is-not-a-terminal
+#			*	in particular nowdocs and the need to single quote 'EOT' to turn a heredoc into a nowdoc
+#			*	the below shows you can work either local or remote with variables and functions - so why have I duped of env var names? 
+#				simply because it greatly helps to copy in (non-sensitive) environment varibles to the ssh session to use interactively
+#				http://stackoverflow.com/questions/4409951/can-i-forward-env-variables-over-ssh
 
 # function that dumps a compare copy of the db to diff for any changes I didnt make
-# I worked out which tables to exclude by saving a diff result and opening it linewise
-# Note the lack of '' on the EOT below, means its a heredoc, variables are expanded locally
-#		hence the need to escape the $s on $thisOrLast - both are run on the server not client
-#		why? Chiefly to avoid sending the password as a variable....
-
-
+#			* I worked out which tables to exclude by saving a diff result and opening it linewise
+#			* Note the lack of '' on the EOT below, means its a heredoc, variables are expanded locally
+#				hence the need to escape the $s on $thisOrLast - both are run on the server not client
+#				why? Chiefly to avoid sending the password as a variable....
 dumpCompare="$(cat <<EOT
 #stty -echo
 function dumpCompareSQL {
@@ -39,11 +40,11 @@ EOT
 # define a set of ssh commands, including a main nowdoc, to run an SQL compare and export over SSH
 # take a safety copy of the servers db before we wipe it
 # HERE we see how send locally-expanded functions to an ssh session:
-#				capture them as variables (semicolon termination is a good idea)
-#				and call the variables as you would function calls
-#				Note how I have to include the variable in the ssh call
-#				THEN call the function that lies within it in the nowdoc.
-#				(I'm not advocating any of this, just showing it can be done....)
+#				* capture them as variables (semicolon termination is a good idea)
+#					and call the variables as you would function calls
+#				* Note how I have to include the variable in the ssh call
+#					THEN call the function that lies within it in the nowdoc.
+#				* (I'm not advocating any of this, just showing it can be done. Its not pretty....)
 DumpTheDB="$SSHEnvVars $dumpCompare $dumpSQL $(cat <<'EOT'
 	stty -echo 
 	echo "directory changed to:"; pwd
@@ -60,7 +61,7 @@ DumpTheDB="$SSHEnvVars $dumpCompare $dumpSQL $(cat <<'EOT'
 		else echo "exiting - you may need to blankem" && exit
 		fi
 	fi	
-	echo "dumping the LIVE database to "$db"OLD.sql"
+	cho "dumping the LIVE database to "$db"OLD.sql"
 	dumpSQL
 	stty echo 
 EOT
@@ -69,7 +70,7 @@ EOT
 ./exp ssh $sflogin "$DumpTheDB"
 
 # copy that safety copy to my machine's db archive folder, namimg it by date
-#see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
+#		see here https://sourceforge.net/p/forge/documentation/File%20Management/#access-paths
 echo "backing up the current LIVE database backup "$db"OLD.sql to $sqlArchiveFile"
 rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql 
 
@@ -79,24 +80,31 @@ rsync -P $sflogin:/home/project-web/quickplay/"$db"OLD.sql "$sqlArchiveFile".sql
 echo "Transferring your local db to the server"
 rsync -P "$sqlLiveFile" $sflogin:/home/project-web/quickplay/"$db".sql
 
-# define another nowdoc - make the db live over ssh
-replaceDB="$SSHEnvVars $dumpCompare $( cat <<'EOT'
-	echo "drop the old db, make a new one, and populate it with the sql"
-	stty -echo 
+# a local function to replace db that will get sent expanded to the remote
+replace="$(cat <<EOT
+  function replaceSQL {
+	stty -echo	
 	mysql -h mysql-q -u "$dbuser" -p"$remotePass" -e "DROP DATABASE "$db";"
 	mysql -h mysql-q -u "$dbuser" -p"$remotePass" -e "CREATE DATABASE "$db";"
 	mysql -h mysql-q -u "$dbuser" -p"$remotePass"  "$db" < "$db".sql;
-	stty echo
+	stty echo;
+	}
+EOT
+)"
+
+# define another block including a master nowdoc - make the db live over ssh
+replaceDB="$SSHEnvVars $dumpCompare $replace $( cat <<'EOT'
+	echo "drop the old db, make a new one, and populate it with the sql"
+	replaceSQL
 	echo "take an sql for later comparison next time we push"
 	dumpCompareSQL "Last"
 	echo done
 	stty echo 
 EOT
 )"
-# run that nowdoc
+# run that block
 ./exp ssh $sflogin "$replaceDB"
 
 echo "done"
 ssh $sflogin shutdown
-
 
