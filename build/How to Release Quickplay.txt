@@ -1,0 +1,64 @@
+1) Version number in Delphi must be right: In MAIN.pas around line 690 change version number of QP, compile and exit
+
+2) Finish up with git. In windows ensure: 
+	* all commits are done on dev
+	* all changes merged into master
+	* Make a tag for the new version - case sensitive: use a small v. You MUST use an annotated tag so the form is:
+		git tag -a v4.1.3 -m "another small update"
+		(remember you can tag later with: git tag v4.1.1 commit-hash)
+	* Push tags to server (git push doesn’t push tags):
+	git push origin --tags
+		(if problems undo both local and remote tags: http://stackoverflow.com/questions/5480258/how-to-delete-a-remote-git-tag)
+
+3)Make the release:
+	* Run makeRelease.bat (which will read latest tag)
+		(Script copies ALL files then deletes the ones that we don't want in release)
+	* Script opens notepad++ so you can remove dev/build/commit related changelog items. Save the txt file when you're done (at this point it has nix line endings).
+		(Script puts result at top of changelog in BOTH release and dev (ie: MY!) quickplay folder (so any problems mean deleting the top entry of MY QP’s changelog)
+		(Script makes the zip out of the qp dir and then deletes the qp dir (zip overwrites if this isn't the first run))
+
+4) Manually Test the build (needs automated tests!!!!)
+
+5) Upload the release:
+	* Do the rest in OSX: Go into the quickplayWeb folder, into htdocs and into build and click on runner
+	* Choose item 2 on the list - upload release file. (automated equivalent of uploading release to: https://sourceforge.net/projects/quickplay/files/quickplay/ )
+		(script makes a new folder called after your tag (omitting the v.), then rsyncs the new release zip into it from local release dir)
+		(Seems SourceForge at this point needs to check the file, as manually checking for zip in a browser takes about 5 mins to appear, despite being there if you ssh)
+		(Without this automation, SF’s Latest Version prompt would only have changed for anything NON windows. Script uses the SF api to change (using my api key - see 		comments in switcher script. If the script didn’t do this we would have do this lot:  (http://stackoverflow.com/questions/6777327/how-to-manually-set-the-default-		download-file-in-a-sourceforge-project#7280936): (i) Log into SF (ii) Browse to preferred file (iii) click ‘i’ icon at the right of the file’s entry in the table of 		files (iv) In popup, under Default for, select all (v) Save (vi) Wait a few minutes, refresh page and check.)
+
+6) Do the website:
+	* Get the release file details info into the local db with option 3
+		(a node script works out the URL, filesize and version number and inserts them into the local db)
+	* Choose option 4 to update the changelog (check the text, but it IS what you altered in notepad++ a few steps back)
+	* Check changes/version/news tables looks ok  (select 1 from menu and select * from changes;)
+		(If you mess up you can reset to the latest db by going: 
+		bash-3.2$ /Applications/MAMP/Library/bin/mysql -u root -p q122303_qp < /Volumes/Untitled/Emulators/QUICKPLAY/QuickplayWEB/database/q122303_qp.sql 
+		(When SQL altering those tables, DON’T mix up changes, version and news tables, its easily done)
+		(remember if problems with changes table, then news needs to be fixed as well: if one or the other has a problem, BOTH need deletion and auto-increment resetting)
+
+7) Upload the website
+	* select option 6 in my menu
+		(the php binary reads the local and admin passwords from AdminSettings_Local.php and AdminSettings.php in my secrets folder)
+		(script is keeping a check on when i last pushed (in ../../../Release.dates.txt) It iterates through the files on the server finding any with a later
+		date, and gives you an opportunity to investigate if there are newer files on the server).
+		(script pushes website live after everyone is happy we aren’t overwriting anything, and saves the date it did so)
+		(script’s dumps the LIVE database to an sql file, and dumps a compare copy of the db (one without superfluous dates and with individual select statements
+		so it can do a proper diff - storing it on the server as DB_COMPARE_THIS.sql. It also did the same right after it last updated the remote db, calling it
+		DB_COMPARE_LAST.sql. It compares the two diffs and lets you know any problems) 
+	* At this point the Script will drop you into an interactive ssh session (using expect and a bit of tcl scripting) - so you can check anything, type exit to continue…
+		(Then two lots of rsync happen - first to take the old db to our local machine, then to take our db to the server)
+		(script drops the old db and create the new one and points new sql at it)
+		(script takes that compare copy of the SQL I just mentioned, stores it on server) 
+	* Scripts hangs in interactive ssh again for you to check all ok.
+		(Remember script HAS transferred local vars to the server, so e.g.: if we want to logon to mysql just go mysql -h mysql-q -u "$dbuser" “$db”)
+
+8) REFRESH BROWSER and check release
+
+____________
+delete from version/changes/news where version_id or id=xxx;
+alter table version/changes/news AUTO_INCREMENT = 21; (delete anything higher FIRST)
+
+
+
+
+
