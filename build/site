@@ -30,13 +30,14 @@ declare -i numFileChanges=$(ssh $sflogin find /home/project-web/quickplay/htdocs
 # TODO - defensiveness needed - this will err on the side of wiping the server
 echo "there are $numFileChanges files more recent on the server"
 
-if (( $numFileChanges > 0 )); then
+	if (( $numFileChanges >  0 )); then
 	echo "some files have changed on the server since you last pushed. Check...."
 	echo "here are those files"
-	echo $(ssh $sflogin find /home/project-web/quickplay/htdocs/ -type f -mtime -$numdays
+	echo $(ssh $sflogin find /home/project-web/quickplay/htdocs/ -type f -mtime -$numdays)
 	echo "Do you want to continue? [y/n]" && read answer
-	if echo "$answer" | grep -q "^y" ;then echo "continuing"
+	if [[ "$answer" -eq "y" ]] ; then echo "continuing"
 	else echo "exiting - you may need to blankem" && exit	
+	fi
 fi
 
 # sync
@@ -52,5 +53,4 @@ echo "Last pushed the website on: $olddate">"$datesFile"
 cat $datesFile
 
 read -n1 -r -p "Press any key to continue..."
-
 
