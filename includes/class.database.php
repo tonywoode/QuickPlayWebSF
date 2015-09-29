@@ -26,12 +26,11 @@ class QPDatabase{
   // ---- functions ----
   function Open() {
     //Opens the database connection and stores it in the conn variable.
-    $this->conn = mysqli_connect($this->dbhost . ":" . $this->dbport, $this->dbusername, $this->dbpassword);
-    mysqli_select_db($this->dbname, $this->conn);
+    $this->conn = mysqli_connect($this->dbhost . ":" . $this->dbport, $this->dbusername, $this->dbpassword, $this->dbname);
   }
   
   function Query($querystring){ 
-    $this->lastqueryresult = mysqli_query($querystring, $this->conn);  
+    $this->lastqueryresult = mysqli_query($this->conn, $querystring);  
     if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
       $this->lasterrno = mysqli_errno($this->conn);
