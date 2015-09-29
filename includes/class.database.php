@@ -26,15 +26,15 @@ class QPDatabase{
   // ---- functions ----
   function Open() {
     //Opens the database connection and stores it in the conn variable.
-    $this->conn = mysql_connect($this->dbhost . ":" . $this->dbport, $this->dbusername, $this->dbpassword);
-    mysql_select_db($this->dbname, $this->conn);
+    $this->conn = mysqli_connect($this->dbhost . ":" . $this->dbport, $this->dbusername, $this->dbpassword);
+    mysqli_select_db($this->dbname, $this->conn);
   }
   
   function Query($querystring){ 
-    $this->lastqueryresult = mysql_query($querystring, $this->conn);  
-    if ( mysql_error($this->conn) != "" ) {
-      $this->lasterror = mysql_error($this->conn);
-      $this->lasterrno = mysql_errno($this->conn);
+    $this->lastqueryresult = mysqli_query($querystring, $this->conn);  
+    if ( mysqli_error($this->conn) != "" ) {
+      $this->lasterror = mysqli_error($this->conn);
+      $this->lasterrno = mysqli_errno($this->conn);
       return 0;
     }
     else
@@ -42,20 +42,20 @@ class QPDatabase{
   }
 
   function Num_Rows() { 
-    return mysql_num_rows($this->lastqueryresult);
+    return mysqli_num_rows($this->lastqueryresult);
   }
 
   function Affected_Rows(){
-    return mysql_affected_rows($this->lastqueryresult);
+    return mysqli_affected_rows($this->lastqueryresult);
   }
 
   function Fetch_Array() {
-    return mysql_fetch_array($this->lastqueryresult);
+    return mysqli_fetch_array($this->lastqueryresult);
   }
 
   function Fetch_Full_Array() {
     $allrows = array();
-    while ( $currentrow = mysql_fetch_array($this->lastqueryresult) ) {
+    while ( $currentrow = mysqli_fetch_array($this->lastqueryresult) ) {
             array_push($allrows, $currentrow);
     }
     return $allrows;
@@ -78,7 +78,7 @@ class QPDatabase{
   }
 
   function Close() {
-    mysql_close($this->conn);
+    mysqli_close($this->conn);
   }
   
   function WikiPageExists($pagename){
