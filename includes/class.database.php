@@ -6,7 +6,7 @@
 class QPDatabase{
 
   var $dbhost, $dbport, $dbusername, $dbpassword, $dbname;
-  var $conn, $lastqueryresult, $lasterror, $lasterrno, $lastinsertid;
+  var $type, $bindtype, $stmt, $result, $conn, $lastqueryresult, $lasterror, $lasterrno, $lastinsertid;
 
   // ---- Constructor ----
 
@@ -26,19 +26,36 @@ class QPDatabase{
   // ---- functions ----
   function Open() {
     //Opens the database connection and stores it in the conn variable.
-    $this->conn = mysqli_connect($this->dbhost . ":" . $this->dbport, $this->dbusername, $this->dbpassword, $this->dbname);
+    $this->conn = new mysqli($this->dbhost . ":" . $this->dbport, $this->dbusername, $this->dbpassword, $this->dbname);
   }
   
-  function Query($querystring){ 
-    $this->lastqueryresult = mysqli_query($this->conn, $querystring);  
+	function Query($querystring, $thepage, $bindtype){
+		$stmt = $this->conn->prepare($querystring);
+		$stmt->bind_param($bindtype, $thepage);
+		$stmt->execute(); 
+		$result = $stmt->get_result();	
+    $this->lastqueryresult = $result; 
     if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
       $this->lasterrno = mysqli_errno($this->conn);
-      return 0;
+			$stmt->close();
+			return 0;
     }
-    else
+		else
+			$stmt->close();
       return 1;
   }
+
+ function InternalQuery($querystring){
+		$this->lastqueryresult = mysqli_query($this->conn, $querystring);
+		if ( mysqli_error($this->conn) != "" ) {
+			$this->lasterror = mysqli_error($this->conn);
+			$this->lasterrno = mysqli_errno($this->conn);
+			return 0;
+		 }
+		 else
+			 return 1;
+		 }
 
   function Num_Rows() { 
     return mysqli_num_rows($this->lastqueryresult);
@@ -80,9 +97,9 @@ class QPDatabase{
     mysqli_close($this->conn);
   }
   
-  function WikiPageExists($pagename){
-    $query = "SELECT p_name FROM pages WHERE p_name='$pagename'";
-    if ($this->Query($query) == 1){
+  function WikiPageExists($pagename, $type){
+    $query = "SELECT p_name FROM pages WHERE p_name=(?)";
+    if ($this->Query($query, $pagename, $type) == 1){
       if ($this->Num_Rows() > 0)
         return true;
       else
@@ -95,9 +112,9 @@ class QPDatabase{
     
   }
   
-  function WikiGetPage($pagename){
-    $query = "SELECT * FROM pages WHERE p_name='$pagename'";
-    if ($this->Query($query) == 1){
+  function WikiGetPage($pagename, $type){
+    $query = "SELECT * FROM pages WHERE p_name=(?)";
+    if ($this->Query($query, $pagename, $type) == 1){
       if ($this->Num_Rows() == 1){
         return $this->Fetch_Full_Array();
       }

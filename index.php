@@ -4,6 +4,11 @@
  *  Upgrade Screenshots page with some snazzy JQuery
  * 
  */
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors',1);
+error_reporting(-1);
+
 function rewrite($body)
 /*
  * The purpose of this function is to convert the text in the sidebar
@@ -69,9 +74,9 @@ if ( $auth->IsLoggedOn() ){
     }
   else 
   {
-    if ($DBo->WikiPageExists($title) == true) // Pulls pages out of database
+    if ($DBo->WikiPageExists($title, "s") == true) // Pulls pages out of database
     {
-      $pgrec = $DBo->WikiGetPage($title); // Holds page id, name, and body
+      $pgrec = $DBo->WikiGetPage($title, "s"); // Holds page id, name, and body
       if ($pgrec != False)
       {
         $text = StripSlashes($pgrec[0]['p_body']); // For escaped characters
@@ -83,7 +88,7 @@ if ( $auth->IsLoggedOn() ){
         ob_end_clean();
         $body = $eval_buffer;
         
-        echo $body;
+        echo $body, $text, "s";//this doesn't work but has the side-effect of spitting out the db call into the page, which will help me see the problem....
       }
       else
       {
