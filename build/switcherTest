@@ -3,33 +3,41 @@
 . switcher
 
 let failedTests=0
-
-
+testValue="testValue"
 
 # test files will live in serets dir
 testFile="../../secrets/secretsRegexTestFile"
 resultsFile="${testFile}Result"
 
+function runATest {
+	replacePHPConfig "$configKey" "$testValue" "$resultsFile"
+	testResult=$( { cat $resultsFile && echo "<?php echo $testValue ?>" ;}  | php )
+	if [[ $testResult == $testValue ]]; then
+		echo "Success - test result is $testResult"
+	else
+		echo "Failiure - test result is $testResult"
+		((failedTests++))	
+	fi
+}
+
+# Before
 echo "get new results file (copying $testFile to $resultsFile)"
 cp $testFile $resultsFile
-
 echo "Refreshed $resultsFile - Do you want to run the tests? [y/n]" && read answer
 if echo "$answer" | grep -q "^y" 
 	then echo "continuing"
 	else echo "exiting" && exit
 fi
 
-testValue="testValue"
-
-echo "Test 1 - replace AdminSettings.php"
+# Run tests
+echo "Test Batch 1 - replace AdminSettings.php"
 configKey="$wgDBadminpassword" 
-replacePHPConfig "$configKey" "$testValue" "$resultsFile"
+runATest
 
-test1Result=$( { cat $resultsFile && echo "<?php echo $testValue ?>" ;}  | php )
-if [[ $test1Result == $testValue ]]; then
- 	echo "Success - test result is $test1Result"
+# After
+if (( $failedTests > 1 )); then 
+	echo "Problems found, investigate"
 else
-	echo "Failiure - test result is $test1Result"	
+	echo "All tests seemed to pass"
 fi
-
 
