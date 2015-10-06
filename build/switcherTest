@@ -1,0 +1,26 @@
+#!/bin/bash
+
+. switcher
+
+# test files will live in serets dir
+testFile="../../secrets/secretsRegexTestFile"
+resultsFile="${testFile}Result"
+
+echo "get new results file (copying $testFile to $resultsFile)"
+cp $testFile $resultsFile
+
+echo "Do you want to run the tests? [y/n]" && read answer
+if echo "$answer" | grep -q "^y" 
+	then echo "continuing"
+	else echo "exiting" && exit
+fi
+
+testValue="testValue"
+
+echo "Test 1 - replace AdminSettings.php"
+replacePHPConfig "\$wgDBadminpassword" "$testValue" "$resultsFile"
+
+test1Result=$( { cat $resultsFile && echo '<?php echo $wgDBadminpassword ?>' ;}  | php )
+echo "test result is $test1Result"
+
+
