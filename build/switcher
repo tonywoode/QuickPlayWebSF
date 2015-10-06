@@ -24,41 +24,40 @@ function timer {
 }
 
 
-function replacePHPConfig() { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
+function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
 # triple \\\ to escape $, then we can use "" for the phrase instead of ''. Once we do that, \' sends a '
 # so it would be this without actually using a variable
 # perl -p -i -e "s/\\\$wgDBadminuser[ ]*=[ ]*\'.*\';//" ../../secretsTest/atest
 # but seeing as we are, we need to 
-perl -p -i -e "s/(\\$1[ ]*=[ ]*\').*\';/\1$2\'/" $3 
+perl -p -i -e "s/(\\$1[ ]*=[ ]*\').*\';/\1$2\';/" $3 
 # and remember the caller needs to escape a dollar:   thisScript \$wgDBadminuser ...
 }
 
 
 # TODO: this is not a pretty way to regex replace.....
 # triple \\\ to escape $, then we can use "" for the phrase instead of ''. Once we do that, \' sends a '
-function replacePHPDBConfig{ #formal params $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
-	filesToReplace=(
-	"../includes/class.database.php"
-	"../wiki/AdminSettings.php"
-	"../wiki/LocalSettings.php"
-	"../blog/wp-config.php"
-	)
+function replacePHPDBConfig { #formal params $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
+filesToReplace=()
+#	"../includes/class.database.php"
+#	"../wiki/AdminSettings.php"
+#	"../wiki/LocalSettings.php"
+#	"../blog/wp-config.php"
+	#)
 
-	valuesToReplace=(
-	$dbhost
- 	$dbport
-	$dbusername
-	$dbpassword
- 	$dbname
-	$wgDBadminuser
-	)
+	valuesToReplace=()
+#	$dbhost
+# $dbport
+#	$dbusername
+#	$dbpassword
+#	$dbname
+#	$wgDBadminuser
+#	)
 
 	#double for loop to apply - lets just search+replace all terms in all files
-	for file in "${filesToReplace[@]}"; do (
-		for value in "${valuesToReplace[@]}"; do (
-			replacePHPDBConfig "\$value" $1 "$file"
-		)
-	)
+	#for file in "${filesToReplace[@]}"; do; (
+	#	for value in "${valuesToReplace[@]}"; do (
+	#		replacePHPDBConfig "\$value" $1 "$file"
+	#	)			
 }
 
 #	replace "\$this-\>dbhost \= \"\"; "	with  "\$this-\>dbhost \= \"$dbhost\"; "	 
