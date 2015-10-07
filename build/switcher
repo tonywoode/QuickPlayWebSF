@@ -28,7 +28,13 @@ function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=th
 # it could be this without actually using a variable
 # perl -p -i -e "s/\\\$wgDBadminuser[ ]*=[ ]*\'.*\';//" ../../secretsTest/atest
 # but seeing as we are, and seeing as we dont want to escape our \$key when we pass to this, we need to 
-perl -p -i -e "s/(\$1[ ]*=[ ]*\').*\';/\1$2\';/" $3 
+echo "Making value for the key $1 be $2 in $3"
+if [[  "x$1" = "x" ]]; then 
+	echo "config key is empty"
+	return 1
+else
+	perl -p -i -e "s/(\$1[ ]*=[ ]*\').*\';/\1$2\';/" $3
+fi
 }
 
 
