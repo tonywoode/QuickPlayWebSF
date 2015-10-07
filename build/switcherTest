@@ -16,7 +16,7 @@ function runATest {
 		echo "Test failed - config key was empty"
 		((failedTests++))
 	else
-		testResult=$( { cat $resultsFile && echo "<?php echo $testValue ?>" ;}  | php )
+		testResult=$( { cat $resultsFile && echo "<?php echo $configKey ?>" ;}  | php )
 		if [[ $testResult == $testValue ]]; then
 			echo "Success - "$configKey" result is $testResult"
 		else 
