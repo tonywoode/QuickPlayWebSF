@@ -32,8 +32,9 @@ if [[  "x$1" = "x" ]]; then
 else
 	# it could be this without actually using a variable
 	# perl -p -i -e "s/\\\$wgDBadminuser[ ]*=[ ]*\'.*\';//" ../../secretsTest/atest
-	# but seeing as we are, and seeing as we dont want to escape our \$key when we pass to this, we need to 
-	perl -p -i -e "s/(\\$1[ ]*=[ ]*\').*\';/\1$2\';/" $3
+	# but seeing as we are, and seeing as we dont want to escape our \$key when we pass to this, we need to
+	perl -p -i -e "s/(\\$1[ ]*=[ ]*[\'\"]).*([\'\"]);/\1$2\2;/" $3
+ # the capturing groups cope with single or double quotes	
 fi
 }
 

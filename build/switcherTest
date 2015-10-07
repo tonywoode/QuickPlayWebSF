@@ -38,6 +38,14 @@ fi
 # Run tests
 echo "Test Batch 1 - replace AdminSettings.php"
 runATest '$wgDBadminpassword' 
+runATest '$wgDBadminuser'
+
+echo "Test Batch 2 - replace LocalSettings.php"
+runATest '$wgDBserver'
+runATest '$wgDBname'
+runATest '$wgDBuser'
+runATest '$wgDBpassword'
+runATest '$wgDBprefix'
 
 # After
 if (( failedTests > 0 )); then 
