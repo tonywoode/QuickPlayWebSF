@@ -23,7 +23,7 @@ function timer {
 		done
 }
 
-
+# 
 function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
 echo "Making value for the key $1 be $2 in $3"
 if [[  "x$1" = "x" ]]; then 
@@ -41,6 +41,11 @@ else
 fi
 }
 
+
+function replacePHPConstant { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
+echo "Making value for the key $1 be $2 in $3"
+perl -p -i -e "s/(define\(\'$1\'[ ]*,[ ]*)(['\"]*)[^\'\"]*['\"]*\);/\1\2$2\2\);/" $3
+}
 
 function replacePHPDBConfig { #formal params $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
 filesToReplace=()

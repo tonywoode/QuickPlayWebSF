@@ -9,9 +9,30 @@ testValue="testValue"
 testFile="../../secrets/secretsRegexTestFile"
 resultsFile="${testFile}Result"
 
-function runATest {
+function runAPHPVariableTest {
 	configKey="$1"
 	replacePHPConfig "$configKey" "$testValue" "$resultsFile"
+	if (($?==1)); then	
+		echo "Test failed - config key was empty"
+		((failedTests++))
+	else
+		testResult=$( { 
+			cat $resultsFile && 
+			echo "<?php echo $configKey ?>"	
+		} | sed s/this-\>// | php ) # take out object context in php var names, in order to test
+		if [[ $testResult == $testValue ]]; then
+			echo "Success - "$configKey" result is $testResult"
+		else 
+			echo "Failiure - "$configKey" test result is $testResult"
+			((failedTests++))
+		fi
+	fi
+}
+
+
+function runAPHPConstantTest {
+	configKey="$1"
+	replacePHPConstant "$configKey" "$testValue" "$resultsFile"
 	if (($?==1)); then	
 		echo "Test failed - config key was empty"
 		((failedTests++))
@@ -40,22 +61,29 @@ fi
 
 # Run tests
 echo "Test Batch 1 - replace AdminSettings.php"
-runATest '$wgDBadminpassword' 
-runATest '$wgDBadminuser'
+runAPHPVariableTest '$wgDBadminpassword' 
+runAPHPVariableTest '$wgDBadminuser'
 
 echo "Test Batch 2 - replace LocalSettings.php"
-runATest '$wgDBserver'
-runATest '$wgDBname'
-runATest '$wgDBuser'
-runATest '$wgDBpassword'
-runATest '$wgDBprefix'
+runAPHPVariableTest '$wgDBserver'
+runAPHPVariableTest '$wgDBname'
+runAPHPVariableTest '$wgDBuser'
+runAPHPVariableTest '$wgDBpassword'
+runAPHPVariableTest '$wgDBprefix'
 
-echo "Test Batch 2 - replace Class.database.php"
-runATest '$this->dbhost'
-runATest '$this->dbport'
-runATest '$this->dbusername'
-runATest '$this->dbpassword'
-runATest '$this->dbname'
+echo "Test Batch 3 - replace Class.database.php"
+runAPHPVariableTest '$this->dbhost'
+runAPHPVariableTest '$this->dbport'
+runAPHPVariableTest '$this->dbusername'
+runAPHPVariableTest '$this->dbpassword'
+runAPHPVariableTest '$this->dbname'
+
+
+echo "Test Batch 4 - replace wp-config/php"
+runAPHPConstantTest 'DB_NAME'
+runAPHPConstantTest 'DB_USER'
+runAPHPConstantTest 'DB_PASSWORD'
+runAPHPConstantTest 'DB_HOST'
 
 # After
 if (( failedTests > 0 )); then 
