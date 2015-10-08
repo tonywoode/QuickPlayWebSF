@@ -10,28 +10,32 @@ resultsFile="${secretsDir}${testFile}Result"
 . switcher
 
 let failedTests=0
-defaultTestValue="testValue"
-testValue=$defaultTestValue
+defaultTestValue="intendedValue"
+intendedValue=$defaultTestValue
 
 function getAPHPConfigValue {
-	echo $( { cat $resultsFile && echo "<?php echo $1 ?>"; }	| sed s/this-\>// | php ) 
+	fileToScan=$1
+	keyToFind=$2
+	echo $( { cat $fileToScan && echo "<?php echo $keyToFind ?>"; }	| sed s/this-\>// | php ) 
 	# the sed takes out object context in php var names, in order to test
 }
 
 function testAConfigReplacement {
-	testResult=$(getAPHPConfigValue $configKey)
-		if [[ $testResult == $testValue ]]; then
+	testResult=$(getAPHPConfigValue "$resultsFile" "$keyToRead")
+		if [[ $testResult == $intendedValue ]]; then
 			echo "Success" 
 		else 
 			echo "Failiure"
 			((failedTests++))
 		fi
-		echo "$configKey test result is $testResult"
+		echo "$keyToRead test result is $testResult"
 }
 
 function runAPHPVariableTest {
-	configKey="$1"
-	replacePHPConfig "$configKey" "$testValue" "$resultsFile"
+	keyToRead="$1"
+	valueToWrite="$2"
+	outputFile="$3"
+	replacePHPConfig "$keyToRead" "$valueToWrite" "$outputFile"
 	if (($?==1)); then	
 		echo "Test failed - config key was empty"
 		((failedTests++))
@@ -41,8 +45,10 @@ function runAPHPVariableTest {
 }
 
 function runAPHPConstantTest {
-	configKey="$1"
-	replacePHPConstant "$configKey" "$testValue" "$resultsFile"
+	keyToRead="$1"
+	valueToWrite="$2"
+	outputFile="$3"
+	replacePHPConstant "$keyToRead" "$valueToWrite" "$outputFile"
 	if (($?==1)); then	
 		echo "Test failed - config key was empty"
 		((failedTests++))
@@ -62,42 +68,60 @@ fi
 
 # Run tests
 echo "Test Batch 1 - replace AdminSettings.php"
-runAPHPVariableTest '$wgDBadminpassword' 
-runAPHPVariableTest '$wgDBadminuser'
+runAPHPVariableTest '$wgDBadminpassword' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$wgDBadminuser' "$intendedValue" "$resultsFile" 
 
 echo "Test Batch 2 - replace LocalSettings.php"
-runAPHPVariableTest '$wgDBserver'
-runAPHPVariableTest '$wgDBname'
-runAPHPVariableTest '$wgDBuser'
-runAPHPVariableTest '$wgDBpassword'
-runAPHPVariableTest '$wgDBprefix'
+runAPHPVariableTest '$wgDBserver' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$wgDBname' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$wgDBuser' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$wgDBpassword' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$wgDBprefix' "$intendedValue" "$resultsFile" 
 
 echo "Test Batch 3 - replace Class.database.php"
-runAPHPVariableTest '$this->dbhost'
-runAPHPVariableTest '$this->dbport'
-runAPHPVariableTest '$this->dbusername'
-runAPHPVariableTest '$this->dbpassword'
-runAPHPVariableTest '$this->dbname'
+runAPHPVariableTest '$this->dbhost' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$this->dbport' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$this->dbusername' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$this->dbpassword' "$intendedValue" "$resultsFile" 
+runAPHPVariableTest '$this->dbname' "$intendedValue" "$resultsFile" 
 
 echo "Test Batch 4 - replace wp-config/php"
-runAPHPConstantTest 'DB_NAME'
-runAPHPConstantTest 'DB_USER'
-runAPHPConstantTest 'DB_PASSWORD'
-runAPHPConstantTest 'DB_HOST'
+runAPHPConstantTest 'DB_NAME' "$intendedValue" "$resultsFile" 
+runAPHPConstantTest 'DB_USER' "$intendedValue" "$resultsFile" 
+runAPHPConstantTest 'DB_PASSWORD' "$intendedValue" "$resultsFile" 
+runAPHPConstantTest 'DB_HOST' "$intendedValue" "$resultsFile" 
 
-echo "Test Batch 5 - check dummy vars haven't been changed"
+echo "Test Batch 5- Replace with actual values from the secrets file"
+# let's start with Class.database.php
+realConfigFile="${secretsDir}live.php"
+keysToReplace=(
+'$this->dbhost'
+'$this->dbport'
+'$this->dbusername'
+'$this->dbpassword'
+'$this->dbname'
+)
+
+for key in "${keysToReplace[@]}"; do
+	thisValue=$(getAPHPConfigValue "$realConfigFile" "$key")
+	runAPHPVariableTest "$key" "$thisValue" "$resultsFile" 
+	#replacePHPConfig "$key" "$value" "$file"
+	#testAConfigReplacement
+done
+
+echo "Test Batch 6 - check dummy vars haven't been changed"
 resultExpectedFromTestVar="bwahha"
-testValue=$resultExpectedFromTestVar # remember to rest testValue to default at the end of this batch
-configKey='$wgDBRandomString'; 
+intendedValue=$resultExpectedFromTestVar # remember to rest intendedValue to default at the end of this batch
+keyToRead='$wgDBRandomString'; 
 testAConfigReplacement
 
 #test the constant too
-configKey='DB_RANDOM'; 
+keyToRead='DB_RANDOM'; 
 resultExpectedFromTestConst='mypass'
-testValue=$resultExpectedFromTestConst
+intendedValue=$resultExpectedFromTestConst
 testAConfigReplacement
-#reset testValue
-testValue=$defaultTestValue
+#reset intendedValue
+intendedValue=$defaultTestValue
 
 # After
 echo "**********FINISHED***********"

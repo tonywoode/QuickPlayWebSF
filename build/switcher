@@ -55,11 +55,10 @@ function replacePHPConfigSecrets { #formal params $dbhost $dbport $dbusername $d
 
 	valuesToReplace=(
 	'$this->dbhost'
-  $dbport
-	$dbusername
-	$dbpassword
-	$dbname
-	$wgDBadminuser
+	'$this->dbport'
+	'$this->dbusername'
+	'$this->dbpassword'
+	'$this->dbname'
 	)
 
 	# double for loop to apply - lets just search+replace all terms in all files
