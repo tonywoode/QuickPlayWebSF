@@ -10,15 +10,23 @@ resultsFile="${secretsDir}${testFile}Result"
 . switcher
 
 let failedTests=0
-testValue="testValue"
-testVar='$wgDBRandomString'
-resultExpectedFromTestVar="bwahha";
-testConst='DB_RANDOM'
-resultExpectedFromTestConst='mypass';	
+defaultTestValue="testValue"
+testValue=$defaultTestValue
 
 function getAPHPConfigValue {
 echo $( { cat $resultsFile && echo "<?php echo $1 ?>"; }	| sed s/this-\>// | php ) 
 	 # take out object context in php var names, in order to test
+}
+
+function testAConfigReplacement {
+testResult=$(getAPHPConfigValue $configKey)
+	if [[ $testResult == $testValue ]]; then
+		echo "Success" 
+	else 
+		echo "Failiure"
+		((failedTests++))
+	fi
+	echo "$configKey test result is $testResult"
 }
 
 function runAPHPVariableTest {
@@ -28,13 +36,7 @@ function runAPHPVariableTest {
 		echo "Test failed - config key was empty"
 		((failedTests++))
 	else
-		testResult=$(getAPHPConfigValue $configKey)
-		if [[ $testResult == $testValue ]]; then
-			echo "Success - "$configKey" result is $testResult"
-		else 
-			echo "Failiure - "$configKey" test result is $testResult"
-			((failedTests++))
-		fi
+		testAConfigReplacement 
 	fi
 }
 
@@ -45,13 +47,7 @@ function runAPHPConstantTest {
 		echo "Test failed - config key was empty"
 		((failedTests++))
 	else
-		testResult=$(getAPHPConfigValue $configKey)
-		if [[ $testResult == $testValue ]]; then
-			echo "Success - "$configKey" result is $testResult"
-		else 
-			echo "Failiure - "$configKey" test result is $testResult"
-			((failedTests++))
-		fi
+		testAConfigReplacement
 	fi
 }
 
@@ -90,19 +86,25 @@ runAPHPConstantTest 'DB_PASSWORD'
 runAPHPConstantTest 'DB_HOST'
 
 echo "Test Batch 5 - check dummy vars haven't been changed"
-testVarResult=$(getAPHPConfigValue $testVar)
-echo "test var result is $testVarResult"
-if [[ $testVarResult == $resultExpectedFromTestVar ]]; then
-	echo "Success - "$testVar" result is $resultExpectedFromTestVar"
-else 
-	echo "Failiure - "$testVar" test result is $resultExpectedFromTestVar"
-	((failedTests++))
-fi
+resultExpectedFromTestVar="bwahha"
+testValue=$resultExpectedFromTestVar # remember to rest testValue to default at the end of this batch
+configKey='$wgDBRandomString'; 
+testAConfigReplacement
+
+#test the constant too
+configKey='DB_RANDOM'; 
+resultExpectedFromTestConst='mypass'
+testValue=$resultExpectedFromTestConst
+testAConfigReplacement
+#reset testValue
+testValue=$defaultTestValue
 
 # After
+echo "**********FINISHED**********"
 if (( failedTests > 0 )); then 
 	echo "Problems found - number of failed tests is $failedTests, investigate"
 else
 	echo "All tests seemed to pass"
 fi
+echo "check $resultsFile for output" 
 
