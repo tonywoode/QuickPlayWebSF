@@ -2,8 +2,9 @@
 secretsDir="../../secrets/"
 configFile="${secretsDir}local.cfg"
 # test files will live in serets dir
-testFile="${secretsDir}secretsRegexTestFile"
-resultsFile="${testFile}Result"
+testFile="secretsRegexTestFile"
+# don't allow results file to enter the repo
+resultsFile="${secretsDir}${testFile}Result"
 
 . $configFile
 . switcher
