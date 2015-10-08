@@ -1,13 +1,21 @@
 #!/bin/bash
+# test files will live in serets dir
+testFile="${secretsDir}secretsRegexTestFile"
+resultsFile="${testFile}Result"
 
 . switcher
 
 let failedTests=0
 testValue="testValue"
+testVar='$wgDBRandomString'
+resultExpectedFromTestVar="bwahha";
+testConst='DB_RANDOM'
+resultExpectedFromTestConst='mypass';	
 
-# test files will live in serets dir
-testFile="../../secrets/secretsRegexTestFile"
-resultsFile="${testFile}Result"
+function getAPHPConfigValue {
+echo $( { cat $resultsFile && echo "<?php echo $1 ?>"; }	| sed s/this-\>// | php ) 
+	 # take out object context in php var names, in order to test
+}
 
 function runAPHPVariableTest {
 	configKey="$1"
@@ -16,10 +24,7 @@ function runAPHPVariableTest {
 		echo "Test failed - config key was empty"
 		((failedTests++))
 	else
-		testResult=$( { 
-			cat $resultsFile && 
-			echo "<?php echo $configKey ?>"	
-		} | sed s/this-\>// | php ) # take out object context in php var names, in order to test
+		testResult=$(getAPHPConfigValue $configKey)
 		if [[ $testResult == $testValue ]]; then
 			echo "Success - "$configKey" result is $testResult"
 		else 
@@ -29,7 +34,6 @@ function runAPHPVariableTest {
 	fi
 }
 
-
 function runAPHPConstantTest {
 	configKey="$1"
 	replacePHPConstant "$configKey" "$testValue" "$resultsFile"
@@ -37,10 +41,7 @@ function runAPHPConstantTest {
 		echo "Test failed - config key was empty"
 		((failedTests++))
 	else
-		testResult=$( { 
-			cat $resultsFile && 
-			echo "<?php echo $configKey ?>"	
-		} | sed s/this-\>// | php ) # take out object context in php var names, in order to test
+		testResult=$(getAPHPConfigValue $configKey)
 		if [[ $testResult == $testValue ]]; then
 			echo "Success - "$configKey" result is $testResult"
 		else 
