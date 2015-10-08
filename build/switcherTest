@@ -1,8 +1,11 @@
 #!/bin/bash
+secretsDir="../../secrets/"
+configFile="${secretsDir}local.cfg"
 # test files will live in serets dir
 testFile="${secretsDir}secretsRegexTestFile"
 resultsFile="${testFile}Result"
 
+. $configFile
 . switcher
 
 let failedTests=0
@@ -79,12 +82,21 @@ runAPHPVariableTest '$this->dbusername'
 runAPHPVariableTest '$this->dbpassword'
 runAPHPVariableTest '$this->dbname'
 
-
 echo "Test Batch 4 - replace wp-config/php"
 runAPHPConstantTest 'DB_NAME'
 runAPHPConstantTest 'DB_USER'
 runAPHPConstantTest 'DB_PASSWORD'
 runAPHPConstantTest 'DB_HOST'
+
+echo "Test Batch 5 - check dummy vars haven't been changed"
+testVarResult=$(getAPHPConfigValue $testVar)
+echo "test var result is $testVarResult"
+if [[ $testVarResult == $resultExpectedFromTestVar ]]; then
+	echo "Success - "$testVar" result is $resultExpectedFromTestVar"
+else 
+	echo "Failiure - "$testVar" test result is $resultExpectedFromTestVar"
+	((failedTests++))
+fi
 
 # After
 if (( failedTests > 0 )); then 
