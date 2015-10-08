@@ -14,19 +14,19 @@ defaultTestValue="testValue"
 testValue=$defaultTestValue
 
 function getAPHPConfigValue {
-echo $( { cat $resultsFile && echo "<?php echo $1 ?>"; }	| sed s/this-\>// | php ) 
-	 # take out object context in php var names, in order to test
+	echo $( { cat $resultsFile && echo "<?php echo $1 ?>"; }	| sed s/this-\>// | php ) 
+	# the sed takes out object context in php var names, in order to test
 }
 
 function testAConfigReplacement {
-testResult=$(getAPHPConfigValue $configKey)
-	if [[ $testResult == $testValue ]]; then
-		echo "Success" 
-	else 
-		echo "Failiure"
-		((failedTests++))
-	fi
-	echo "$configKey test result is $testResult"
+	testResult=$(getAPHPConfigValue $configKey)
+		if [[ $testResult == $testValue ]]; then
+			echo "Success" 
+		else 
+			echo "Failiure"
+			((failedTests++))
+		fi
+		echo "$configKey test result is $testResult"
 }
 
 function runAPHPVariableTest {
@@ -100,11 +100,11 @@ testAConfigReplacement
 testValue=$defaultTestValue
 
 # After
-echo "**********FINISHED**********"
+echo "**********FINISHED***********"
 if (( failedTests > 0 )); then 
 	echo "Problems found - number of failed tests is $failedTests, investigate"
 else
-	echo "All tests seemed to pass"
+	echo "All tests seemed to pass ok"
 fi
 echo "check $resultsFile for output" 
-
+echo "*****************************"
