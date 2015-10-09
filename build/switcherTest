@@ -17,7 +17,7 @@ function getAPHPConfigValue {
 	fileToScan=$1
 	keyToFind=$2
 	echo $( { cat $fileToScan && echo "<?php echo $keyToFind ?>"; }	| sed s/this-\>// | php ) 
-	# the sed takes out object context in php var names, in order to test
+	# sed takes out object context in php var names, else php refuses to parse the variable when not in object context 
 }
 
 function testAConfigReplacement {
@@ -28,7 +28,7 @@ function testAConfigReplacement {
 			echo "Failiure"
 			((failedTests++))
 		fi
-		echo "$keyToRead test result is $testResult"
+		echo "$keyToRead result= $testResult, wanted=  $intendedValue"
 }
 
 function runAPHPVariableTest {
@@ -82,12 +82,13 @@ realConfigFile="${secretsDir}live.php"
 keysToReplace=('$this->dbhost' '$this->dbport' '$this->dbusername' '$this->dbpassword' '$this->dbname')
 for key in "${keysToReplace[@]}"; do
 	thisValue=$(getAPHPConfigValue "$realConfigFile" "$key")
+	intendedValue="$thisValue"
 	runAPHPVariableTest "$key" "$thisValue" "$resultsFile" 
 done
 
 echo "Test Batch 6 - check dummy vars haven't been changed"
 resultExpectedFromTestVar="bwahha"
-intendedValue=$resultExpectedFromTestVar # remember to rest intendedValue to default at the end of this batch
+intendedValue=$resultExpectedFromTestVar # NB: intendedValue has now changed 
 keyToRead='$wgDBRandomString'; 
 testAConfigReplacement
 
@@ -96,8 +97,6 @@ keyToRead='DB_RANDOM';
 resultExpectedFromTestConst='mypass'
 intendedValue=$resultExpectedFromTestConst
 testAConfigReplacement
-#reset intendedValue
-intendedValue=$defaultTestValue
 
 # After
 echo "**********FINISHED***********"
