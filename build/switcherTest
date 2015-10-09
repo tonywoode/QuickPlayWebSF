@@ -44,17 +44,10 @@ function runAPHPVariableTest {
 	fi
 }
 
-function runAPHPConstantTest {
-	keyToRead="$1"
-	valueToWrite="$2"
-	outputFile="$3"
-	replacePHPConstant "$keyToRead" "$valueToWrite" "$outputFile"
-	if (($?==1)); then	
-		echo "Test failed - config key was empty"
-		((failedTests++))
-	else
-		testAConfigReplacement
-	fi
+function runABatch {
+	for key in "${keys[@]}"; do
+		runAPHPVariableTest "$key" "$intendedValue" "$resultsFile" 
+	done
 }
 
 # Before
@@ -69,33 +62,24 @@ fi
 # Run tests
 echo "Test Batch 1 - replace AdminSettings.php"
 keys=('$wgDBadminpassword' '$wgDBadminuser')
-for key in "${keys[@]}"; do
-	runAPHPVariableTest "$key" "$intendedValue" "$resultsFile" 
-done
+runABatch
 
 echo "Test Batch 2 - replace LocalSettings.php"
 keys=('$wgDBserver' '$wgDBname' '$wgDBuser' '$wgDBpassword' '$wgDBprefix')
-for key in "${keys[@]}"; do
-	runAPHPVariableTest "$key" "$intendedValue" "$resultsFile" 
-done
+runABatch
 
 echo "Test Batch 3 - replace Class.database.php"
 keys=('$this->dbhost' '$this->dbport' '$this->dbusername' '$this->dbpassword' '$this->dbname')
-for key in "${keys[@]}"; do
-	runAPHPVariableTest "$key" "$intendedValue" "$resultsFile" 
-done
+runABatch
 
 echo "Test Batch 4 - replace wp-config/php"
 keys=('DB_NAME' 'DB_USER' 'DB_PASSWORD' 'DB_HOST') 
-for key in "${keys[@]}"; do
-	runAPHPVariableTest "$key" "$intendedValue" "$resultsFile" 
-done
+runABatch
 
 echo "Test Batch 5- Replace with actual values from the secrets file"
 # let's start with Class.database.php
 realConfigFile="${secretsDir}live.php"
 keysToReplace=('$this->dbhost' '$this->dbport' '$this->dbusername' '$this->dbpassword' '$this->dbname')
-
 for key in "${keysToReplace[@]}"; do
 	thisValue=$(getAPHPConfigValue "$realConfigFile" "$key")
 	runAPHPVariableTest "$key" "$thisValue" "$resultsFile" 
