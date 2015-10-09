@@ -1,28 +1,27 @@
 #!/bin/bash
 secretsDir="../../secrets/"
-configFile="${secretsDir}local.cfg"
 # test files will live in serets dir
 testFile="secretsRegexTestFile"
 # don't allow results file to enter the repo
 resultsFile="${secretsDir}${testFile}Result"
 
-. $configFile
+# class under test
 . switcher
 
 let failedTests=0
 defaultTestValue="intendedValue"
-intendedValue=$defaultTestValue
+intendedValue="$defaultTestValue"
 
 function getAPHPConfigValue {
 	fileToScan=$1
 	keyToFind=$2
-	echo $( { cat $fileToScan && echo "<?php echo $keyToFind ?>"; }	| sed s/this-\>// | php ) 
+	echo $( { cat "$fileToScan" && echo "<?php echo "$keyToFind" ?>"; }	| sed "s/this-\>//" | php ) 
 	# sed takes out object context in php var names, else php refuses to parse the variable when not in object context 
 }
 
 function testAConfigReplacement {
 	testResult=$(getAPHPConfigValue "$resultsFile" "$keyToRead")
-		if [[ $testResult == $intendedValue ]]; then
+		if [[ "$testResult" == "$intendedValue" ]]; then
 			echo "Success" 
 		else 
 			echo "Failiure"
@@ -79,8 +78,8 @@ runABatch
 echo "Test Batch 5- Replace with actual values from the secrets file"
 # let's start with Class.database.php
 realConfigFile="${secretsDir}live.php"
-keysToReplace=('$this->dbhost' '$this->dbport' '$this->dbusername' '$this->dbpassword' '$this->dbname')
-for key in "${keysToReplace[@]}"; do
+keys=('$this->dbhost' '$this->dbport' '$this->dbusername' '$this->dbpassword' '$this->dbname')
+for key in "${keys[@]}"; do
 	thisValue=$(getAPHPConfigValue "$realConfigFile" "$key")
 	intendedValue="$thisValue"
 	runAPHPVariableTest "$key" "$thisValue" "$resultsFile" 

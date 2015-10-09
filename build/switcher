@@ -28,16 +28,21 @@ function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=th
 		echo "config key is empty"
 		return 1
 	else
+		# replace any standard php vars
+		
+		#		*		double \\ before $1 is because $1 is "$variable". Dont want to escape our \$key when we pass to
+		#		*		basically: key[some space]=[some space][maybe a ' or "]value[that ' or " we might have had];
+		#		*		but we must define "value" as NOT including [maybe a ' or "]
+		
+		perl -p -i -e "s/(\\$1[ ]*=[ ]*)(['\"]*)[^'\";]*\2;/\1\2\E$2\2;/" "$3"
+		
+		#		*		using the \2 early ensures we dont end up with ''value as the replacement
+		#		*		\E is interesting. Its supposed to escape a quotemeta group, but serves as a 
+		#					way of stopping \2[0-9]{2} from being interpreted as an octal escape rather than a 
+		#					backreference. \Q \E wasn't working as it was causing other special chars (-) to \ escape
+
 	# replace any constants
-		perl -p -i -e "s/(^define\(\'$1\'[ ]*,[ ]*)(['\"]*)[^\'\"]*\2\);/\1\2$2\2);/" $3
-	# and repalce any standard php vars
-	# re: the double \\ before the $1 - its because we're passing "$variables". if we weren't we could: 
-	# perl -p -i -e "s/\\\$wgDBadminuser[ ]*=[ ]*\'.*\';//" ../../secretsTest/atest
-	# but seeing as we are, and seeing as we dont want to escape our \$key when we pass to this, we need to
-		perl -p -i -e "s/(\\$1[ ]*=[ ]*)([\'\"]*)[^\'\";]*\2;/\1\2$2\2;/" $3
-	# The basic thing is: key[some space]=[some space][maybe a ' or "]value[that ' or " we might have had];
-	# but we must define a value as NOT including [maybe a ' or "]
-	# using the \2 early ensures we dont end up with ''value as the replacement
+		perl -p -i -e "s/(^define\(\'$1\'[ ]*,[ ]*)(['\"]*)[^\'\"]*\2\);/\1\2\E$2\2);/" "$3"
 	fi
 }
 
