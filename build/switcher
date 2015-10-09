@@ -28,20 +28,17 @@ function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=th
 		echo "config key is empty"
 		return 1
 	else
-	# it could be this without actually using a variable
+	# replace any constants
+		perl -p -i -e "s/(^define\(\'$1\'[ ]*,[ ]*)(['\"]*)[^\'\"]*\2\);/\1\2$2\2);/" $3
+	# and repalce any standard php vars
+	# re: the double \\ before the $1 - its because we're passing "$variables". if we weren't we could: 
 	# perl -p -i -e "s/\\\$wgDBadminuser[ ]*=[ ]*\'.*\';//" ../../secretsTest/atest
 	# but seeing as we are, and seeing as we dont want to escape our \$key when we pass to this, we need to
-	perl -p -i -e "s/(\\$1[ ]*=[ ]*)([\'\"]*)[^\'\";]*\2;/\1\2$2\2;/" $3
-	# The basic thing is:
-	# key[some space]=[some space][maybe a ' or "]value[that ' or " we might have had];
-	# but we must catch value as NOT including [maybe a ' or "]
+		perl -p -i -e "s/(\\$1[ ]*=[ ]*)([\'\"]*)[^\'\";]*\2;/\1\2$2\2;/" $3
+	# The basic thing is: key[some space]=[some space][maybe a ' or "]value[that ' or " we might have had];
+	# but we must define a value as NOT including [maybe a ' or "]
 	# using the \2 early ensures we dont end up with ''value as the replacement
 	fi
-}
-
-function replacePHPConstant { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
-	echo "Making value for the key $1 be $2 in $3"
-	perl -p -i -e "s/(define\(\'$1\'[ ]*,[ ]*)(['\"]*)[^\'\"]*\2\);/\1\2$2\2);/" $3
 }
 
 function replacePHPConfigSecrets { #formal params $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
