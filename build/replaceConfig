@@ -1,0 +1,76 @@
+#! /bin/bash 
+secretsDir="../../secrets/"
+
+function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
+	echo "Making value for the key $1 be $2 in $3"
+	if [[  "x$1" = "x" ]]; then 
+		echo "config key is empty"
+		return 1
+	else
+		# replace any standard php vars
+		
+		#		*		double \\ before $1 is because $1 is "$variable". Dont want to escape our \$key when we pass to
+		#		*		basically: key[some space]=[some space][maybe a ' or "]value[that ' or " we might have had];
+		#		*		but we must define "value" as NOT including [maybe a ' or "]
+		
+		perl -p -i -e "s/(\\$1[ ]*=[ ]*)(['\"]*)[^'\";]*\2;/\1\2\E$2\2;/" "$3"
+		
+		#		*		using the \2 early ensures we dont end up with ''value as the replacement
+		#		*		\E is interesting. Its supposed to escape a quotemeta group, but serves as a 
+		#					way of stopping \2[0-9]{2} from being interpreted as an octal escape rather than a 
+		#					backreference. \Q \E wasn't working as it was causing other special chars (-) to \ escape
+
+	# replace any constants
+		perl -p -i -e "s/(^define\(\'$1\'[ ]*,[ ]*)(['\"]*)[^\'\"]*\2\);/\1\2\E$2\2);/" "$3"
+	fi
+}
+
+function getAPHPConfigValue {
+  fileToScan=$1
+	keyToFind=$2
+	echo $( { cat "$fileToScan" && echo "<?php echo "$keyToFind" ?>"; } | sed "s/this-\>//" | php )
+	# sed takes out object context in php var names, else php refuses to parse the variable when not in object context
+}
+
+function replaceConfigInFiles { #formal params $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
+	replaceValue="testing"
+	filesToReplace=(
+	"../includes/class.database.php"
+	#"../wiki/AdminSettings.php"
+	#"../wiki/LocalSettings.php"
+	#"../blog/wp-config.php"
+	)
+
+	keys=(
+	'$this->dbhost'
+	'$this->dbport'
+	'$this->dbusername'
+	'$this->dbpassword'
+	'$this->dbname'
+	)
+
+	# double for loop to apply - lets just search+replace all terms in all files
+	for outputFile in "${filesToReplace[@]}"; do
+		for key in "${keys[@]}"; do
+			valueToWrite=$(getAPHPConfigValue "$secretsFile" "$key")
+			replacePHPConfig "$key" "$ValueToWrite" "$outputFile"
+		done
+	done
+}
+
+function replacePHPConfigSecrets {
+if [[ "$1"="live" ]]; then
+	secretsFile="${secretsDir}live.php" 
+	replaceConfigInFiles
+	fi
+
+if [[ "$1"="local" ]]; then
+	secretsFile="${secretsDir}local.php" 
+	replaceConfigInFiles
+	fi
+
+if [[ "$1"="blank" ]]; then
+	secretsFile="${secretsDir}blank.php" 
+	replaceConfigInFiles
+	fi
+}

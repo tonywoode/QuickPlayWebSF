@@ -3,10 +3,12 @@
 # basic build system for editing. creds are kept above repo. 
 # No flags gets us blank configs for repo
 
+. replaceConfig
+
 function blankem {
 	echo "secrets blanked"
 	# the callsite here uses the values that have been included to pass the real connection values in
-	replacePHPConfigSecrets "" "" "" "" "" ""
+	replacePHPConfigSecrets blank
 	#cp $pathToSecrets/class.database_blank.php ../includes/class.database.php
 	#cp $pathToSecrets/AdminSettings_blank.php ../wiki/AdminSettings.php
 	#cp $pathToSecrets/LocalSettings_blank.php ../wiki/LocalSettings.php
@@ -21,61 +23,6 @@ function timer {
     		SECS=$[$SECS-1]
 		done
 }
-
-function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
-	echo "Making value for the key $1 be $2 in $3"
-	if [[  "x$1" = "x" ]]; then 
-		echo "config key is empty"
-		return 1
-	else
-		# replace any standard php vars
-		
-		#		*		double \\ before $1 is because $1 is "$variable". Dont want to escape our \$key when we pass to
-		#		*		basically: key[some space]=[some space][maybe a ' or "]value[that ' or " we might have had];
-		#		*		but we must define "value" as NOT including [maybe a ' or "]
-		
-		perl -p -i -e "s/(\\$1[ ]*=[ ]*)(['\"]*)[^'\";]*\2;/\1\2\E$2\2;/" "$3"
-		
-		#		*		using the \2 early ensures we dont end up with ''value as the replacement
-		#		*		\E is interesting. Its supposed to escape a quotemeta group, but serves as a 
-		#					way of stopping \2[0-9]{2} from being interpreted as an octal escape rather than a 
-		#					backreference. \Q \E wasn't working as it was causing other special chars (-) to \ escape
-
-	# replace any constants
-		perl -p -i -e "s/(^define\(\'$1\'[ ]*,[ ]*)(['\"]*)[^\'\"]*\2\);/\1\2\E$2\2);/" "$3"
-	fi
-}
-
-function replacePHPConfigSecrets { #formal params $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
-	replaceValue="testing"
-	filesToReplace=(
-	"../includes/class.database.php"
-	#"../wiki/AdminSettings.php"
-	#"../wiki/LocalSettings.php"
-	#"../blog/wp-config.php"
-	)
-
-	valuesToReplace=(
-	'$this->dbhost'
-	'$this->dbport'
-	'$this->dbusername'
-	'$this->dbpassword'
-	'$this->dbname'
-	)
-
-	# double for loop to apply - lets just search+replace all terms in all files
-	for file in "${filesToReplace[@]}"; do
-		for value in "${valuesToReplace[@]}"; do
-			replacePHPConfig "$value" "$replaceValue" "$file"
-		done
-	done
-}
-
-#	replace "\$this-\>dbhost \= \"\"; "	with  "\$this-\>dbhost \= \"$dbhost\"; "	 
-#	replace	"\$this-\>dbport \= ; " with "\$this-\>dbport \= $dbport; "	
-#	replace "\$this-\>dbusername \= \"\"; " with "\$this-\>dbusername \= \"$dbusername\"; "		
-#	replace	"\$this-\>dbpassword \= \"\"; " with "\$this-\>dbpassword \= \"$dbpassword\"; "		
-#	replace	"\$this-\>dbname \= \"\"; " with 	"\$this-\>dbname \= \"$dbname\"; "	
 
 function exportSQL {
 	echo "exportSQL selected"
@@ -155,7 +102,7 @@ elif [[ "$1" = "--live" ]]; then
 	echo "changing the config files to the live versions"
 	. $pathToSecrets/live.cfg
 	# the callsite here uses the values that have been included to pass the real connection values in
-	replacePHPConfigSecrets $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
+	replacePHPConfigSecrets live 
 	#cp $pathToSecrets/class.database.php ../includes/class.database.php
 	#cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
 	#cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
