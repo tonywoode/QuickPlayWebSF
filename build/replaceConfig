@@ -35,20 +35,35 @@ function getAPHPConfigValue {
 
 function getConfigKeysToChange {
 	keys=(
-	'$this->dbhost'
-	'$this->dbport'
-	'$this->dbusername'
-	'$this->dbpassword'
-	'$this->dbname'
+		#AdminSettings.php
+		'$wgDBadminpassword'
+		'$wgDBadminuser'
+		#Local Settings.php
+		'$wgDBserver'
+		'$wgDBname' 
+		'$wgDBuser' 
+		'$wgDBpassword' 
+		'$wgDBprefix'  
+		#Class.database.php
+		'$this->dbhost'
+		'$this->dbport'
+		'$this->dbusername'
+		'$this->dbpassword'
+		'$this->dbname'
+		#wp-config.php
+		'DB_NAME'
+		'DB_USER'
+		'DB_PASSWORD'
+		'DB_HOST'
 	)
 }
 
 function replaceConfigInFiles { 
 	filesToReplace=(
 	"../includes/class.database.php"
-	#"../wiki/AdminSettings.php"
-	#"../wiki/LocalSettings.php"
-	#"../blog/wp-config.php"
+	"../wiki/AdminSettings.php"
+	"../wiki/LocalSettings.php"
+	"../blog/wp-config.php"
 	)
 
 	getConfigKeysToChange

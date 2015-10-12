@@ -6,13 +6,7 @@
 . replaceConfig
 
 function blankem {
-	echo "secrets blanked"
-	# the callsite here uses the values that have been included to pass the real connection values in
-	replacePHPConfigSecrets "blank" 
-	#cp $pathToSecrets/class.database_blank.php ../includes/class.database.php
-	#cp $pathToSecrets/AdminSettings_blank.php ../wiki/AdminSettings.php
-	#cp $pathToSecrets/LocalSettings_blank.php ../wiki/LocalSettings.php
-	#cp $pathToSecrets/wp-config_blank.php ../blog/wp-config.php
+	replacePHPConfigSecrets "blank" && echo "secrets blanked"
 }
 
 function timer {
@@ -43,14 +37,7 @@ function createLoginShell {
 
 if [[ "$1" = "--local" ]]; then
 	echo "entering command line"
-	. $pathToSecrets/local.cfg
-	# the callsite here uses the values that have been included to pass the real connection values in
 	replacePHPConfigSecrets "local" 
-	
-	#cp $pathToSecrets/class.database_local.php ../includes/class.database.php
-	#cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
-	#cp $pathToSecrets/LocalSettings_local.php ../wiki/LocalSettings.php
-	#cp $pathToSecrets/wp-config_local.php ../blog/wp-config.php
 	$MAMPDir/bin/start.sh
 	open $MAMPDir/MAMP.app --args -AppCommandLineArg
 	echo "******************************************************"
@@ -68,10 +55,10 @@ elif [[ "$1" = "--releaseFile" ]]; then
 	echo "making the remote folder $folder and uploading $localZipFile to it"
   rsync -P -e ssh "$localZipFile" "$sfFileLogin:$sfFilePath/$folder/" || { echo "some problem occurred" && exit; }
   echo done
- # now we need to set this as the default download for all platforms
- # (if we don't we'll see it as default for osx but it won't be for windows)
- # we do that on sf's allura platform like so:
- # https://sourceforge.net/p/forge/community-docs/Using%20the%20Release%20API/
+		# now we need to set this as the default download for all platforms
+		#		(if we don't we'll see it as default for osx but it won't be for windows)
+		#		we do that on sf's allura platform like so:
+		#		https://sourceforge.net/p/forge/community-docs/Using%20the%20Release%20API/
  apikey=$(cat "../../secrets/SourceForgeReleaseAPIKey.txt")
  { curl -H "Accept: application/json" -X PUT -d "default=windows&default=mac&default=linux&default=bsd&default=solaris&default=others" -d "api_key=$apikey" "$sfFileURL"; } || echo "can't set default download for all operating systems using sourceforge api"
 
@@ -80,7 +67,7 @@ elif [[ "$1" = "--versionInfo" ]]; then
 	open $MAMPDir/MAMP.app --args -AppCommandLineArg
 	echo "We'll need an sql server to save to - wait 5 secs for MAMP to startup"
 	timer
-	(node ./updateChangelogAndVersion/updateQPVersion.js) || echo "maybe you need to install node"
+	(node ./updateChangelogAndVersion/updateQPVersion.js) || echo "problem updating QP version in database"
 
 
 elif [[ "$1" = "--changelog" ]]; then
@@ -88,7 +75,7 @@ elif [[ "$1" = "--changelog" ]]; then
 	open $MAMPDir/MAMP.app --args -AppCommandLineArg
 	echo "We'll need an sql server to save to - wait 5 secs for MAMP to startup"
 	timer
-	(node ./updateChangelogAndVersion/updateChangelog.js) || echo "maybe you need to install node"	
+	(node ./updateChangelogAndVersion/updateChangelog.js) || echo "problem updating the changelog in database"	
 
 elif [[ "$1" = "--exportSQL" ]]; then
 	exportSQL
@@ -100,13 +87,7 @@ elif [[ "$1" = "--live" ]]; then
 	# first export the sql
 	exportSQL
 	echo "changing the config files to the live versions"
-	. $pathToSecrets/live.cfg
-	# the callsite here uses the values that have been included to pass the real connection values in
 	replacePHPConfigSecrets "live" 
-	#cp $pathToSecrets/class.database.php ../includes/class.database.php
-	#cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
-	#cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
-	#cp $pathToSecrets/wp-config.php ../blog/wp-config.php
 	echo "syncing the website"
 	./site
 	echo "next, syncing the database"
