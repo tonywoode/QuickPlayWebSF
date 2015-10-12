@@ -45,7 +45,7 @@ if [[ "$1" = "--local" ]]; then
 	echo "entering command line"
 	. $pathToSecrets/local.cfg
 	# the callsite here uses the values that have been included to pass the real connection values in
-	replacePHPConfigSecrets $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
+	replacePHPConfigSecrets "local" 
 	
 	#cp $pathToSecrets/class.database_local.php ../includes/class.database.php
 	#cp $pathToSecrets/AdminSettings_local.php ../wiki/AdminSettings.php
@@ -102,7 +102,7 @@ elif [[ "$1" = "--live" ]]; then
 	echo "changing the config files to the live versions"
 	. $pathToSecrets/live.cfg
 	# the callsite here uses the values that have been included to pass the real connection values in
-	replacePHPConfigSecrets live 
+	replacePHPConfigSecrets "live" 
 	#cp $pathToSecrets/class.database.php ../includes/class.database.php
 	#cp $pathToSecrets/AdminSettings.php ../wiki/AdminSettings.php
 	#cp $pathToSecrets/LocalSettings.php ../wiki/LocalSettings.php
