@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # first test to see if I remembered to unblank the secrets
-if ! diff "$secret_file_to_diff" "$secret_file_to_test"  >/dev/null ; then
+if ! diff "$secretFileToDiff" "$secretFileToTest"  >/dev/null ; then
   echo "Found some secrets...starting"
-  if grep -Fxq "localhost" "$secret_file_to_test"; then
+  if grep -Fxq "localhost" "$secretFileToTest"; then
     echo "Uhuh - you left the local creds in..."
     exit
   fi
