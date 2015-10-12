@@ -1,5 +1,4 @@
 #! /bin/bash 
-secretsDir="../../secrets/"
 
 function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
 	echo "Making value for the key $1 be $2 in $3"
@@ -64,18 +63,17 @@ function replaceConfigInFiles {
 
 function replacePHPConfigSecrets {
 if [[ "$1" == "live" ]]; then
-	secretsFile="${secretsDir}live.php" 
+	secretsFile="${pathToSecrets}/live.php" 
 	replaceConfigInFiles
 	fi
 
 if [[ "$1" == "local" ]]; then
-	secretsFile="${secretsDir}local.php" 
-	cat $secretsFile
+	secretsFile="${pathToSecrets}/local.php" 
 	replaceConfigInFiles
 	fi
 
 if [[ "$1" == "blank" ]]; then
-	secretsFile="${secretsDir}blank.php" 
+	secretsFile="${pathToSecrets}/blank.php" 
 	replaceConfigInFiles
 	fi
 }
