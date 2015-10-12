@@ -28,7 +28,8 @@ function getAPHPConfigValue {
   fileToScan=$1
 	keyToFind=$2
 	result=$( { cat "$fileToScan" && echo "<?php echo "$keyToFind" ?>"; } | sed "s/this-\>//" | php )
-	# sed takes out object context in php var names, else php refuses to parse the variable when not in object context
+	# sed takes out object context in php var names, else php refuses to parse the variable when not in object contexti
+	# TODO: parse error on no value (like DBport = ;) gets transferred as filename
 	echo $result
 }
 
@@ -74,6 +75,7 @@ if [[ "$1" == "local" ]]; then
 
 if [[ "$1" == "blank" ]]; then
 	secretsFile="${pathToSecrets}/blank.php" 
+	# don't let any value be nothing. Empty string or zero.
 	replaceConfigInFiles
 	fi
 }
