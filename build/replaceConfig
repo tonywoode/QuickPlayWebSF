@@ -1,5 +1,6 @@
 #! /bin/bash 
 
+# Physically replaces values in php config files
 function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=the value to replace between the '' $3=the file URI
 	echo "Making value for the key $1 be $2 in $3"
 	if [[  "x$1" = "x" ]]; then 
@@ -24,6 +25,7 @@ function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=th
 	fi
 }
 
+# uses PHP to scan a config key in a file for its value
 function getAPHPConfigValue {
   fileToScan=$1
 	keyToFind=$2
@@ -33,7 +35,10 @@ function getAPHPConfigValue {
 	echo $result
 }
 
+# sets the keys we want to globally change
 function getConfigKeysToChange {
+# TODO: shouldn't be passing all keys to all files
+# TODO: should be looking up the key names from the secrets file
 	keys=(
 		#AdminSettings.php
 		'$wgDBadminpassword'
@@ -58,6 +63,8 @@ function getConfigKeysToChange {
 	)
 }
 
+# sets the files to change vars in, reads secrets file for values,
+#		and loops thorugh them using the above functions to replace text
 function replaceConfigInFiles { 
 	filesToReplace=(
 	"../includes/class.database.php"
@@ -65,7 +72,8 @@ function replaceConfigInFiles {
 	"../wiki/LocalSettings.php"
 	"../blog/wp-config.php"
 	)
-
+	
+	# TODO: this was split out to do this differently later
 	getConfigKeysToChange
 	
 	# double for loop to apply - lets just search+replace all terms in all files
@@ -77,6 +85,7 @@ function replaceConfigInFiles {
 	done
 }
 
+# intended as the public function - start here....
 function replacePHPConfigSecrets {
 if [[ "$1" == "live" ]]; then
 	secretsFile="${pathToSecrets}/live.php" 
