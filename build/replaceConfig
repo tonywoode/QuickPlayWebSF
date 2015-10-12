@@ -28,19 +28,12 @@ function replacePHPConfig { #formal params $1=the config key (inlcuding $) $2=th
 function getAPHPConfigValue {
   fileToScan=$1
 	keyToFind=$2
-	echo $( { cat "$fileToScan" && echo "<?php echo "$keyToFind" ?>"; } | sed "s/this-\>//" | php )
+	result=$( { cat "$fileToScan" && echo "<?php echo "$keyToFind" ?>"; } | sed "s/this-\>//" | php )
 	# sed takes out object context in php var names, else php refuses to parse the variable when not in object context
+	echo $result
 }
 
-function replaceConfigInFiles { #formal params $dbhost $dbport $dbusername $dbpassword $dbname $wgDBadminuser 
-	replaceValue="testing"
-	filesToReplace=(
-	"../includes/class.database.php"
-	#"../wiki/AdminSettings.php"
-	#"../wiki/LocalSettings.php"
-	#"../blog/wp-config.php"
-	)
-
+function getConfigKeysToChange {
 	keys=(
 	'$this->dbhost'
 	'$this->dbport'
@@ -48,28 +41,40 @@ function replaceConfigInFiles { #formal params $dbhost $dbport $dbusername $dbpa
 	'$this->dbpassword'
 	'$this->dbname'
 	)
+}
 
+function replaceConfigInFiles { 
+	filesToReplace=(
+	"../includes/class.database.php"
+	#"../wiki/AdminSettings.php"
+	#"../wiki/LocalSettings.php"
+	#"../blog/wp-config.php"
+	)
+
+	getConfigKeysToChange
+	
 	# double for loop to apply - lets just search+replace all terms in all files
 	for outputFile in "${filesToReplace[@]}"; do
 		for key in "${keys[@]}"; do
 			valueToWrite=$(getAPHPConfigValue "$secretsFile" "$key")
-			replacePHPConfig "$key" "$ValueToWrite" "$outputFile"
+			replacePHPConfig "$key" "$valueToWrite" "$outputFile"
 		done
 	done
 }
 
 function replacePHPConfigSecrets {
-if [[ "$1"="live" ]]; then
+if [[ "$1" == "live" ]]; then
 	secretsFile="${secretsDir}live.php" 
 	replaceConfigInFiles
 	fi
 
-if [[ "$1"="local" ]]; then
+if [[ "$1" == "local" ]]; then
 	secretsFile="${secretsDir}local.php" 
+	cat $secretsFile
 	replaceConfigInFiles
 	fi
 
-if [[ "$1"="blank" ]]; then
+if [[ "$1" == "blank" ]]; then
 	secretsFile="${secretsDir}blank.php" 
 	replaceConfigInFiles
 	fi

@@ -8,7 +8,7 @@
 function blankem {
 	echo "secrets blanked"
 	# the callsite here uses the values that have been included to pass the real connection values in
-	replacePHPConfigSecrets blank
+	replacePHPConfigSecrets "blank" 
 	#cp $pathToSecrets/class.database_blank.php ../includes/class.database.php
 	#cp $pathToSecrets/AdminSettings_blank.php ../wiki/AdminSettings.php
 	#cp $pathToSecrets/LocalSettings_blank.php ../wiki/LocalSettings.php
