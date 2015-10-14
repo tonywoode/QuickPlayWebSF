@@ -11,14 +11,14 @@ declare -x secretFileToTest="../includes/class.database.php"
 declare -x secretFileToDiff="$pathToSecrets/class.database_blankToDiff.php"
 declare -x MAMPDir="/Applications/MAMP"
 declare -x mySQLDir="$MAMPDir/Library/bin"
-declare -x localPass=$( { cat $pathToSecrets/local.php && echo '<?php echo $wgDBadminpassword ?>' ;}  | php )
+declare -x localPass=$( { cat $pathToSecrets/local.php && echo '<?php echo $wgDBadminpassword ?>' ;} | sed "s/this-\>//" | php )
 
 declare -x warn="***SHUT MAMP WHEN YOU'RE DONE***"
 
 # this is about the remote database
 declare -x db="q122303_qp"
 declare -x dbuser="q122303admin"
-declare -x remotePass=$( { cat $pathToSecrets/live.php && echo '<?php echo $wgDBadminpassword ?>' ;}  | php )
+declare -x remotePass=$( { cat $pathToSecrets/live.php && echo '<?php echo $wgDBadminpassword ?>' ;} | sed "s/this-\>//" | php )
 
 #this about the remote site. (rem: the workingDir is 'hidden' from ls unless we swap to it)
 user="butter100fly"
