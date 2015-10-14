@@ -29,9 +29,10 @@ class QPDatabase{
     $this->conn = new mysqli($this->dbhost . ":" . $this->dbport, $this->dbusername, $this->dbpassword, $this->dbname);
   }
   
-	function Query($querystring, $thepage, $bindtype){
+	function Query($querystring, $thepage){
 		$stmt = $this->conn->prepare($querystring);
-		$stmt->bind_param($bindtype, $thepage);
+		if ($thepage != "") {
+		$stmt->bind_param("s", $thepage);}
 		$stmt->execute(); 
 		$result = $stmt->get_result();	
     $this->lastqueryresult = $result; 
@@ -45,17 +46,6 @@ class QPDatabase{
 			$stmt->close();
       return 1;
   }
-
- function InternalQuery($querystring){
-		$this->lastqueryresult = mysqli_query($this->conn, $querystring);
-		if ( mysqli_error($this->conn) != "" ) {
-			$this->lasterror = mysqli_error($this->conn);
-			$this->lasterrno = mysqli_errno($this->conn);
-			return 0;
-		 }
-		 else
-			 return 1;
-		 }
 
   function Num_Rows() { 
     return mysqli_num_rows($this->lastqueryresult);
@@ -97,9 +87,9 @@ class QPDatabase{
     mysqli_close($this->conn);
   }
   
-  function WikiPageExists($pagename, $type){
+  function WikiPageExists($pagename){
     $query = "SELECT p_name FROM pages WHERE p_name=(?)";
-    if ($this->Query($query, $pagename, $type) == 1){
+    if ($this->Query($query, $pagename) == 1){
       if ($this->Num_Rows() > 0)
         return true;
       else
@@ -112,9 +102,9 @@ class QPDatabase{
     
   }
   
-  function WikiGetPage($pagename, $type){
+  function WikiGetPage($pagename){
     $query = "SELECT * FROM pages WHERE p_name=(?)";
-    if ($this->Query($query, $pagename, $type) == 1){
+    if ($this->Query($query, $pagename) == 1){
       if ($this->Num_Rows() == 1){
         return $this->Fetch_Full_Array();
       }

@@ -11,7 +11,7 @@
   $auth = new Jlogin($DBo);
   
   //get current version information from database
-  $DBo->InternalQuery("SELECT version_name FROM version ORDER BY version_id DESC LIMIT 1");
+  $DBo->Query("SELECT version_name FROM version ORDER BY version_id DESC LIMIT 1","");
   while( $row = $DBo->Fetch_Array() ) {
     $config['version'] = $row['version_name'];
   }

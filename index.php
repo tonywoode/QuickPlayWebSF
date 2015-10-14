@@ -74,9 +74,9 @@ if ( $auth->IsLoggedOn() ){
     }
   else 
   {
-    if ($DBo->WikiPageExists($title, "s") == true) // Pulls pages out of database
+    if ($DBo->WikiPageExists($title) == true) // Pulls pages out of database
     {
-      $pgrec = $DBo->WikiGetPage($title, "s"); // Holds page id, name, and body
+      $pgrec = $DBo->WikiGetPage($title); // Holds page id, name, and body
       if ($pgrec != False)
       {
         $text = StripSlashes($pgrec[0]['p_body']); // For escaped characters
@@ -88,7 +88,7 @@ if ( $auth->IsLoggedOn() ){
         ob_end_clean();
         $body = $eval_buffer;
         
-        echo $body, $text, "s";//this doesn't work but has the side-effect of spitting out the db call into the page, which will help me see the problem....
+        echo $body;//change to $text to spit out the db calls made into the page
       }
       else
       {
