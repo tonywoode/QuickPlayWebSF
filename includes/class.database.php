@@ -29,10 +29,12 @@ class QPDatabase{
     $this->conn = new mysqli($this->dbhost, $this->dbusername, $this->dbpassword, $this->dbname, $this->dbport);
   }
   
-	function Query($querystring, $thepage){
+	function Query($querystring, $arg1, $arg2){
 		$stmt = $this->conn->prepare($querystring);
-		if ($thepage != "") {
-		$stmt->bind_param("s", $thepage);}
+		if ($arg1 != "" && $arg2 == "") {
+			$stmt->bind_param("s", $arg1); }
+		elseif ($arg1 != "" && $arg2 != "") {
+			$stmt->bind_param("ss", $arg1, $arg2); }
 		$stmt->execute(); 
 		$result = $stmt->get_result();	
     $this->lastqueryresult = $result; 
@@ -89,7 +91,7 @@ class QPDatabase{
   
   function WikiPageExists($pagename){
     $query = "SELECT p_name FROM pages WHERE p_name=(?)";
-    if ($this->Query($query, $pagename) == 1){
+    if ($this->Query($query, $pagename, "") == 1){
       if ($this->Num_Rows() > 0)
         return true;
       else
@@ -104,7 +106,7 @@ class QPDatabase{
   
   function WikiGetPage($pagename){
     $query = "SELECT * FROM pages WHERE p_name=(?)";
-    if ($this->Query($query, $pagename) == 1){
+    if ($this->Query($query, $pagename, "") == 1){
       if ($this->Num_Rows() == 1){
         return $this->Fetch_Full_Array();
       }
