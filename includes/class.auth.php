@@ -32,7 +32,7 @@ function clean($input, $maxlength = -1){
       if( isset($this->name) ){
 
 
-      if($db->Query("SELECT * FROM authors WHERE name='".$this->name."' AND password='".$this->pwd."'")){
+      if($db->Query("SELECT * FROM authors WHERE name='".$this->name."' AND password='".$this->pwd."'","","")){
         if($db->Num_Rows() == 1){
 
               if(  (!isset($_COOKIE['userid'])) && (!isset($_COOKIE['pwd']))  ){
