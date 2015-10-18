@@ -31,6 +31,9 @@ class QPDatabase{
   
 	function Query($querystring, $arg1, $arg2){
 		$stmt = $this->conn->prepare($querystring);
+		#echo $querystring;
+		#echo $arg1;
+		#echo $arg2;
 		if ($arg1 != "" && $arg2 == "") {
 			$stmt->bind_param("s", $arg1); }
 		elseif ($arg1 != "" && $arg2 != "") {
