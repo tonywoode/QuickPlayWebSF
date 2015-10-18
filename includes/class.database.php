@@ -26,7 +26,7 @@ class QPDatabase{
   // ---- functions ----
   function Open() {
     //Opens the database connection and stores it in the conn variable.
-    $this->conn = new mysqli($this->dbhost . ":" . $this->dbport, $this->dbusername, $this->dbpassword, $this->dbname);
+    $this->conn = new mysqli($this->dbhost, $this->dbusername, $this->dbpassword, $this->dbname, $this->dbport);
   }
   
 	function Query($querystring, $thepage){
