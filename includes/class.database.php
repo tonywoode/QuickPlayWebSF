@@ -27,20 +27,39 @@ class QPDatabase{
   function Open() {
     //Opens the database connection and stores it in the conn variable.
     $this->conn = new mysqli($this->dbhost, $this->dbusername, $this->dbpassword, $this->dbname, $this->dbport);
-  }
-  
+	}
+
+
+	function getResultWithoutSQLND($stmt) {
+		$result = array();
+		$stmt->store_result();
+		for ( $i = 0; $i < $stmt->num_rows; $i++ ) {
+			$Metadata = $stmt->result_metadata();
+			$params = array();
+			while ( $Field = $Metadata->fetch_field() ) {
+				$params[] = &$result[ $i ][ $Field->name ];
+			}
+			call_user_func_array( array( $stmt, 'bind_result' ), $params );
+			$stmt->fetch();
+		}
+		return $result;
+	}
+
 	function Query($querystring, $arg1, $arg2){
 		$stmt = $this->conn->prepare($querystring);
-		#echo $querystring;
-		#echo $arg1;
-		#echo $arg2;
+		echo $querystring;
+		echo $arg1;
+		echo $arg2;
 		if ($arg1 != "" && $arg2 == "") {
 			$stmt->bind_param("s", $arg1); }
 		elseif ($arg1 != "" && $arg2 != "") {
 			$stmt->bind_param("ss", $arg1, $arg2); }
 		$stmt->execute(); 
-		$result = $stmt->get_result();	
-    $this->lastqueryresult = $result; 
+		$stmt->store_result();
+		$array = $this->getResultWithoutSQLND($stmt);
+		var_dump($array);
+		$result = $array;
+		$this->lastqueryresult = $result; 
     if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
       $this->lasterrno = mysqli_errno($this->conn);
@@ -52,8 +71,9 @@ class QPDatabase{
       return 1;
   }
 
-  function Num_Rows() { 
-    return mysqli_num_rows($this->lastqueryresult);
+	function Num_Rows() {
+	 echo "answer is---------- " . count($this->lastqueryresult);//mysqli_num_rows($this->lastqueryresult);
+    return count($this->lastqueryresult);//mysqli_num_rows($this->lastqueryresult);
   }
 
   function Affected_Rows(){
@@ -61,15 +81,17 @@ class QPDatabase{
   }
 
   function Fetch_Array() {
-    return mysqli_fetch_array($this->lastqueryresult);
+		return var_dump($this->lastqueryresult);
   }
 
   function Fetch_Full_Array() {
-    $allrows = array();
-    while ( $currentrow = mysqli_fetch_array($this->lastqueryresult) ) {
-            array_push($allrows, $currentrow);
-    }
-    return $allrows;
+		
+		return var_dump($this->lastqueryresult);
+		//$allrows = array();
+    //while ( $currentrow = mysqli_fetch_array($this->lastqueryresult) ) {
+    //        array_push($allrows, $currentrow);
+   // }
+   // return $allrows;
   }
 
   function GetResult(){
