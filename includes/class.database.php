@@ -19,7 +19,7 @@ class QPDatabase{
     $this->dbpassword = "";
     $this->dbname = "";
     
-    $this->lastqueryresult = "";
+    $this->lastqueryresult = array();
     $this->Open();
   }
 
@@ -47,18 +47,18 @@ class QPDatabase{
 
 	function Query($querystring, $arg1, $arg2){
 		$stmt = $this->conn->prepare($querystring);
-		echo $querystring;
-		echo $arg1;
-		echo $arg2;
+		//echo $querystring;
+		//echo $arg1;
+		//echo $arg2;
 		if ($arg1 != "" && $arg2 == "") {
 			$stmt->bind_param("s", $arg1); }
 		elseif ($arg1 != "" && $arg2 != "") {
 			$stmt->bind_param("ss", $arg1, $arg2); }
 		$stmt->execute(); 
 		$stmt->store_result();
-		$array = $this->getResultWithoutSQLND($stmt);
-		var_dump($array);
-		$result = $array;
+		$result = $this->getResultWithoutSQLND($stmt);
+		//var_dump($result);
+	//	$result = $array;
 		$this->lastqueryresult = $result; 
     if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
@@ -72,7 +72,7 @@ class QPDatabase{
   }
 
 	function Num_Rows() {
-	 echo "answer is---------- " . count($this->lastqueryresult);//mysqli_num_rows($this->lastqueryresult);
+	 //echo "answer is---------- " . count($this->lastqueryresult);//mysqli_num_rows($this->lastqueryresult);
     return count($this->lastqueryresult);//mysqli_num_rows($this->lastqueryresult);
   }
 
@@ -81,12 +81,20 @@ class QPDatabase{
   }
 
   function Fetch_Array() {
-		return var_dump($this->lastqueryresult);
+		//http://www.tizag.com/mysqlTutorial/mysqlfetcharray.php
+		foreach($this->lastqueryresult as $link){
+			foreach ($link as $item) {
+			echo $item;
+			}
+		}
+		//echo "THE LAST QUERY RESULT WAS";
+	//	return  var_dump($this->lastqueryresult);
+	//	return $this->lastqueryresult;
   }
 
   function Fetch_Full_Array() {
 		
-		return var_dump($this->lastqueryresult);
+		return $this->lastqueryresult;
 		//$allrows = array();
     //while ( $currentrow = mysqli_fetch_array($this->lastqueryresult) ) {
     //        array_push($allrows, $currentrow);
