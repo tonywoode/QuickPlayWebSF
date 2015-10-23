@@ -2,6 +2,7 @@
 
 // This file is the MySQL database class, which wraps a lot of common MySQL functions in an object.
 // Based on a class written by Dave Frame (www.phptrix.co.uk), and modified to suit this project.
+require "iimysqli_result.php";
 
 class QPDatabase{
 
@@ -19,7 +20,7 @@ class QPDatabase{
     $this->dbpassword = "";
     $this->dbname = "";
     
-    $this->lastqueryresult = array();
+    $this->lastqueryresult = new iimysqli_result();
     $this->Open();
   }
 
@@ -27,22 +28,6 @@ class QPDatabase{
   function Open() {
     //Opens the database connection and stores it in the conn variable.
     $this->conn = new mysqli($this->dbhost, $this->dbusername, $this->dbpassword, $this->dbname, $this->dbport);
-	}
-
-
-	function getResultWithoutSQLND($stmt) {
-		$result = array();
-		$stmt->store_result();
-		for ( $i = 0; $i < $stmt->num_rows; $i++ ) {
-			$Metadata = $stmt->result_metadata();
-			$params = array();
-			while ( $Field = $Metadata->fetch_field() ) {
-				$params[] = &$result[ $i ][ $Field->name ];
-			}
-			call_user_func_array( array( $stmt, 'bind_result' ), $params );
-			$stmt->fetch();
-		}
-		return $result;
 	}
 
 	function Query($querystring, $arg1, $arg2){
@@ -55,11 +40,15 @@ class QPDatabase{
 		elseif ($arg1 != "" && $arg2 != "") {
 			$stmt->bind_param("ss", $arg1, $arg2); }
 		$stmt->execute(); 
-		$stmt->store_result();
-		$result = $this->getResultWithoutSQLND($stmt);
+		//	$stmt->store_result();
+		$this->lastqueryresult = iimysqli_stmt_get_result($stmt);
+	$array = array();
+		$array = iimysqli_result_fetch_array($this->lastqueryresult);  
+		foreach ($array as $row){
+			echo $row;
+		}
 		//var_dump($result);
 	//	$result = $array;
-		$this->lastqueryresult = $result; 
     if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
       $this->lasterrno = mysqli_errno($this->conn);
@@ -82,15 +71,16 @@ class QPDatabase{
 
   function Fetch_Array() {
 		//http://www.tizag.com/mysqlTutorial/mysqlfetcharray.php
-		foreach($this->lastqueryresult as $link){
-			foreach ($link as $item) {
-			echo $item;
-			}
-		}
+		//foreach($this->lastqueryresult as $link){
+		//	foreach ($link as $item) {
+		//	echo $item;
+return iimysqli_result_fetch_array($this->lastqueryresult);
+	}
+		//}
 		//echo "THE LAST QUERY RESULT WAS";
 	//	return  var_dump($this->lastqueryresult);
 	//	return $this->lastqueryresult;
-  }
+  //}
 
   function Fetch_Full_Array() {
 		
