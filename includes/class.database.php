@@ -33,17 +33,29 @@ class QPDatabase{
     $this->conn = new mysqli($this->dbhost, $this->dbusername, $this->dbpassword, $this->dbname, $this->dbport);
   }
 
-	function iimysqli_stmt_get_result($stmt)
-	{
-	    $metadata = mysqli_stmt_result_metadata($stmt);
+	function iimysqli_stmt_get_result($stmt){
+	    //$metadata = mysqli_stmt_result_metadata($stmt);
 				    $ret = new iimysqli_result;
 				    if (!$ret) return NULL;
+						  $result = array();
+						  $stmt->store_result();
+							for ( $i = 0; $i < $stmt->num_rows; $i++ ) {
+									$Metadata = $stmt->result_metadata();
+						    $ret->nCols = mysqli_num_fields($Metadata);
+									$params = array();
+									while ( $Field = $Metadata->fetch_field() ) {
+										$params[] = &$result[ $i ][ $Field->name ];
+									}
+								  call_user_func_array( array( $stmt, 'bind_result' ), $params );
+									$stmt->fetch();
+							}
+							
 
-						    $ret->nCols = mysqli_num_fields($metadata);
-						    $ret->stmt = $stmt;
+						    $ret->stmt = $result;
 
-								    mysqli_free_result($metadata);
-								    return $ret;
+								   // mysqli_free_result($metadata);
+
+								return $ret;
 	}
 
 	function iimysqli_result_fetch_array(&$result){
@@ -81,17 +93,19 @@ class QPDatabase{
 			$stmt->bind_param("ss", $arg1, $arg2); }
 		$stmt->execute(); 
 		//$stmt->store_result(); //this is about buffering the result, get more output with iimysqli arrays, but breaks mysqli ones
-		$result = $stmt->get_result();	
+		//$result = $stmt->get_result();	
 		//var_dump( $this->iimysqli_stmt_get_result($stmt));
-		//$otherresult = $this->iimysqli_stmt_get_result($stmt);
-		//$this->otherresult = $otherresult; 
+		$otherresult = $this->iimysqli_stmt_get_result($stmt);
+		echo "here's the results object";
+		var_dump($otherresult);
+		$this->otherresult = $otherresult; 
 		//$this->lastqueryresult = $result; 
 		//var_dump($this->Fetch_Full_array());
 			echo "here's result";
 		//	print_r($this->otherresult);
 		//var_dump( $result);
-	  var_dump($result->fetch_array(MYSQLI_ASSOC));//this gives assoc array only 
-		//var_dump( $this->iimysqli_result_fetch_array($this->otherresult));//this gives numeric array
+	  //var_dump($result->fetch_array(MYSQLI_ASSOC));//this gives assoc array only 
+		var_dump( $this->iimysqli_result_fetch_array($this->otherresult));//this gives numeric array
 		
 		if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
