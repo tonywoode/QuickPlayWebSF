@@ -47,10 +47,8 @@ class QPDatabase{
 	}
 
 	function iimysqli_result_fetch_array(&$result){
-	//	echo "here IS result:";
-//			print_r($result);
-	//	echo "here IS otherresult";
-//		print_r($this->otherresult);
+		//	echo "here IS result:";
+		//	print_r($result);
 		  $ret = array();
 			$code = "return mysqli_stmt_bind_result(\$this->otherresult->stmt ";
 			for ($i=0; $i<$this->otherresult->nCols; $i++){
@@ -61,7 +59,6 @@ class QPDatabase{
 			$code .= ");";
 			//echo "code is:";
 			//print_r($code);
-			//$dealeo = mysqli_stmt_bind_result($this->otherresult->stmt , $ret[0]);
 			if (!eval($code)) { return NULL; };
 
 			// This should advance the "$stmt" cursor.
@@ -73,21 +70,27 @@ class QPDatabase{
 
 	function Query($querystring, $arg1, $arg2){
 		
-	 echo "I will do this query:";
-		echo $querystring;
-		echo $arg1;
-		echo $arg2;
+	//		echo "you said do this query:";
+	//		echo $querystring;
+	//		echo $arg1;
+	//		echo $arg2;
 		$stmt = $this->conn->prepare($querystring);
 		if ($arg1 != "" && $arg2 == "") {
 			$stmt->bind_param("s", $arg1); }
 		elseif ($arg1 != "" && $arg2 != "") {
 			$stmt->bind_param("ss", $arg1, $arg2); }
 		$stmt->execute(); 
-		$result = $stmt->get_result();	
-		$this->otherresult = $this->iimysqli_stmt_get_result($stmt);
-		$this->lastqueryresult = $result; 
+		$stmt->store_result(); //this is about buffering the result, get more output with iimysqli arrays, but breaks mysqli ones
+		//$result = $stmt->get_result();	
+		//var_dump( $this->iimysqli_stmt_get_result($stmt));
+		$otherresult = $this->iimysqli_stmt_get_result($stmt);
+		$this->otherresult = $otherresult; 
+		//$this->lastqueryresult = $result; 
+		var_dump($this->Fetch_Full_array());
 		//	echo "here's result";
 		//	print_r($this->otherresult);
+		//var_dump( $result);
+		//var_dump( $this->iimysqli_result_fetch_array($this->otherresult));
 		if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
       $this->lasterrno = mysqli_errno($this->conn);
@@ -102,7 +105,7 @@ class QPDatabase{
   function Num_Rows() { 
 		//return count($this->iimysqli_result_fetch_array($this->otherresult));
 		//return mysqli_num_rows($this->lastqueryresult);
- return $this->otherresult->stmt->affected_rows;
+		return $this->otherresult->stmt->affected_rows;
 	}
 
   function Affected_Rows(){
@@ -110,13 +113,17 @@ class QPDatabase{
   }
 
   function Fetch_Array() {
-    return mysqli_fetch_array($this->lastqueryresult);
-		//return $this -> iimysqli_result_fetch_array($this->otherresult);
+		//var_dump( mysqli_fetch_array($this->lastqueryresult));
+		//return mysqli_fetch_array($this->lastqueryresult);
+		//echo "array is";
+		//print_r($this->iimysqli_result_fetch_array($this->otherresult));
+		var_dump( $this->iimysqli_result_fetch_array($this->otherresult));
 	}
 
   function Fetch_Full_Array() {
     $allrows = array();
-    while ( $currentrow = mysqli_fetch_array($this->lastqueryresult) ) {
+    //while ( $currentrow = mysqli_fetch_array($this->lastqueryresult) ) {
+    while ( $currentrow = $this->iimysqli_result_fetch_array($this->otherresult) ) {
             array_push($allrows, $currentrow);
     }
     return $allrows;
