@@ -80,17 +80,19 @@ class QPDatabase{
 		elseif ($arg1 != "" && $arg2 != "") {
 			$stmt->bind_param("ss", $arg1, $arg2); }
 		$stmt->execute(); 
-		$stmt->store_result(); //this is about buffering the result, get more output with iimysqli arrays, but breaks mysqli ones
-		//$result = $stmt->get_result();	
+		//$stmt->store_result(); //this is about buffering the result, get more output with iimysqli arrays, but breaks mysqli ones
+		$result = $stmt->get_result();	
 		//var_dump( $this->iimysqli_stmt_get_result($stmt));
-		$otherresult = $this->iimysqli_stmt_get_result($stmt);
-		$this->otherresult = $otherresult; 
+		//$otherresult = $this->iimysqli_stmt_get_result($stmt);
+		//$this->otherresult = $otherresult; 
 		//$this->lastqueryresult = $result; 
-		var_dump($this->Fetch_Full_array());
-		//	echo "here's result";
+		//var_dump($this->Fetch_Full_array());
+			echo "here's result";
 		//	print_r($this->otherresult);
 		//var_dump( $result);
-		//var_dump( $this->iimysqli_result_fetch_array($this->otherresult));
+	  var_dump($result->fetch_array(MYSQLI_ASSOC));//this gives assoc array only 
+		//var_dump( $this->iimysqli_result_fetch_array($this->otherresult));//this gives numeric array
+		
 		if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
       $this->lasterrno = mysqli_errno($this->conn);
@@ -117,7 +119,7 @@ class QPDatabase{
 		//return mysqli_fetch_array($this->lastqueryresult);
 		//echo "array is";
 		//print_r($this->iimysqli_result_fetch_array($this->otherresult));
-		var_dump( $this->iimysqli_result_fetch_array($this->otherresult));
+		//var_dump( $this->iimysqli_result_fetch_array($this->otherresult));
 	}
 
   function Fetch_Full_Array() {
