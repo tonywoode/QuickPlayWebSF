@@ -61,20 +61,28 @@ class QPDatabase{
 	function iimysqli_result_fetch_array(&$result){
 		//	echo "here IS result:";
 		//	print_r($result);
-		  $ret = array();
-			$code = "return mysqli_stmt_bind_result(\$this->otherresult->stmt ";
-			for ($i=0; $i<$this->otherresult->nCols; $i++){
+		//echo "here's &result in the fetcharray method";	
+		//var_dump($result);	
+	echo "here we are echoing statement from result_fetch_array";
+	var_dump($result->stmt);
+	echo "now get version name value";
+	echo ($result->stmt[0]["version_name"]);
+	echo "and lastly the key";
+	foreach($result->stmt[0] as $key=>$value) { echo $key; };	
+		$ret = array();
+			$code = "return mysqli_stmt_bind_result(\$result->stmt ";
+			for ($i=0; $i<$result->nCols; $i++){
 				$ret[$i] = NULL;
 				$code .= ", \$ret['" .$i ."']";
 			};
 
 			$code .= ");";
-			//echo "code is:";
-			//print_r($code);
+		echo "code is:";
+			print_r($code);
 			if (!eval($code)) { return NULL; };
 
 			// This should advance the "$stmt" cursor.
-			if (!mysqli_stmt_fetch($this->otherresult->stmt)) { return NULL; };
+			if (!mysqli_stmt_fetch($result->stmt)) { return NULL; };
 								
 			// Return the array we built.
 			return $ret;
@@ -96,16 +104,17 @@ class QPDatabase{
 		//$result = $stmt->get_result();	
 		//var_dump( $this->iimysqli_stmt_get_result($stmt));
 		$otherresult = $this->iimysqli_stmt_get_result($stmt);
-		echo "here's the results object";
-		var_dump($otherresult);
+		//echo "here's the results object";
+		//var_dump($otherresult);
 		$this->otherresult = $otherresult; 
 		//$this->lastqueryresult = $result; 
 		//var_dump($this->Fetch_Full_array());
-			echo "here's result";
+		//	echo "here's global result var";
+		//var_dump($this->otherresult);	
 		//	print_r($this->otherresult);
 		//var_dump( $result);
 	  //var_dump($result->fetch_array(MYSQLI_ASSOC));//this gives assoc array only 
-		var_dump( $this->iimysqli_result_fetch_array($this->otherresult));//this gives numeric array
+		//var_dump( $this->iimysqli_result_fetch_array($this->otherresult));//this gives numeric array
 		
 		if ( mysqli_error($this->conn) != "" ) {
       $this->lasterror = mysqli_error($this->conn);
@@ -129,11 +138,15 @@ class QPDatabase{
   }
 
   function Fetch_Array() {
-		//var_dump( mysqli_fetch_array($this->lastqueryresult));
+		//	echo "here's global result var in the fetch array function";
+		//var_dump($this->otherresult);	
+			
+			//var_dump( mysqli_fetch_array($this->lastqueryresult));
 		//return mysqli_fetch_array($this->lastqueryresult);
 		//echo "array is";
 		//print_r($this->iimysqli_result_fetch_array($this->otherresult));
-		//var_dump( $this->iimysqli_result_fetch_array($this->otherresult));
+		echo "here's the result var being called from fetch array";
+		var_dump( $this->iimysqli_result_fetch_array($this->otherresult));
 	}
 
   function Fetch_Full_Array() {
