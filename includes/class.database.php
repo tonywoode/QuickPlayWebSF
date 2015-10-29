@@ -61,16 +61,21 @@ class QPDatabase{
 								$params[] = &$ohgod[ $i ][ $Field->name ];
 						}
 				  call_user_func_array( array( $stmt, 'bind_result' ), $params );
-											//		$stmt->fetch();
+												//	$stmt->fetch();
 	}
-			$ret = array();
+		echo "at this point params is";
+		var_dump($ohgod);
+			
+		$ret = array();
 		$code = "return mysqli_stmt_bind_result(\$result->stmt ";
 			for ($i=0; $i<$this->otherresult->nCols; $i++){
 				$ret[$i] = NULL;
-				$code .= ", \$ret['" .$params[$i] ."']";
+				$code .= ", \$ret['version_name']";
 			};
 
-			$code .= ");";
+		$code .= ");";
+		echo "what the hell does this do";
+		echo $code;
 			if (!eval($code)) { return NULL; };
 			// This should advance the "$stmt" cursor.
 			if (!mysqli_stmt_fetch($result->stmt)) { return NULL; };
