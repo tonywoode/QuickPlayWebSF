@@ -47,35 +47,47 @@ class QPDatabase{
 	}
 
 	function iimysqli_result_fetch_array(&$result){
-		echo "number of rows is";
-			print_r($result->stmt->num_rows);
-		echo "number of cols is";
-		print_r($this->otherresult->nCols);
+		//echo "number of rows is";
+	//		print_r($result->stmt->num_rows);
+	//	echo "number of cols is";
+	//	print_r($this->otherresult->nCols);
 		$ohgod = array();
 		$stmt = $result->stmt;
 		$stmt->store_result();
 		$params = array();
+		$theKeys = array();
+		$thisName = "";
 		for ( $i = 0; $i < $stmt->num_rows; $i++ ) {
 						$Metadata = $stmt->result_metadata();
 						while ( $Field = $Metadata->fetch_field() ) {
+							//echo "at this point field name is";
+							//print_r($Field->name);
+							$thisName = $Field->name;
+							$theKeys[] = $thisName;
+							//var_dump($theKeys);
+							//echo "END";
 								$params[] = &$ohgod[ $i ][ $Field->name ];
 						}
 				  call_user_func_array( array( $stmt, 'bind_result' ), $params );
 												//	$stmt->fetch();
 	}
-		echo "at this point params is";
+		//echo "at this point params is";
 		var_dump($ohgod);
 			
 		$ret = array();
 		$code = "return mysqli_stmt_bind_result(\$result->stmt ";
 			for ($i=0; $i<$this->otherresult->nCols; $i++){
 				$ret[$i] = NULL;
-				$code .= ", \$ret['version_name']";
+		//		echo "here in the loop we need this name is";
+		//		echo $thisName;
+				//		echo "FIN";
+				$theValue = $theKeys[$i];
+				$code .= ", \$ret['$theValue']";
 			};
 
 		$code .= ");";
-		echo "what the hell does this do";
-		echo $code;
+		//echo "what the hell does this do";
+		//echo $code;
 			if (!eval($code)) { return NULL; };
 			// This should advance the "$stmt" cursor.
 			if (!mysqli_stmt_fetch($result->stmt)) { return NULL; };
