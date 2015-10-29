@@ -66,13 +66,13 @@ class QPDatabase{
 							$theKeys[] = $thisName;
 							//var_dump($theKeys);
 							//echo "END";
-								$params[] = &$ohgod[ $i ][ $Field->name ];
+	//							$params[] = &$ohgod[ $i ][ $Field->name ];
 						}
-				  call_user_func_array( array( $stmt, 'bind_result' ), $params );
+//				  call_user_func_array( array( $stmt, 'bind_result' ), $params );
 												//	$stmt->fetch();
 	}
 		//echo "at this point params is";
-		var_dump($ohgod);
+//		var_dump($ohgod);
 			
 		$ret = array();
 		$code = "return mysqli_stmt_bind_result(\$result->stmt ";
