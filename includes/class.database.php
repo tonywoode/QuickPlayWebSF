@@ -1,7 +1,7 @@
 <?php
 
 //convenience class to give ourselves a results object to pass around like get_result would have done
-class iimysqli_result {
+class IImysqli_result {
 	    public $stmt, $ncols;
 }    
 // This file is the MySQL database class, which wraps a lot of common MySQL functions in an object.
@@ -58,7 +58,7 @@ class QPDatabase {
 
 	function iimysqli_get_result($stmt) {
 	  $metadata = $stmt->result_metadata();
-		$ret = new iimysqli_result;
+		$ret = new IImysqli_result;
 		if (!$ret || !$metadata) return NULL; //the latter because this gets called whether we are adding/updating as well as returning
 		$ret->ncols = $metadata->field_count;
 		$ret->stmt = $stmt;
