@@ -31,8 +31,31 @@ class QPDatabase {
     $this->conn = new mysqli($this->dbhost, $this->dbusername, $this->dbpassword, $this->dbname, $this->dbport);
   }
 
-	// ii methods based on anonymously-posted code at the mysqli_get_result_api docs
-	// however these assumed numeric array was fine for callsites. The code here uses assoc arrays exlusively
+	/** ii methods based on anonymously-posted code at the mysqli_get_result_api docs
+	 * however that guy's code assumed numeric array was fine for callsites. The code here uses assoc arrays exlusively
+	 * original text follows:
+	 *
+	 * EXPLANATION:
+	 * We are creating a fake "result" structure to enable us to have
+	 * source-level equivalent syntax to a query executed via
+	 * mysqli_query().
+	 *
+	 *    $stmt = mysqli_prepare($conn, "");
+	 *    mysqli_bind_param($stmt, "types", ...);
+	 *
+	 *    $param1 = 0;
+	 *      $param2 = 'foo';
+	 *    $param3 = 'bar';
+	 *    mysqli_execute($stmt);
+	 *    $result _mysqli_stmt_get_result($stmt);
+	 *        [ $arr = _mysqli_result_fetch_array($result);
+	 *            || $assoc = _mysqli_result_fetch_assoc($result); ]
+	 *	    mysqli_stmt_close($stmt);
+	 *    mysqli_close($conn);
+	 *
+	 * At the source level, there is no difference between this and mysqlnd.
+	 **/
+
 	function iimysqli_get_result($stmt) {
 	  $metadata = $stmt->result_metadata();
 		$ret = new iimysqli_result;
