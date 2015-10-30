@@ -46,6 +46,8 @@ if [[ "$1" = "--local" ]]; then
 	echo "These might be handy too:"
 	echo "delete from version/changes/news where version_id=xxx;"
 	echo "alter table version/changes/news AUTO_INCREMENT = 21; (but do the above first)"
+	echo ""
+	echo "Don't forget to uncomment top of index.php to debug, then var_dump()/print_r()/echo"
 	echo "******************************************************"
 	echo $warn
 	exit
