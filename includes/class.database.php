@@ -59,7 +59,7 @@ class QPDatabase {
 	function iimysqli_get_result($stmt) {
 	  $metadata = $stmt->result_metadata();
 		$ret = new iimysqli_result;
-		if (!$ret) return NULL;
+		if (!$ret || !$metadata) return NULL; //the latter because this gets called whether we are adding/updating as well as returning
 		$ret->ncols = $metadata->field_count;
 		$ret->stmt = $stmt;
 		$metadata->free_result();
