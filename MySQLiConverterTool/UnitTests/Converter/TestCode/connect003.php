@@ -6,13 +6,13 @@ require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
 // Converter should recognize dynamic host specification which cannot be parsed for a port/socket
 // Should give: Cannot analyze server parameter to extract host, socket and port!
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("[connect_1] Failure: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("[connect_1] Failure: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "[connect_1] Success\n";
 }
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 [connect_1] Success

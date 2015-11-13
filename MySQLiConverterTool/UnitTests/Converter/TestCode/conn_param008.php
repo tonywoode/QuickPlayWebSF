@@ -23,25 +23,25 @@ Returns information about the statement on success, or FALSE on failure. See the
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
-    printf("FAILURE: could not select database %s, [%d] %s\n", $db, mysql_errno($con), mysql_error($con));   
+if (!((bool)mysqli_query( $con, "USE " . $db)))
+    printf("FAILURE: could not select database %s, [%d] %s\n", $db, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));   
     
-if (!mysql_query('DELETE FROM nobody', $con))
-    printf("FAILURE: could not clear table nobody, [%d] %s\n", mysql_errno($con), mysql_error($con));   
+if (!mysqli_query( $con, 'DELETE FROM nobody'))
+    printf("FAILURE: could not clear table nobody, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));   
     
-$res = mysql_query('INSERT INTO nobody(id, msg) VALUES (1, "mysql_info()"), (2, "mysqli_info()")', $con);
+$res = mysqli_query( $con, 'INSERT INTO nobody(id, msg) VALUES (1, "mysql_info()"), (2, "mysqli_info()")');
 if (!$res)
-    printf("FAILURE: insert failed, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: insert failed, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-$info_default  = mysql_info();
-$info_con      = mysql_info($con);
+$info_default  = mysqli_info($GLOBALS["___mysqli_ston"]);
+$info_con      = mysqli_info($con);
 if ($info_con != $info_default) {
     printf("FAILURE: info of default connection and specified connection differ\n");
 }
@@ -51,14 +51,14 @@ if (!is_string($info_con))
     
 var_dump($info_con);
 
-$info_con = mysql_info($illegal_link_identifier);
+$info_con = mysqli_info($illegal_link_identifier);
 if (!is_null($info_con))
     printf("FAILURE: function should have returned a NULL value, got %s value\n", gettype($info_con));
 
 if ($info_con)
     printf("FAILURE: function should have failed with illegal link identifier\n");
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

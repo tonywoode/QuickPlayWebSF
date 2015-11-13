@@ -25,26 +25,26 @@ NOTE: DOCUMENTATION IS WRONG - returns NULL instead of FALSE
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
-    printf("FAILURE: [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!((bool)mysqli_query( $con, "USE " . $db)))
+    printf("FAILURE: [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
     
-$stat_default   = mysql_stat();
-$stat_con       = mysql_stat($con);
+$stat_default   = mysqli_stat($GLOBALS["___mysqli_ston"]);
+$stat_con       = mysqli_stat($con);
 if ('' == $stat_default || '' == $stat_con)
     printf("FAILURE: got empty strings for mysql_stat()\n");
 
 if (!is_string($stat_con))
     printf("FAILURE: string value expected, got %s value\n", gettype($stat_con));
 
-$stat_con = mysql_stat($illegal_link_identifier);
+$stat_con = mysqli_stat($illegal_link_identifier);
 if (!is_null($stat_con))
     printf("FAILURE: NULL value expected because of illegal identifier, got %s value\n", gettype($stat_con));
 
@@ -52,7 +52,7 @@ if ($stat_con)
     printf("FAILURE: false expected\n");
     
     
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

@@ -25,29 +25,29 @@ Returns TRUE on success or FALSE on failure.
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-$ret = mysql_close($con);
+$ret = ((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 if (!is_bool($ret))
     print "FAILURE: mysql_close(con) is supposed to return a boolean value\n";
    
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-$ret = mysql_close();
+$ret = ((is_null($___mysqli_res = mysqli_close($GLOBALS["___mysqli_ston"]))) ? false : $___mysqli_res);
 if (!is_bool($ret))
     printf("FAILURE: mysql_close() is supposed to return a boolean value, got %s\n", gettype($ret));
     
-$ret = mysql_close($invalid_link_identifier);
+$ret = ((is_null($___mysqli_res = mysqli_close($invalid_link_identifier))) ? false : $___mysqli_res);
 if (!is_bool($ret))
     printf("FAILURE: mysql_close() is supposed to return a boolean value, got %s\n", gettype($ret));
 

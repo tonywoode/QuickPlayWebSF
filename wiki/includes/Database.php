@@ -254,7 +254,7 @@ class Database {
 		}
 
 		# Otherwise we get a suppressed fatal error, which is very hard to track down
-		if ( !function_exists( 'mysql_connect' ) ) {
+		if ( !function_exists( 'mysqli_connect' ) ) {
 			wfDie( "MySQL functions missing, have you compiled PHP with the --with-mysql option?\n" );
 		}
 
@@ -267,22 +267,22 @@ class Database {
 		$success = false;
 
 		if ( $this->mFlags & DBO_PERSISTENT ) {
-			@/**/$this->mConn = mysql_pconnect( $server, $user, $password );
+			@/**/$this->mConn = ($GLOBALS["___mysqli_ston"] = mysqli_connect( $server,  $user,  $password ));
 		} else {
 			# Create a new connection...
 			if( version_compare( PHP_VERSION, '4.2.0', 'ge' ) ) {
-				@/**/$this->mConn = mysql_connect( $server, $user, $password, true );
+				@/**/$this->mConn = ($GLOBALS["___mysqli_ston"] = mysqli_connect( $server,  $user,  $password));
 			} else {
 				# On PHP 4.1 the new_link parameter is not available. We cannot
 				# guarantee that we'll actually get a new connection, and this
 				# may cause some operations to fail possibly.
-				@/**/$this->mConn = mysql_connect( $server, $user, $password );
+				@/**/$this->mConn = ($GLOBALS["___mysqli_ston"] = mysqli_connect( $server,  $user,  $password ));
 			}
 		}
 
 		if ( $dbName != '' ) {
 			if ( $this->mConn !== false ) {
-				$success = @/**/mysql_select_db( $dbName, $this->mConn );
+				$success = @/**/((bool)mysqli_query( $this->mConn , "USE " . $dbName));
 				if ( !$success ) {
 					$error = "Error selecting database $dbName on server {$this->mServer} " .
 						"from client host {$wguname['nodename']}\n";
@@ -291,7 +291,7 @@ class Database {
 			} else {
 				wfDebug( "DB connection error\n" );
 				wfDebug( "Server: $server, User: $user, Password: " .
-					substr( $password, 0, 3 ) . "..., error: " . mysql_error() . "\n" );
+					substr( $password, 0, 3 ) . "..., error: " . ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)) . "\n" );
 				$success = false;
 			}
 		} else {
@@ -328,7 +328,7 @@ class Database {
 			if ( $this->trxLevel() ) {
 				$this->immediateCommit();
 			}
-			return mysql_close( $this->mConn );
+			return ((is_null($___mysqli_res = mysqli_close( $this->mConn ))) ? false : $___mysqli_res);
 		} else {
 			return true;
 		}
@@ -432,9 +432,9 @@ class Database {
 	 */
 	function doQuery( $sql ) {
 		if( $this->bufferResults() ) {
-			$ret = mysql_query( $sql, $this->mConn );
+			$ret = mysqli_query( $this->mConn ,  $sql);
 		} else {
-			$ret = mysql_unbuffered_query( $sql, $this->mConn );
+			$ret = mysqli_query( $this->mConn ,  $sql, MYSQLI_USE_RESULT);
 		}
 		return $ret;
 	}
@@ -582,7 +582,7 @@ class Database {
 	 * Free a result object
 	 */
 	function freeResult( $res ) {
-		if ( !@/**/mysql_free_result( $res ) ) {
+		if ( !@/**/((mysqli_free_result( $res ) || (is_object( $res ) && (get_class( $res ) == "mysqli_result"))) ? true : false) ) {
 			wfDebugDieBacktrace( "Unable to free MySQL result\n" );
 		}
 	}
@@ -591,9 +591,9 @@ class Database {
 	 * Fetch the next row from the given result object, in object form
 	 */
 	function fetchObject( $res ) {
-		@/**/$row = mysql_fetch_object( $res );
-		if( mysql_errno() ) {
-			wfDebugDieBacktrace( 'Error in fetchObject(): ' . htmlspecialchars( mysql_error() ) );
+		@/**/$row = mysqli_fetch_object( $res );
+		if( ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)) ) {
+			wfDebugDieBacktrace( 'Error in fetchObject(): ' . htmlspecialchars( ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)) ) );
 		}
 		return $row;
 	}
@@ -603,9 +603,9 @@ class Database {
 	 * Returns an array
 	 */
  	function fetchRow( $res ) {
-		@/**/$row = mysql_fetch_array( $res );
-		if (mysql_errno() ) {
-			wfDebugDieBacktrace( 'Error in fetchRow(): ' . htmlspecialchars( mysql_error() ) );
+		@/**/$row = mysqli_fetch_array( $res );
+		if (((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)) ) {
+			wfDebugDieBacktrace( 'Error in fetchRow(): ' . htmlspecialchars( ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)) ) );
 		}
 		return $row;
 	}
@@ -614,9 +614,9 @@ class Database {
 	 * Get the number of rows in a result object
 	 */
 	function numRows( $res ) {
-		@/**/$n = mysql_num_rows( $res );
-		if( mysql_errno() ) {
-			wfDebugDieBacktrace( 'Error in numRows(): ' . htmlspecialchars( mysql_error() ) );
+		@/**/$n = mysqli_num_rows( $res );
+		if( ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)) ) {
+			wfDebugDieBacktrace( 'Error in numRows(): ' . htmlspecialchars( ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)) ) );
 		}
 		return $n;
 	}
@@ -625,13 +625,13 @@ class Database {
 	 * Get the number of fields in a result object
 	 * See documentation for mysql_num_fields()
 	 */
-	function numFields( $res ) { return mysql_num_fields( $res ); }
+	function numFields( $res ) { return (($___mysqli_tmp = mysqli_num_fields( $res )) ? $___mysqli_tmp : false); }
 
 	/**
 	 * Get a field name in a result object
 	 * See documentation for mysql_field_name()
 	 */
-	function fieldName( $res, $n ) { return mysql_field_name( $res, $n ); }
+	function fieldName( $res, $n ) { return ((($___mysqli_tmp = mysqli_fetch_field_direct( $res,  $n )->name) && (!is_null($___mysqli_tmp))) ? $___mysqli_tmp : false); }
 
 	/**
 	 * Get the inserted value of an auto-increment row
@@ -643,13 +643,13 @@ class Database {
 	 * $dbw->insert('page',array('page_id' => $id));
 	 * $id = $dbw->insertId();
 	 */
-	function insertId() { return mysql_insert_id( $this->mConn ); }
+	function insertId() { return ((is_null($___mysqli_res = mysqli_insert_id( $this->mConn ))) ? false : $___mysqli_res); }
 
 	/**
 	 * Change the position of the cursor in a result object
 	 * See mysql_data_seek()
 	 */
-	function dataSeek( $res, $row ) { return mysql_data_seek( $res, $row ); }
+	function dataSeek( $res, $row ) { return mysqli_data_seek( $res,  $row ); }
 
 	/**
 	 * Get the last error number
@@ -657,9 +657,9 @@ class Database {
 	 */
 	function lastErrno() {
 		if ( $this->mConn ) {
-			return mysql_errno( $this->mConn );
+			return ((is_object( $this->mConn )) ? mysqli_errno( $this->mConn ) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false));
 		} else {
-			return mysql_errno();
+			return ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false));
 		}
 	}
 
@@ -671,13 +671,13 @@ class Database {
 		if ( $this->mConn ) {
 			# Even if it's non-zero, it can still be invalid
 			wfSuppressWarnings();
-			$error = mysql_error( $this->mConn );
+			$error = ((is_object( $this->mConn )) ? mysqli_error( $this->mConn ) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false));
 			if ( !$error ) {
-				$error = mysql_error();
+				$error = ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false));
 			}
 			wfRestoreWarnings();
 		} else {
-			$error = mysql_error();
+			$error = ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false));
 		}
 		if( $error ) {
 			$error .= ' (' . $this->mServer . ')';
@@ -688,7 +688,7 @@ class Database {
 	 * Get the number of rows affected by the last write query
 	 * See mysql_affected_rows() for more details
 	 */
-	function affectedRows() { return mysql_affected_rows( $this->mConn ); }
+	function affectedRows() { return mysqli_affected_rows( $this->mConn ); }
 	/**#@-*/ // end of template : @param $result
 
 	/**
@@ -949,9 +949,9 @@ class Database {
 	function fieldInfo( $table, $field ) {
 		$table = $this->tableName( $table );
 		$res = $this->query( "SELECT * FROM $table LIMIT 1" );
-		$n = mysql_num_fields( $res );
+		$n = (($___mysqli_tmp = mysqli_num_fields( $res )) ? $___mysqli_tmp : false);
 		for( $i = 0; $i < $n; $i++ ) {
-			$meta = mysql_fetch_field( $res, $i );
+			$meta = (((($___mysqli_tmp = mysqli_fetch_field_direct( $res, 0)) && is_object($___mysqli_tmp)) ? ( (!is_null($___mysqli_tmp->primary_key = ($___mysqli_tmp->flags & MYSQLI_PRI_KEY_FLAG) ? 1 : 0)) && (!is_null($___mysqli_tmp->multiple_key = ($___mysqli_tmp->flags & MYSQLI_MULTIPLE_KEY_FLAG) ? 1 : 0)) && (!is_null($___mysqli_tmp->unique_key = ($___mysqli_tmp->flags & MYSQLI_UNIQUE_KEY_FLAG) ? 1 : 0)) && (!is_null($___mysqli_tmp->numeric = (int)(($___mysqli_tmp->type <= MYSQLI_TYPE_INT24) || ($___mysqli_tmp->type == MYSQLI_TYPE_YEAR) || ((defined("MYSQLI_TYPE_NEWDECIMAL")) ? ($___mysqli_tmp->type == MYSQLI_TYPE_NEWDECIMAL) : 0)))) && (!is_null($___mysqli_tmp->blob = (int)in_array($___mysqli_tmp->type, array(MYSQLI_TYPE_TINY_BLOB, MYSQLI_TYPE_BLOB, MYSQLI_TYPE_MEDIUM_BLOB, MYSQLI_TYPE_LONG_BLOB)))) && (!is_null($___mysqli_tmp->unsigned = ($___mysqli_tmp->flags & MYSQLI_UNSIGNED_FLAG) ? 1 : 0)) && (!is_null($___mysqli_tmp->zerofill = ($___mysqli_tmp->flags & MYSQLI_ZEROFILL_FLAG) ? 1 : 0)) && (!is_null($___mysqli_type = $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = (($___mysqli_type == MYSQLI_TYPE_STRING) || ($___mysqli_type == MYSQLI_TYPE_VAR_STRING)) ? "type" : "")) &&(!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && in_array($___mysqli_type, array(MYSQLI_TYPE_TINY, MYSQLI_TYPE_SHORT, MYSQLI_TYPE_LONG, MYSQLI_TYPE_LONGLONG, MYSQLI_TYPE_INT24))) ? "int" : $___mysqli_tmp->type)) &&(!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && in_array($___mysqli_type, array(MYSQLI_TYPE_FLOAT, MYSQLI_TYPE_DOUBLE, MYSQLI_TYPE_DECIMAL, ((defined("MYSQLI_TYPE_NEWDECIMAL")) ? constant("MYSQLI_TYPE_NEWDECIMAL") : -1)))) ? "real" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_TIMESTAMP) ? "timestamp" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_YEAR) ? "year" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && (($___mysqli_type == MYSQLI_TYPE_DATE) || ($___mysqli_type == MYSQLI_TYPE_NEWDATE))) ? "date " : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_TIME) ? "time" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_SET) ? "set" : $___mysqli_tmp->type)) &&(!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_ENUM) ? "enum" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_GEOMETRY) ? "geometry" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_DATETIME) ? "datetime" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && (in_array($___mysqli_type, array(MYSQLI_TYPE_TINY_BLOB, MYSQLI_TYPE_BLOB, MYSQLI_TYPE_MEDIUM_BLOB, MYSQLI_TYPE_LONG_BLOB)))) ? "blob" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_NULL) ? "null" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type) ? "unknown" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->not_null = ($___mysqli_tmp->flags & MYSQLI_NOT_NULL_FLAG) ? 1 : 0)) ) : false ) ? $___mysqli_tmp : false);
 			if( $field == $meta->name ) {
 				return $meta;
 			}
@@ -963,7 +963,7 @@ class Database {
 	 * mysql_field_type() wrapper
 	 */
 	function fieldType( $res, $index ) {
-		return mysql_field_type( $res, $index );
+		return ((is_object($___mysqli_tmp = mysqli_fetch_field_direct( $res, 0)) && !is_null($___mysqli_tmp = $___mysqli_tmp->type)) ? ((($___mysqli_tmp = (string)(substr(( (($___mysqli_tmp == MYSQLI_TYPE_STRING) || ($___mysqli_tmp == MYSQLI_TYPE_VAR_STRING) ) ? "string " : "" ) . ( (in_array($___mysqli_tmp, array(MYSQLI_TYPE_TINY, MYSQLI_TYPE_SHORT, MYSQLI_TYPE_LONG, MYSQLI_TYPE_LONGLONG, MYSQLI_TYPE_INT24))) ? "int " : "" ) . ( (in_array($___mysqli_tmp, array(MYSQLI_TYPE_FLOAT, MYSQLI_TYPE_DOUBLE, MYSQLI_TYPE_DECIMAL, ((defined("MYSQLI_TYPE_NEWDECIMAL")) ? constant("MYSQLI_TYPE_NEWDECIMAL") : -1)))) ? "real " : "" ) . ( ($___mysqli_tmp == MYSQLI_TYPE_TIMESTAMP) ? "timestamp " : "" ) . ( ($___mysqli_tmp == MYSQLI_TYPE_YEAR) ? "year " : "" ) . ( (($___mysqli_tmp == MYSQLI_TYPE_DATE) || ($___mysqli_tmp == MYSQLI_TYPE_NEWDATE) ) ? "date " : "" ) . ( ($___mysqli_tmp == MYSQLI_TYPE_TIME) ? "time " : "" ) . ( ($___mysqli_tmp == MYSQLI_TYPE_SET) ? "set " : "" ) . ( ($___mysqli_tmp == MYSQLI_TYPE_ENUM) ? "enum " : "" ) . ( ($___mysqli_tmp == MYSQLI_TYPE_GEOMETRY) ? "geometry " : "" ) . ( ($___mysqli_tmp == MYSQLI_TYPE_DATETIME) ? "datetime " : "" ) . ( (in_array($___mysqli_tmp, array(MYSQLI_TYPE_TINY_BLOB, MYSQLI_TYPE_BLOB, MYSQLI_TYPE_MEDIUM_BLOB, MYSQLI_TYPE_LONG_BLOB))) ? "blob " : "" ) . ( ($___mysqli_tmp == MYSQLI_TYPE_NULL) ? "null " : "" ), 0, -1))) == "") ? "unknown" : $___mysqli_tmp) : false);
 	}
 
 	/**
@@ -1108,7 +1108,7 @@ class Database {
 	 */
 	function selectDB( $db ) {
 		$this->mDBname = $db;
-		return mysql_select_db( $db, $this->mConn );
+		return ((bool)mysqli_query( $this->mConn , "USE " . $db));
 	}
 
 	/**
@@ -1601,15 +1601,15 @@ class Database {
 	 * @return string Version information from the database
 	 */
 	function getServerVersion() {
-		return mysql_get_server_info();
+		return ((is_null($___mysqli_res = mysqli_get_server_info($GLOBALS["___mysqli_ston"]))) ? false : $___mysqli_res);
 	}
 
 	/**
 	 * Ping the server and try to reconnect if it there is no connection
 	 */
 	function ping() {
-		if( function_exists( 'mysql_ping' ) ) {
-			return mysql_ping( $this->mConn );
+		if( function_exists( 'mysqli_ping' ) ) {
+			return mysqli_ping( $this->mConn );
 		} else {
 			wfDebug( "Tried to call mysql_ping but this is ancient PHP version. Faking it!\n" );
 			return true;

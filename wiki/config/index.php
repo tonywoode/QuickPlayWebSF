@@ -512,7 +512,7 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 		require_once( "maintenance/InitialiseMessages.inc" );
 
 		$wgTitle = Title::newFromText( "Installation script" );
-		$mysqlOldClient = version_compare( mysql_get_client_info(), "4.1.0", "lt" );
+		$mysqlOldClient = version_compare( mysqli_get_client_info(), "4.1.0", "lt" );
 		if( $mysqlOldClient ) {
 			print "<li><b>PHP is linked with old MySQL client libraries. If you are
 				using a MySQL 4.1 server and have problems connecting to the database,
@@ -549,12 +549,12 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 				$wgDBadminpassword = $db_pass;
 				echo( "success.</li>\n" );
 				$wgDatabase->ignoreErrors( true );
-				$myver = mysql_get_server_info( $wgDatabase->mConn );
+				$myver = ((is_null($___mysqli_res = mysqli_get_server_info( $wgDatabase->mConn ))) ? false : $___mysqli_res);
 			} else {
 				# There were errors, report them and back out
 				$ok = false;
-				$errno = mysql_errno();
-				$errtx = htmlspecialchars( mysql_error() );
+				$errno = ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false));
+				$errtx = htmlspecialchars( ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)) );
 				switch( $errno ) {
 					case 1045:
 					case 2000:
@@ -619,14 +619,14 @@ if( $conf->posted && ( 0 == count( $errs ) ) ) {
 		print "</li>\n";
 
 		if ($conf->DBtype == 'mysql') {
-			@$sel = mysql_select_db( $wgDBname, $wgDatabase->mConn );
+			@$sel = ((bool)mysqli_query( $wgDatabase->mConn , "USE " . $wgDBname));
 			if( $sel ) {
 				print "<li>Database <tt>" . htmlspecialchars( $wgDBname ) . "</tt> exists</li>\n";
 			} else {
-				$err = mysql_errno();
+				$err = ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false));
 				if ( $err != 1049 ) {
 					print "<ul><li>Error selecting database $wgDBname: $err " .
-						htmlspecialchars( mysql_error() ) . "</li></ul>";
+						htmlspecialchars( ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)) ) . "</li></ul>";
 					continue;
 				}
 				$res = $wgDatabase->query( "CREATE DATABASE `$wgDBname`" );
@@ -1433,7 +1433,7 @@ function locate_executable($loc, $names, $versioninfo = false) {
 function get_db_version() {
 	global $wgDatabase, $conf;
 	if ($conf->DBtype == 'mysql')
-		return mysql_get_server_info( $wgDatabase->mConn );
+		return ((is_null($___mysqli_res = mysqli_get_server_info( $wgDatabase->mConn ))) ? false : $___mysqli_res);
 	else if ($conf->DBtype == 'oracle')
 		return oci_server_version($wgDatabase->mConn);
 }

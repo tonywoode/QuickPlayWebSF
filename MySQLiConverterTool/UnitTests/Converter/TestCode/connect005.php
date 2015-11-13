@@ -4,14 +4,14 @@ SUCCESS: mysql_connect with flags
 <?php
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-mysql_connect($host, $user, $pass, MYSQL_CLIENT_COMPRESS);
-mysql_close();
+($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
+((is_null($___mysqli_res = mysqli_close($GLOBALS["___mysqli_ston"]))) ? false : $___mysqli_res);
 
-mysql_connect($host, $user, $pass, MYSQL_CLIENT_IGNORE_SPACE);
-mysql_close();
+($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
+((is_null($___mysqli_res = mysqli_close($GLOBALS["___mysqli_ston"]))) ? false : $___mysqli_res);
 
-mysql_connect($host, $user, $pass, MYSQL_CLIENT_INTERACTIVE);
-mysql_close();
+($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
+((is_null($___mysqli_res = mysqli_close($GLOBALS["___mysqli_ston"]))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 --EXPECT-EXT/MYSQL-PHP-ERRORS--

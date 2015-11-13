@@ -25,26 +25,26 @@ NOTE: DOCUMENTATION IS WRONG - returns NULL instead of FALSE
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
-    printf("FAILURE: [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!((bool)mysqli_query( $con, "USE " . $db)))
+    printf("FAILURE: [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
     
-$ping_default   = mysql_ping();
-$ping_con       = mysql_ping($con);
+$ping_default   = mysqli_ping($GLOBALS["___mysqli_ston"]);
+$ping_con       = mysqli_ping($con);
 if ($ping_default != $ping_con)
     printf("FAILURE: different values returned for ping with specified and default connection\n");
 
 if (!is_bool($ping_con))
     printf("FAILURE: boolean value expected, got %s value\n", gettype($ping_con));
 
-$ping_con = mysql_ping($illegal_link_identifier);
+$ping_con = mysqli_ping($illegal_link_identifier);
 if (!is_null($ping_con))
     printf("FAILURE: NULL value expected because of illegal identifier, got %s value\n", gettype($ping_con));
 
@@ -52,7 +52,7 @@ if ($ping_con)
     printf("FAILURE: false expected\n");
     
     
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

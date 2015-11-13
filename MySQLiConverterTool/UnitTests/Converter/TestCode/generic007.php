@@ -17,7 +17,7 @@ The MySQL client version.
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$client_info = mysql_get_client_info();
+$client_info = mysqli_get_client_info();
 if (!is_string($client_info))
     printf("FAILURE: expected string value, got %s value\n", gettype($client_info));
 else

@@ -23,28 +23,28 @@ Returns the default character set name for the current connection.
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
-   printf("FAILURE: [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!((bool)mysqli_query( $con, "USE " . $db)))
+   printf("FAILURE: [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-$encoding_default = mysql_client_encoding();
-$encoding_con     = mysql_client_encoding($con);
+$encoding_default = mysqli_character_set_name($GLOBALS["___mysqli_ston"]);
+$encoding_con     = mysqli_character_set_name($con);
 
 if ($encoding_con != $encoding_default) {
-    printf("FAILURE: different client encodings reported, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: different client encodings reported, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else if (!is_string($encoding_con)) {
-    printf("FAILURE: no string returned, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: no string returned, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 }
     
 
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

@@ -4,9 +4,9 @@ SUCCESS: mysql_connect() with Unix Socket - ext/mysql reports success for bogus 
 <?php
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con = mysql_connect(':/path/to/socket/', $user, $pass);
+$con = ($GLOBALS["___mysqli_ston"] = mysqli_connect("localhost",  $user,  $pass, NULL, 0, 'path/to/socket/'));
 var_dump(is_resource($con));
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 bool(true)

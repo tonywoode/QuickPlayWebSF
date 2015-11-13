@@ -23,26 +23,26 @@ Returns a result pointer resource on success, or FALSE on failure. Use the mysql
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!($res = mysql_list_dbs($con)))
-    printf("FAILURE: mysql_list_dbs(con) failed, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!($res = (($___mysqli_tmp = mysqli_query($con, "SHOW DATABASES")) ? $___mysqli_tmp : false)))
+    printf("FAILURE: mysql_list_dbs(con) failed, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-if (!($res = mysql_list_dbs()))
-    printf("FAILURE: mysql_list_dbs() failed, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!($res = (($___mysqli_tmp = mysqli_query($GLOBALS["___mysqli_ston"], "SHOW DATABASES")) ? $___mysqli_tmp : false)))
+    printf("FAILURE: mysql_list_dbs() failed, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
 $found = false;    
-while ($row = mysql_fetch_assoc($res)) {
+while ($row = mysqli_fetch_assoc($res)) {
     
     if (!array_key_exists('Database', $row))
-        printf("FAILURE: hash does not have a 'Database' field, [%d] %s\n", mysql_errno($con), mysql_error($con));
+        printf("FAILURE: hash does not have a 'Database' field, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
     if ($row['Database'] == $db) {
         $found = true;
@@ -52,15 +52,15 @@ while ($row = mysql_fetch_assoc($res)) {
 if (!$found)
     printf("FAILURE: Database '%s' was not found\n", $db);
 
-$res = mysql_list_dbs($illegal_link_identifier);
+$res = (($___mysqli_tmp = mysqli_query($illegal_link_identifier, "SHOW DATABASES")) ? $___mysqli_tmp : false);
 if (!is_bool($res))
-    printf("FAILURE: expecting boolean value, got %s value, [%d] %s\n", gettype($res), mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting boolean value, got %s value, [%d] %s\n", gettype($res), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
 if ($res) 
-    printf("FAILURE: expecting false, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting false, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
         
-mysql_free_result($res);
-mysql_close($con);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

@@ -29,101 +29,101 @@ For other type of SQL statements, UPDATE, DELETE, DROP, etc, mysql_unbuffered_qu
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
+if (!((bool)mysqli_query( $con, "USE " . $db)))
     printf("FAILURE: cannot select db '%s', [%d] %s\n",
-        $db, mysql_errno($con), mysql_error($con));
+        $db, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-$res = mysql_unbuffered_query("DELETE FROM nobody", $con);
+$res = mysqli_query( $con, "DELETE FROM nobody", MYSQLI_USE_RESULT);
 if (!is_bool($res))
     printf("FAILURE: expecting boolean value as a reply to DELETE, got %s value, [%d] %s\n", gettype($res),
-        mysql_errno($con), mysql_error($con));
+        ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
 if (!$res)
-    printf("FAILURE: expecting true as a reply to DELETE, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting true as a reply to DELETE, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-$res = mysql_unbuffered_query("INSERT INTO nobody(id, msg) VALUES (1, 'one')", $con);    
+$res = mysqli_query( $con, "INSERT INTO nobody(id, msg) VALUES (1, 'one')", MYSQLI_USE_RESULT);    
 if (!is_bool($res))
     printf("FAILURE: expecting boolean value as a reply to INSERT, got %s value, [%d] %s\n", gettype($res),
-        mysql_errno($con), mysql_error($con));
+        ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
 if (!$res)
-    printf("FAILURE: expecting true as a reply to INSERT, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting true as a reply to INSERT, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-$res = mysql_unbuffered_query("SELECT id, msg FROM nobody", $con);
+$res = mysqli_query( $con, "SELECT id, msg FROM nobody", MYSQLI_USE_RESULT);
 if (!is_resource($res))
     printf("FAILURE: known change, mysql_unbuffered_query() returns resource, mysqli_query returns object\n");
 
 if (!$res)
-    printf("FAILURE: expecting true as a reply to SELECT, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting true as a reply to SELECT, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-$row = mysql_fetch_assoc($res);
+$row = mysqli_fetch_assoc($res);
 if (!is_array($row) || !$row)
-    printf("FAILURE: could not fetch record, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: could not fetch record, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
 if ($row['id'] != 1)
-    printf("FAILURE: strange result, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: strange result, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-$res = mysql_unbuffered_query("SELECT id, msg FROM nobody");
+$res = mysqli_query($GLOBALS["___mysqli_ston"], "SELECT id, msg FROM nobody", MYSQLI_USE_RESULT);
 if (!is_resource($res))
     printf("FAILURE: known change, mysql_unbuffered_query() returns resource (default connection), mysqli_query returns object\n");
 
 if (!$res)
-    printf("FAILURE: expecting true as a reply to SELECT (default connection), [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: expecting true as a reply to SELECT (default connection), [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-$res = mysql_unbuffered_query("SELECT id, msg FROM table_which_does_not_exist", $con);
+$res = mysqli_query( $con, "SELECT id, msg FROM table_which_does_not_exist", MYSQLI_USE_RESULT);
 if (!is_bool($res))
     printf("FAILURE: known change, mysql_unbuffered_query() returns false on error (unknown table), mysqli_query returns NULL\n");
 
 if ($res)
-    printf("FAILURE: expecting false as a reply to SELECT (unknown table), [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting false as a reply to SELECT (unknown table), [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-$res = mysql_unbuffered_query("SELECT id, msg FROM nobody", $illegal_link_identifier);
+$res = mysqli_query( $illegal_link_identifier, "SELECT id, msg FROM nobody", MYSQLI_USE_RESULT);
 if (!is_bool($res))
     printf("FAILURE: known change, mysql_unbuffered_query() returns false on error (illegal link identifier), mysqli_query returns NULL\n");
 
 if ($res)
-    printf("FAILURE: expecting false as a reply to SELECT (illegal link identifier), [%d] %s\n", mysql_errno($illegal_link_identifier), mysql_error($illegal_link_identifier));
+    printf("FAILURE: expecting false as a reply to SELECT (illegal link identifier), [%d] %s\n", ((is_object($illegal_link_identifier)) ? mysqli_errno($illegal_link_identifier) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($illegal_link_identifier)) ? mysqli_error($illegal_link_identifier) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
   
-$res = mysql_unbuffered_query("SHOW TABLES", $con);
+$res = mysqli_query( $con, "SHOW TABLES", MYSQLI_USE_RESULT);
 if (!is_resource($res))
     printf("FAILURE: known change, mysql_unbuffered_query() returns resource (SHOW TABLES), mysqli_query returns object\n");
 
 if (!$res)
-    printf("FAILURE: expecting true as a reply to SHOW TABLES, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting true as a reply to SHOW TABLES, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-$res = mysql_unbuffered_query("DESCRIBE nobody", $con);
+$res = mysqli_query( $con, "DESCRIBE nobody", MYSQLI_USE_RESULT);
 if (!is_resource($res))
     printf("FAILURE: known change, mysql_unbuffered_query() returns resource (DESCRIBE), mysqli_query returns object\n");
 
 if (!$res)
-    printf("FAILURE: expecting true as a reply to DESCRIBE, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting true as a reply to DESCRIBE, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-$res = mysql_unbuffered_query("EXPLAIN SELECT id FROM nobody", $con);
+$res = mysqli_query( $con, "EXPLAIN SELECT id FROM nobody", MYSQLI_USE_RESULT);
 if (!is_resource($res))
     printf("FAILURE: known change, mysql_unbuffered_query() returns resource (EXPLAIN), mysqli_query returns object\n");
 
 if (!$res)
-    printf("FAILURE: expecting true as a reply to EXPLAIN, [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting true as a reply to EXPLAIN, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

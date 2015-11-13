@@ -29,63 +29,63 @@ Returns a positive MySQL result resource to the query result, or FALSE on error.
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (function_exists('mysql_db_query')) {   
+if (function_exists('mysqli_query')) {   
 
-    $res = mysql_db_query($db, "SELECT DATABASE() AS db");
+    $res = ((mysqli_query($GLOBALS["___mysqli_ston"], "USE $db")) ? mysqli_query($GLOBALS["___mysqli_ston"],  "SELECT DATABASE() AS db") : false);
     if (!$res)
         printf("FAILURE: Cannot run query on default connection, [%d] %s\n", 
-            mysql_errno($con), mysql_error($con));
+            ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
     // mysqli resource is an object 
     if (!is_resource($res) && !is_bool($res) && !is_object($res))
         printf("FAILURE: Function is expected to return resource or boolean value, using default connection, got %s, [%d] %s\n",
-           gettype($res), mysql_errno($con), mysql_error($con)); 
+           gettype($res), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false))); 
            
-    $row = mysql_fetch_assoc($res);
+    $row = mysqli_fetch_assoc($res);
     if ($row['db'] != $db)
         printf("FAILURE: Got connected to %s, expected %s using default connection, [%d] %s\n",
-            $row['db'], $db, mysql_errno($con), mysql_error($con)); 
+            $row['db'], $db, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false))); 
     
-    mysql_free_result($res);
+    ((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
                        
-    $res = mysql_db_query($db, "SELECT DATABASE() AS db", $con);
+    $res = ((mysqli_query( $con, "USE $db")) ? mysqli_query( $con,  "SELECT DATABASE() AS db") : false);
     if (!$res)
         printf("FAILURE: Cannot run query, [%d] %s\n", 
-            mysql_errno($con), mysql_error($con));
+            ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
     
     if (!is_resource($res) && !is_bool($res) && !is_object($res))
         printf("FAILURE: Function is expected to return resource or boolean value, got %s, [%d] %s\n",
-           gettype($res), mysql_errno($con), mysql_error($con)); 
+           gettype($res), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false))); 
 
-    $row = mysql_fetch_assoc($res);
+    $row = mysqli_fetch_assoc($res);
     if ($row['db'] != $db)
         printf("FAILURE: Got connected to %s, expected %s, [%d] %s\n",
-            $row['db'], $db, mysql_errno($con), mysql_error($con));            
+            $row['db'], $db, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));            
     
-    mysql_free_result($res);       
+    ((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);       
     
-    $res = mysql_db_query($db, "SELECT DATABASE() AS db", $illegal_link_identifier);
+    $res = ((mysqli_query( $illegal_link_identifier, "USE $db")) ? mysqli_query( $illegal_link_identifier,  "SELECT DATABASE() AS db") : false);
         
     if (!is_resource($res) && !is_bool($res) && !is_object($res))
         printf("FAILURE: Function is expected to return resource or boolean value, illegal link identifier, got %s, [%d] %s\n",
-           gettype($res), mysql_errno($con), mysql_error($con)); 
+           gettype($res), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false))); 
 
     if ($res)
         printf("FAILURE: Function is expected to return false, illegal link identifier, [%d] %s\n",
-            mysql_errno($con), mysql_error($con)); 
+            ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false))); 
     
-    mysql_free_result($res);       
+    ((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);       
 }
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

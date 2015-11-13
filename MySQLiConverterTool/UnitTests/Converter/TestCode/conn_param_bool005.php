@@ -23,24 +23,24 @@ The ID generated for an AUTO_INCREMENT column by the previous INSERT query on su
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
-    printf("FAILURE: [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!((bool)mysqli_query( $con, "USE " . $db)))
+    printf("FAILURE: [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-if (!mysql_query("DELETE FROM nobody", $con))
-    printf("FAILURE: Cannot delete records, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!mysqli_query( $con, "DELETE FROM nobody"))
+    printf("FAILURE: Cannot delete records, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-if (!mysql_query('INSERT INTO nobody(id, msg) VALUES (1, "mysql_insert_id()")', $con))
-    printf("FAILURE: Cannot insert, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!mysqli_query( $con, 'INSERT INTO nobody(id, msg) VALUES (1, "mysql_insert_id()")'))
+    printf("FAILURE: Cannot insert, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-$id_default = mysql_insert_id();
-$id_con     = mysql_insert_id($con);
+$id_default = ((is_null($___mysqli_res = mysqli_insert_id($GLOBALS["___mysqli_ston"]))) ? false : $___mysqli_res);
+$id_con     = ((is_null($___mysqli_res = mysqli_insert_id($con))) ? false : $___mysqli_res);
 
 if ($id_default != $id_con)
     printf("FAILURE: Different values for default and specified connection\n");
@@ -51,27 +51,27 @@ if (!is_int($id_con))
 if ($id_con !== 0)
     printf("FAILURE: Expecting 0, because table has no auto_increment column, got %d\n", $id_con);
     
-$id_con = mysql_insert_id($illegal_link_identifier);
+$id_con = ((is_null($___mysqli_res = mysqli_insert_id($illegal_link_identifier))) ? false : $___mysqli_res);
 if (!is_bool($id_con))
     printf("FAILURE: mysql_insert_id(<illegal_link_identifier>) should have returned a boolean value, got %s value\n", gettype($id_con));
     
 if ($id_con !== false)
     printf("FAILURE: Function should have returned false\n");    
     
-if (!mysql_query("DELETE FROM root", $con))
-    printf("FAILURE: Cannot delete records from root, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!mysqli_query( $con, "DELETE FROM root"))
+    printf("FAILURE: Cannot delete records from root, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-if (!mysql_query('INSERT INTO root(msg) VALUES ("mysql_insert_id()")', $con))
-    printf("FAILURE: Cannot insert, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!mysqli_query( $con, 'INSERT INTO root(msg) VALUES ("mysql_insert_id()")'))
+    printf("FAILURE: Cannot insert, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-$id_con     = mysql_insert_id($con);
+$id_con     = ((is_null($___mysqli_res = mysqli_insert_id($con))) ? false : $___mysqli_res);
 if (!is_int($id_con))
     printf("FAILURE: Function should have returned an integer value for auto_increment column, got %s value\n", gettype($id_con));
     
 if ($id_con < 1)
     printf("FAILURE: Function returned bogus value for auto_increment column\n");        
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

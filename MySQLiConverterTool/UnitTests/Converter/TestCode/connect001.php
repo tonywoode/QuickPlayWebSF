@@ -4,13 +4,13 @@ SUCCESS: Simple mysql_connect(), static host, dynamic user, dynamic password
 <?php
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect('127.0.0.1', $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect('127.0.0.1',  $user,  $pass));
 if (!$con) {
-    printf("[connect_1] Failure: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("[connect_1] Failure: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "[connect_1] Success\n";
 }
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 [connect_1] Success

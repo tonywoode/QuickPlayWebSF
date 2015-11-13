@@ -26,56 +26,56 @@ Returns TRUE on success or FALSE on failure.
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (function_exists('mysql_create_db')) {
+if (function_exists('mysqli_query')) {
 
     $test_db_name = "__converter_test_create_db";
-    $ret = mysql_create_db($test_db_name, $con);
+    $ret = ((is_null($___mysqli_res = mysqli_query( $con, "CREATE DATABASE $test_db_name"))) ? false : $___mysqli_res);
     if (!is_bool($ret))
         printf("FAILURE: boolean return value expected, got %s\n", gettype($ret));
 
     if (!$ret)
         printf("FAILURE: failed to create test database, check your setup! FAILURE: [%d] %s\n", 
-            mysql_errno($con), mysql_error($con));
+            ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-    if (!mysql_query("DROP DATABASE " . $test_db_name, $con))
+    if (!mysqli_query( $con, "DROP DATABASE " . $test_db_name))
         printf("FAILURE: cannot drop test database '%s', check your setup! FAILURE: [%d] %s\n", 
-            $test_db_name, mysql_errno($con), mysql_error($con));
+            $test_db_name, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-    $ret = mysql_create_db($test_db_name);
+    $ret = ((is_null($___mysqli_res = mysqli_query($GLOBALS["___mysqli_ston"], "CREATE DATABASE $test_db_name"))) ? false : $___mysqli_res);
     if (!$ret)
         printf("FAILURE: failed to create test database '%s' using the default connection, check your setup! FAILURE: [%d] %s\n", 
-            $test_db_name, mysql_errno($con), mysql_error($con));
+            $test_db_name, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-    if (!mysql_query("DROP DATABASE " . $test_db_name))
+    if (!mysqli_query($GLOBALS["___mysqli_ston"], "DROP DATABASE " . $test_db_name))
         printf("FAILURE: cannot drop test database '%s' using the default connection, check your setup! FAILURE: [%d] %s\n", 
-            $test_db_name, mysql_errno($con), mysql_error($con));
+            $test_db_name, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
     if (!defined('CREATE_DB_DATABASE'))
         define('CREATE_DB_DATABASE', $test_db_name);
                     
-    $ret = mysql_create_db(CREATE_DB_DATABASE);
+    $ret = ((is_null($___mysqli_res = mysqli_query($GLOBALS["___mysqli_ston"], "CREATE DATABASE " . constant('CREATE_DB_DATABASE')))) ? false : $___mysqli_res);
     if (!$ret)
         printf("FAILURE [CREATE_DB_DATABASE]: failed to create test database '%s' using the default connection, check your setup! FAILURE: [%d] %s\n", 
-            CREATE_DB_DATABASE, mysql_errno($con), mysql_error($con));
+            CREATE_DB_DATABASE, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-    if (!mysql_query("DROP DATABASE " . CREATE_DB_DATABASE))
+    if (!mysqli_query($GLOBALS["___mysqli_ston"], "DROP DATABASE " . CREATE_DB_DATABASE))
         printf("FAILURE [CREATE_DB_DATABASE]: cannot drop test database '%s' using the default connection, check your setup! FAILURE: [%d] %s\n", 
-            CREATE_DB_DATABASE, mysql_errno($con), mysql_error($con));            
+            CREATE_DB_DATABASE, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));            
     
 
-    $ret = mysql_create_db($test_db_name, $illegal_link_identifier);
+    $ret = ((is_null($___mysqli_res = mysqli_query( $illegal_link_identifier, "CREATE DATABASE $test_db_name"))) ? false : $___mysqli_res);
     if (!is_bool($ret))
         printf("FAILURE: boolean return value expected because of illegal link identifier, got %s\n", gettype($ret));    
 }
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

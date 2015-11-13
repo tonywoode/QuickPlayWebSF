@@ -49,44 +49,44 @@ if (!function_exists('_conv_checkUserAndDB')) {
     
 }    
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 }
-if (!mysql_select_db($db, $con)) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+if (!((bool)mysqli_query( $con, "USE " . $db))) {
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 }
 
-$res = mysql_query("SELECT DATABASE() AS db, CURRENT_USER AS user", $con);
+$res = mysqli_query( $con, "SELECT DATABASE() AS db, CURRENT_USER AS user");
 if (!$res) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 }
-if ($error = _conv_checkUserAndDB($con, $user, $db, mysql_fetch_assoc($res)))
+if ($error = _conv_checkUserAndDB($con, $user, $db, mysqli_fetch_assoc($res)))
     print $error;
 else
     print "SUCCESS: user and db are correct\n";    
     
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-if (function_exists('mysql_change_user')) {
+if (function_exists('mysqli_change_user')) {
     
-    $ret = mysql_change_user($user_nobody, $pass_nobody, $db, $con);
+    $ret = mysqli_change_user( $con, $user_nobody,  $pass_nobody,  $db);
     if ($ret) {        
         print "SUCCESS - mysql_change_user(user, pass, db, con)\n";    
     } else {
         print "FAILURE - mysql_change_user(user, pass, db, con)\n";
     }
     
-    $res = mysql_query("SELECT DATABASE() AS db, CURRENT_USER AS user", $con);
+    $res = mysqli_query( $con, "SELECT DATABASE() AS db, CURRENT_USER AS user");
     if (!$res) {
-        printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+        printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     }
 
-    if ($error = _conv_checkUserAndDB($con, $user_nobody, $db, mysql_fetch_assoc($res)))
+    if ($error = _conv_checkUserAndDB($con, $user_nobody, $db, mysqli_fetch_assoc($res)))
         print $error;
 }    
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: user and db are correct

@@ -32,35 +32,35 @@ NOTE: /* {{{ proto object mysql_fetch_object(resource result [, string class_nam
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
+if (!((bool)mysqli_query( $con, "USE " . $db)))
     printf("FAILURE: cannot select db '%s', [%d] %s\n",
-        $db, mysql_errno($con), mysql_error($con));
+        $db, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-if (!mysql_query("DELETE FROM nobody", $con))
-    printf("FAILURE: cannot clear table nobody, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!mysqli_query( $con, "DELETE FROM nobody"))
+    printf("FAILURE: cannot clear table nobody, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-if (!mysql_query("INSERT INTO nobody(id, msg) VALUES (1, 'one'), (2, 'two'), (3, 'three'), (4, 'four')", $con))
-    printf("FAILURE: insert records into table nobody, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!mysqli_query( $con, "INSERT INTO nobody(id, msg) VALUES (1, 'one'), (2, 'two'), (3, 'three'), (4, 'four')"))
+    printf("FAILURE: insert records into table nobody, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
     
-if (!($res = mysql_query("SELECT id, msg FROM nobody ORDER BY id ASC", $con))) 
-    printf("FAILURE: cannot fetch records, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!($res = mysqli_query( $con, "SELECT id, msg FROM nobody ORDER BY id ASC"))) 
+    printf("FAILURE: cannot fetch records, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-$obj = mysql_fetch_object($res);
+$obj = mysqli_fetch_object($res);
 if (!is_object($obj)) 
-    printf("FAILURE: expecting object, got %s value, [%d] %s\n", gettype($obj), mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting object, got %s value, [%d] %s\n", gettype($obj), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
 if ($obj->msg != 'one')
     printf("FAILURE: expecting property 'msg' to have the value 'one', got '%s', [%d] %s\n", 
         $obj->msg,
-        mysql_errno($con), mysql_error($con));    
+        ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));    
         
 
 if (!class_exists('foo')) {
@@ -72,32 +72,32 @@ if (!class_exists('foo')) {
     }
 }
     
-$obj = mysql_fetch_object($res, 'foo');
+$obj = mysqli_fetch_object($res,  'foo');
 if (get_class($obj) != 'foo')
     printf("FAILURE: expecting object of class 'foo', got object of class '%s', [%d] %s\n", 
         get_class($obj),
-        mysql_errno($con), mysql_error($con));    
+        ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));    
 
-$obj = mysql_fetch_object($res, 'foo', array('bar'));        
+$obj = mysqli_fetch_object($res,  'foo',  array('bar'));        
 if ($obj->classname != 'bar')
-    printf("FAILURE: passing parameters to the custom class did not work,  [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: passing parameters to the custom class did not work,  [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-while ($obj = mysql_fetch_object($res))
+while ($obj = mysqli_fetch_object($res))
     ;
 
 if (!is_bool($obj))
-    printf("FAILURE: expecting boolean value because of empty result set, got %s value  [%d] %s\n", gettype($obj), mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting boolean value because of empty result set, got %s value  [%d] %s\n", gettype($obj), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-$obj = mysql_fetch_object($illegal_result_identifier);
+$obj = mysqli_fetch_object($illegal_result_identifier);
 if (!is_bool($obj))
-    printf("FAILURE: expecting boolean value because of invalid result identifier, got %s value  [%d] %s\n", gettype($obj), mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting boolean value because of invalid result identifier, got %s value  [%d] %s\n", gettype($obj), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
 if ($obj)
-    printf("FAILURE: expecting false, [%d] %s\n", mysql_errno($con), mysql_error($con));    
+    printf("FAILURE: expecting false, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));    
 
     
-mysql_free_result($res);
-mysql_close($con);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

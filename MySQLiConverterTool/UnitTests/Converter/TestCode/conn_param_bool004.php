@@ -23,15 +23,15 @@ Returns the MySQL server version on success, or FALSE on failure.
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-$server_info_default  = mysql_get_server_info();
-$server_info_con      = mysql_get_server_info($con);
+$server_info_default  = ((is_null($___mysqli_res = mysqli_get_server_info($GLOBALS["___mysqli_ston"]))) ? false : $___mysqli_res);
+$server_info_con      = ((is_null($___mysqli_res = mysqli_get_server_info($con))) ? false : $___mysqli_res);
 if ($server_info_con != $server_info_default) {
     printf("FAILURE: proto info of default connection and specified connection differ\n");
 }
@@ -39,14 +39,14 @@ if ($server_info_con != $server_info_default) {
 if (!is_string($server_info_con))
     printf("FAILURE: function should have returned a string\n");
 
-$server_info_con = mysql_get_server_info($illegal_link_identifier);
+$server_info_con = ((is_null($___mysqli_res = mysqli_get_server_info($illegal_link_identifier))) ? false : $___mysqli_res);
 if (!is_bool($server_info_con))
     printf("FAILURE: function should have returned a boolean value, got %s value\n", gettype($server_info_con));
 
 if ($server_info_con)
     printf("FAILURE: function should have failed with illegal link identifier\n");
     
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

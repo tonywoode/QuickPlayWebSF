@@ -30,23 +30,23 @@ Use the mysql_tablename() function to traverse this result pointer, or any funct
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-$res = mysql_list_tables($db);
-$num = mysql_num_rows($res);
+$res = mysqli_query($GLOBALS["___mysqli_ston"], "SHOW TABLES FROM $db");
+$num = mysqli_num_rows($res);
 
 $found = false;
 for ($i = 0; $i <= $num; $i++) {
 
-    $table = mysql_tablename($res, $i);
+    $table = ((mysqli_data_seek($res,  $i) && (($___mysqli_tmp = mysqli_fetch_row($res)) !== NULL)) ? array_shift($___mysqli_tmp) : false);
     if (!is_string($table))
         printf("FAILURE: expecting string value, got %s value, [%d] %s\n", 
-            gettype($table), mysql_errno($con), mysql_error($con));
+            gettype($table), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
     if ($table == 'nobody') {
         $found = true;
@@ -57,26 +57,26 @@ for ($i = 0; $i <= $num; $i++) {
 if (!$found)
     printf("FAILURE: could not find table 'nobody'\n");
     
-$table = mysql_tablename($res, 999);
+$table = ((mysqli_data_seek($res,  999) && (($___mysqli_tmp = mysqli_fetch_row($res)) !== NULL)) ? array_shift($___mysqli_tmp) : false);
 if (!is_bool($table))    
     printf("FAILURE: expecting boolean value (invalid offset), got %s value, [%d] %s\n", 
-        gettype($table), mysql_errno($con), mysql_error($con));
+        gettype($table), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
         
 if ($table)
     printf("FAILURE: expecting false (invalid offset)\n");
     
-$table = mysql_tablename($illegal_result_identifier, 1);    
+$table = ((mysqli_data_seek($illegal_result_identifier,  1) && (($___mysqli_tmp = mysqli_fetch_row($illegal_result_identifier)) !== NULL)) ? array_shift($___mysqli_tmp) : false);    
 if (!is_bool($table))    
     printf("FAILURE: expecting boolean value (illegal result identifier), got %s value, [%d] %s\n", 
-        gettype($table), mysql_errno($con), mysql_error($con));
+        gettype($table), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
 if ($table)
     printf("FAILURE: expecting false (illegal result identifier)\n");
         
 
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

@@ -557,7 +557,7 @@ class wpdb {
 				$query = $this->prepare( 'SET NAMES %s', $charset );
 				if ( ! empty( $collate ) )
 					$query .= $this->prepare( ' COLLATE %s', $collate );
-				mysql_query( $query, $dbh );
+				mysqli_query( $dbh ,  $query);
 			}
 		}
 	}
@@ -744,7 +744,7 @@ class wpdb {
 		if ( is_null($dbh) )
 			$dbh = $this->dbh;
 
-		if ( !@mysql_select_db( $db, $dbh ) ) {
+		if ( !@((bool)mysqli_query( $dbh , "USE " . $db)) ) {
 			$this->ready = false;
 			wp_load_translations_early();
 			$this->bail( sprintf( __( '<h1>Can&#8217;t select database</h1>
@@ -786,7 +786,7 @@ class wpdb {
 	 */
 	function _real_escape( $string ) {
 		if ( $this->dbh && $this->real_escape )
-			return mysql_real_escape_string( $string, $this->dbh );
+			return mysqli_real_escape_string( $this->dbh ,  $string);
 		else
 			return addslashes( $string );
 	}
@@ -919,7 +919,7 @@ class wpdb {
 		global $EZSQL_ERROR;
 
 		if ( !$str )
-			$str = mysql_error( $this->dbh );
+			$str = ((is_object( $this->dbh )) ? mysqli_error( $this->dbh ) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false));
 		$EZSQL_ERROR[] = array( 'query' => $this->last_query, 'error_str' => $str );
 
 		if ( $this->suppress_errors )
@@ -1035,9 +1035,9 @@ class wpdb {
 		$this->is_mysql = true;
 
 		if ( WP_DEBUG ) {
-			$this->dbh = mysql_connect( $this->dbhost, $this->dbuser, $this->dbpassword, true );
+			$this->dbh = ($GLOBALS["___mysqli_ston"] = mysqli_connect( $this->dbhost,  $this->dbuser,  $this->dbpassword));
 		} else {
-			$this->dbh = @mysql_connect( $this->dbhost, $this->dbuser, $this->dbpassword, true );
+			$this->dbh = @($GLOBALS["___mysqli_ston"] = mysqli_connect( $this->dbhost,  $this->dbuser,  $this->dbpassword));
 		}
 
 		if ( !$this->dbh ) {
@@ -1092,14 +1092,14 @@ class wpdb {
 		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES )
 			$this->timer_start();
 
-		$this->result = @mysql_query( $query, $this->dbh );
+		$this->result = @mysqli_query( $this->dbh ,  $query);
 		$this->num_queries++;
 
 		if ( defined( 'SAVEQUERIES' ) && SAVEQUERIES )
 			$this->queries[] = array( $query, $this->timer_stop(), $this->get_caller() );
 
 		// If there is an error then take note of it..
-		if ( $this->last_error = mysql_error( $this->dbh ) ) {
+		if ( $this->last_error = ((is_object( $this->dbh )) ? mysqli_error( $this->dbh ) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)) ) {
 			$this->print_error();
 			return false;
 		}
@@ -1107,26 +1107,26 @@ class wpdb {
 		if ( preg_match( '/^\s*(create|alter|truncate|drop) /i', $query ) ) {
 			$return_val = $this->result;
 		} elseif ( preg_match( '/^\s*(insert|delete|update|replace) /i', $query ) ) {
-			$this->rows_affected = mysql_affected_rows( $this->dbh );
+			$this->rows_affected = mysqli_affected_rows( $this->dbh );
 			// Take note of the insert_id
 			if ( preg_match( '/^\s*(insert|replace) /i', $query ) ) {
-				$this->insert_id = mysql_insert_id($this->dbh);
+				$this->insert_id = ((is_null($___mysqli_res = mysqli_insert_id($this->dbh))) ? false : $___mysqli_res);
 			}
 			// Return number of rows affected
 			$return_val = $this->rows_affected;
 		} else {
 			$i = 0;
-			while ( $i < @mysql_num_fields( $this->result ) ) {
-				$this->col_info[$i] = @mysql_fetch_field( $this->result );
+			while ( $i < @(($___mysqli_tmp = mysqli_num_fields( $this->result )) ? $___mysqli_tmp : false) ) {
+				$this->col_info[$i] = @(((($___mysqli_tmp = mysqli_fetch_field_direct( $this->result , mysqli_field_tell( $this->result ))) && is_object($___mysqli_tmp)) ? ( (!is_null($___mysqli_tmp->primary_key = ($___mysqli_tmp->flags & MYSQLI_PRI_KEY_FLAG) ? 1 : 0)) && (!is_null($___mysqli_tmp->multiple_key = ($___mysqli_tmp->flags & MYSQLI_MULTIPLE_KEY_FLAG) ? 1 : 0)) && (!is_null($___mysqli_tmp->unique_key = ($___mysqli_tmp->flags & MYSQLI_UNIQUE_KEY_FLAG) ? 1 : 0)) && (!is_null($___mysqli_tmp->numeric = (int)(($___mysqli_tmp->type <= MYSQLI_TYPE_INT24) || ($___mysqli_tmp->type == MYSQLI_TYPE_YEAR) || ((defined("MYSQLI_TYPE_NEWDECIMAL")) ? ($___mysqli_tmp->type == MYSQLI_TYPE_NEWDECIMAL) : 0)))) && (!is_null($___mysqli_tmp->blob = (int)in_array($___mysqli_tmp->type, array(MYSQLI_TYPE_TINY_BLOB, MYSQLI_TYPE_BLOB, MYSQLI_TYPE_MEDIUM_BLOB, MYSQLI_TYPE_LONG_BLOB)))) && (!is_null($___mysqli_tmp->unsigned = ($___mysqli_tmp->flags & MYSQLI_UNSIGNED_FLAG) ? 1 : 0)) && (!is_null($___mysqli_tmp->zerofill = ($___mysqli_tmp->flags & MYSQLI_ZEROFILL_FLAG) ? 1 : 0)) && (!is_null($___mysqli_type = $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = (($___mysqli_type == MYSQLI_TYPE_STRING) || ($___mysqli_type == MYSQLI_TYPE_VAR_STRING)) ? "type" : "")) &&(!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && in_array($___mysqli_type, array(MYSQLI_TYPE_TINY, MYSQLI_TYPE_SHORT, MYSQLI_TYPE_LONG, MYSQLI_TYPE_LONGLONG, MYSQLI_TYPE_INT24))) ? "int" : $___mysqli_tmp->type)) &&(!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && in_array($___mysqli_type, array(MYSQLI_TYPE_FLOAT, MYSQLI_TYPE_DOUBLE, MYSQLI_TYPE_DECIMAL, ((defined("MYSQLI_TYPE_NEWDECIMAL")) ? constant("MYSQLI_TYPE_NEWDECIMAL") : -1)))) ? "real" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_TIMESTAMP) ? "timestamp" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_YEAR) ? "year" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && (($___mysqli_type == MYSQLI_TYPE_DATE) || ($___mysqli_type == MYSQLI_TYPE_NEWDATE))) ? "date " : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_TIME) ? "time" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_SET) ? "set" : $___mysqli_tmp->type)) &&(!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_ENUM) ? "enum" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_GEOMETRY) ? "geometry" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_DATETIME) ? "datetime" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && (in_array($___mysqli_type, array(MYSQLI_TYPE_TINY_BLOB, MYSQLI_TYPE_BLOB, MYSQLI_TYPE_MEDIUM_BLOB, MYSQLI_TYPE_LONG_BLOB)))) ? "blob" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type && $___mysqli_type == MYSQLI_TYPE_NULL) ? "null" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->type = ("" == $___mysqli_tmp->type) ? "unknown" : $___mysqli_tmp->type)) && (!is_null($___mysqli_tmp->not_null = ($___mysqli_tmp->flags & MYSQLI_NOT_NULL_FLAG) ? 1 : 0)) ) : false ) ? $___mysqli_tmp : false);
 				$i++;
 			}
 			$num_rows = 0;
-			while ( $row = @mysql_fetch_object( $this->result ) ) {
+			while ( $row = @mysqli_fetch_object( $this->result ) ) {
 				$this->last_result[$num_rows] = $row;
 				$num_rows++;
 			}
 
-			@mysql_free_result( $this->result );
+			@((mysqli_free_result( $this->result ) || (is_object( $this->result ) && (get_class( $this->result ) == "mysqli_result"))) ? true : false);
 
 			// Log number of rows the query returned
 			// and return number of rows selected
@@ -1600,6 +1600,6 @@ class wpdb {
 	 * @return false|string false on failure, version number on success
 	 */
 	function db_version() {
-		return preg_replace( '/[^0-9.].*/', '', mysql_get_server_info( $this->dbh ) );
+		return preg_replace( '/[^0-9.].*/', '', ((is_null($___mysqli_res = mysqli_get_server_info( $this->dbh ))) ? false : $___mysqli_res) );
 	}
 }

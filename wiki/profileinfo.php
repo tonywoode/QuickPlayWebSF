@@ -155,14 +155,14 @@ $sort = 'time';
 if (isset($_REQUEST['sort']) && in_array($_REQUEST['sort'], $sorts))
 	$sort = $_REQUEST['sort'];
 
-$dbh = mysql_connect($wgDBserver, $wgDBadminuser, $wgDBadminpassword)
-	or wfDie("mysql server failed: " . mysql_error());
-mysql_select_db($wgDBname, $dbh) or wfDie(mysql_error($dbh));
-$res = mysql_query("
+$dbh = ($GLOBALS["___mysqli_ston"] = mysqli_connect($wgDBserver,  $wgDBadminuser,  $wgDBadminpassword))
+	or wfDie("mysql server failed: " . ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
+((bool)mysqli_query( $dbh, "USE " . $wgDBname)) or wfDie(((is_object($dbh)) ? mysqli_error($dbh) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
+$res = mysqli_query( $dbh, "
 	SELECT pf_count, pf_time, pf_name
 	FROM profiling
 	ORDER BY pf_name ASC
-", $dbh) or wfDie("query failed: " . mysql_error());
+") or wfDie("query failed: " . ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
 if (isset($_REQUEST['filter']))
 	$filter = $_REQUEST['filter'];
@@ -204,7 +204,7 @@ $queries = array();
 $sqltotal = 0.0;
 
 $last = false;
-while (($o = mysql_fetch_object($res)) !== false) {
+while (($o = mysqli_fetch_object($res)) !== false) {
 	$next = new profile_point($o->pf_name, $o->pf_count, $o->pf_time);
 	$totaltime += $next->time();
 	if ($last !== false) {
@@ -241,8 +241,8 @@ foreach ($points as $point) {
 <p>Total time: <tt><?php printf("%5.02f", $totaltime) ?></p>
 <?php
 
-mysql_free_result($res);
-mysql_close($dbh);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
+((is_null($___mysqli_res = mysqli_close($dbh))) ? false : $___mysqli_res);
 
 ?>
 </body>

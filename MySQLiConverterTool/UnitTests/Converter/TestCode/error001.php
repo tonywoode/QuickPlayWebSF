@@ -25,30 +25,30 @@ Returns the error number from the last MySQL function, or 0 (zero) if no error o
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-$errno = mysql_errno($con);
+$errno = ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false));
 if (!is_int($errno))
     printf("FAILURE: expecting integer value, using regular connection, got %s\n", gettype($errno));    
     
 // should throw a warning    
-$errno = mysql_errno();
+$errno = ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false));
 if (!is_int($errno))
     printf("FAILURE: expecting integer value, using default connection, got %s\n", gettype($errno));        
     
-$errno = mysql_error($illegal_link_identifier);
+$errno = ((is_object($illegal_link_identifier)) ? mysqli_error($illegal_link_identifier) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false));
 if (!is_bool($errno))
     printf("FAILURE: expecting boolean value, using illegal link identifier, got %s\n", gettype($errno));
 
 if ($errno)
     printf("FAILURE: expecting false, using illegal link identifier, got %s\n", $errno);     
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

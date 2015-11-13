@@ -114,7 +114,7 @@ class Phase2Importer {
 				cur_user,cur_user_text,cur_timestamp,REPLACE(cur_restrictions,'is_',''),cur_counter,
 				cur_text like '#redirect%',cur_minor_edit,0,RAND(),NOW()+0,
 			FROM {$this->olddb}.cur", DB_MASTER );
-		$n = mysql_affected_rows();
+		$n = mysqli_affected_rows($GLOBALS["___mysqli_ston"]);
 		print "$n rows imported.\n";
 	}
 
@@ -128,7 +128,7 @@ class Phase2Importer {
 			SELECT old_id,0,old_title,old_text,old_comment,
 				old_user,old_user_text,old_timestamp,old_minor_edit,''
 			FROM {$this->olddb}.old", DB_MASTER );
-		$n = mysql_affected_rows();
+		$n = mysqli_affected_rows($GLOBALS["___mysqli_ston"]);
 		print "$n rows imported.\n";
 	}
 
@@ -142,7 +142,7 @@ class Phase2Importer {
 			SELECT user_id,user_name,REPLACE(user_rights,'is_',''),
 				MD5(CONCAT(user_id,'-',MD5(user_password))),'',user_email,user_options,NOW()+0
 			FROM {$this->olddb}.user", DB_MASTER );
-		$n = mysql_affected_rows();
+		$n = mysqli_affected_rows($GLOBALS["___mysqli_ston"]);
 		print "$n rows imported.\n";
 	}
 
@@ -188,7 +188,7 @@ class Phase2Importer {
 					SELECT DISTINCT linked_from,cur_id
 					FROM {$this->olddb}.linked,{$this->olddb}.cur
 					WHERE linked_to=cur_title", DB_MASTER );
-		$n = mysql_affected_rows();
+		$n = mysqli_affected_rows($GLOBALS["___mysqli_ston"]);
 		print "$n rows imported.\n";
 
 		print "Importing broken links...";
@@ -196,7 +196,7 @@ class Phase2Importer {
 					SELECT DISTINCT cur_id,unlinked_to
 					FROM {$this->olddb}.unlinked,{$this->olddb}.cur
 					WHERE unlinked_from=cur_title", DB_MASTER );
-		$n = mysql_affected_rows();
+		$n = mysqli_affected_rows($GLOBALS["___mysqli_ston"]);
 		print "$n rows imported.\n";
 	}
 

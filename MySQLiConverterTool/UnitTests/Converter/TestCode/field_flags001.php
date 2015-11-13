@@ -43,16 +43,16 @@ The following flags are reported, if your version of MySQL is current enough to 
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
+if (!((bool)mysqli_query( $con, "USE " . $db)))
     printf("FAILURE: cannot select db '%s', [%d] %s\n",
-        $db, mysql_errno($con), mysql_error($con));
+        $db, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
 $columns = array(
     'COL_NOT_NULL'      =>  array('INT NOT NULL', '1', 'not_null'),
@@ -70,30 +70,30 @@ $columns = array(
 
 foreach ($columns as $name => $column) {
     
-    @mysql_query('DROP TABLE field_flags', $con);
+    @mysqli_query( $con, 'DROP TABLE field_flags');
     
     $sql = sprintf('CREATE TABLE field_flags(%s %s)', $name, $column[0]);
-    mysql_query($sql, $con);             
+    mysqli_query( $con, $sql);             
         
     $sql = sprintf('INSERT INTO field_flags(%s) values (%s)', $name, $column[1]);
-    if (!mysql_query($sql, $con)) {
+    if (!mysqli_query( $con, $sql)) {
         printf("FAILURE: insert for column '%s' failed, [%d] %s\n",
-            $column[0], mysql_errno($con), mysql_error($con));
+            $column[0], ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
         continue;            
     }
     
-    if (!($res = mysql_query('SELECT * FROM field_flags', $con))) {
+    if (!($res = mysqli_query( $con, 'SELECT * FROM field_flags'))) {
         printf("FAILURE: cannot select value of column %s failed, [%d] %s\n",
-            $column[0], mysql_errno($con), mysql_error($con));
+            $column[0], ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
         continue;            
     }
     
-    $fields = mysql_field_flags($res, 0);    
-    mysql_free_result($res);
+    $fields = (($___mysqli_tmp = mysqli_fetch_field_direct($res,  0)->flags) ? (string)(substr((($___mysqli_tmp & MYSQLI_NOT_NULL_FLAG)       ? "not_null "       : "") . (($___mysqli_tmp & MYSQLI_PRI_KEY_FLAG)        ? "primary_key "    : "") . (($___mysqli_tmp & MYSQLI_UNIQUE_KEY_FLAG)     ? "unique_key "     : "") . (($___mysqli_tmp & MYSQLI_MULTIPLE_KEY_FLAG)   ? "unique_key "     : "") . (($___mysqli_tmp & MYSQLI_BLOB_FLAG)           ? "blob "           : "") . (($___mysqli_tmp & MYSQLI_UNSIGNED_FLAG)       ? "unsigned "       : "") . (($___mysqli_tmp & MYSQLI_ZEROFILL_FLAG)       ? "zerofill "       : "") . (($___mysqli_tmp & 128)                        ? "binary "         : "") . (($___mysqli_tmp & 256)                        ? "enum "           : "") . (($___mysqli_tmp & MYSQLI_AUTO_INCREMENT_FLAG) ? "auto_increment " : "") . (($___mysqli_tmp & MYSQLI_TIMESTAMP_FLAG)      ? "timestamp "      : "") . (($___mysqli_tmp & MYSQLI_SET_FLAG)            ? "set "            : ""), 0, -1)) : false);    
+    ((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
     
     if (!is_string($fields)) {
         printf("FAILURE: cannot fetch field flags of column '%s', got %s value instead of a string, [%d] %s\n",
-            $column[0], gettype($fields), mysql_errno($con), mysql_error($con));
+            $column[0], gettype($fields), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
         continue;            
     }
         
@@ -110,7 +110,7 @@ foreach ($columns as $name => $column) {
     
 }
   
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect

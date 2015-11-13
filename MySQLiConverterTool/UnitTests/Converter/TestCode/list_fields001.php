@@ -33,71 +33,71 @@ The returned result can be used with mysql_field_flags(), mysql_field_len(), mys
 */
 require('MySQLConverterTool/UnitTests/Converter/TestCode/config.php');
 
-$con    = mysql_connect($host, $user, $pass);
+$con    = ($GLOBALS["___mysqli_ston"] = mysqli_connect($host,  $user,  $pass));
 if (!$con) {
-    printf("FAILURE: [%d] %s\n", mysql_errno(), mysql_error());
+    printf("FAILURE: [%d] %s\n", ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_errno($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 } else {
     print "SUCCESS: connect\n";
 }
 
-if (!mysql_select_db($db, $con))
+if (!((bool)mysqli_query( $con, "USE " . $db)))
     printf("FAILURE: cannot select db '%s', [%d] %s\n",
-        $db, mysql_errno($con), mysql_error($con));
+        $db, ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
    
-if (!($res = mysql_list_fields($db, 'nobody')))
-    printf("FAILURE: cannot run mysql_list_fields() on default connection, [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!($res = (($___mysqli_tmp = mysqli_query($GLOBALS["___mysqli_ston"], "SHOW COLUMNS FROM $db.nobody")) ? $___mysqli_tmp : false)))
+    printf("FAILURE: cannot run mysql_list_fields() on default connection, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-$row = mysql_fetch_array($res);
+$row = mysqli_fetch_array($res);
 
 if (!is_array($row))
-    printf("FAILURE: expecting array, got %s value, [%d] %s\n", gettype($row), mysql_errno($con), mysql_error($con));
+    printf("FAILURE: expecting array, got %s value, [%d] %s\n", gettype($row), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
 if (!array_key_exists(0, $row) || !array_key_exists("Field", $row) || $row[0] != $row["Field"])
-    printf("FAILURE: hash looks strange, [%d] %s\n", gettype($row), mysql_errno($con), mysql_error($con));    
+    printf("FAILURE: hash looks strange, [%d] %s\n", gettype($row), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));    
     
 if ($row["Field"] != "id")
-    printf("FAILURE: strange field name,  [%d] %s\n", mysql_errno($con), mysql_error($con));
+    printf("FAILURE: strange field name,  [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-mysql_free_result($res);    
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);    
     
-if (!($res = mysql_list_fields($db, 'nobody', $con)))
-    printf("FAILURE: cannot run mysql_list_fields(), [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!($res = (($___mysqli_tmp = mysqli_query( $con, "SHOW COLUMNS FROM $db.nobody")) ? $___mysqli_tmp : false)))
+    printf("FAILURE: cannot run mysql_list_fields(), [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
 
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-$res = mysql_list_fields($db, 'nobody', $illegal_link_identifier);
+$res = (($___mysqli_tmp = mysqli_query( $illegal_link_identifier, "SHOW COLUMNS FROM $db.nobody")) ? $___mysqli_tmp : false);
 
 if (!is_bool($res))
-    printf("FAILURE: expecting boolean value (illegal link identifier), got %s value,  [%d] %s\n", gettype($row), mysql_errno($con), mysql_error($con));  
+    printf("FAILURE: expecting boolean value (illegal link identifier), got %s value,  [%d] %s\n", gettype($row), ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));  
     
 if ($res)
-    printf("FAILURE: expecting false (illegal link identifier), got true,   [%d] %s\n", mysql_errno($con), mysql_error($con));  
+    printf("FAILURE: expecting false (illegal link identifier), got true,   [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));  
 
 if (!defined('LIST_FIELDS_TABLE'))    
     define('LIST_FIELDS_TABLE', 'nobody');    
     
-if (!($res = mysql_list_fields($db, LIST_FIELDS_TABLE, $con)))
-    printf("FAILURE [LIST_FIELDS_TABLE]: cannot run mysql_list_fields(), [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!($res = (($___mysqli_tmp = mysqli_query( $con, "SHOW COLUMNS FROM $db." . constant('LIST_FIELDS_TABLE'))) ? $___mysqli_tmp : false)))
+    printf("FAILURE [LIST_FIELDS_TABLE]: cannot run mysql_list_fields(), [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-$row = mysql_fetch_array($res);
+$row = mysqli_fetch_array($res);
 if ($row['Field'] != 'id')
-    printf("FAILURE [LIST_FIELDS_TABLE]: return value looks strange, [%d] %s\n", mysql_errno($con), mysql_error($con));   
+    printf("FAILURE [LIST_FIELDS_TABLE]: return value looks strange, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));   
 
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
     
 if (!defined('LIST_FIELDS_DATABASE'))    
     define('LIST_FIELDS_DATABASE', $db);    
     
-if (!($res = mysql_list_fields(LIST_FIELDS_DATABASE, LIST_FIELDS_TABLE, $con)))
-    printf("FAILURE [LIST_FIELDS_DATABASE, LIST_FIELDS_TABLE]: cannot run mysql_list_fields(), [%d] %s\n", mysql_errno($con), mysql_error($con));
+if (!($res = (($___mysqli_tmp = mysqli_query( $con, "SHOW COLUMNS FROM " . constant('LIST_FIELDS_DATABASE') . "." . constant('LIST_FIELDS_TABLE'))) ? $___mysqli_tmp : false)))
+    printf("FAILURE [LIST_FIELDS_DATABASE, LIST_FIELDS_TABLE]: cannot run mysql_list_fields(), [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));
     
-$row = mysql_fetch_array($res);
+$row = mysqli_fetch_array($res);
 if ($row['Field'] != 'id')
-    printf("FAILURE [LIST_FIELDS_DATABASE, LIST_FIELDS_TABLE]: return value looks strange, [%d] %s\n", mysql_errno($con), mysql_error($con));   
+    printf("FAILURE [LIST_FIELDS_DATABASE, LIST_FIELDS_TABLE]: return value looks strange, [%d] %s\n", ((is_object($con)) ? mysqli_errno($con) : (($___mysqli_res = mysqli_connect_errno()) ? $___mysqli_res : false)), ((is_object($con)) ? mysqli_error($con) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)));   
 
-mysql_free_result($res);
+((mysqli_free_result($res) || (is_object($res) && (get_class($res) == "mysqli_result"))) ? true : false);
 
-mysql_close($con);
+((is_null($___mysqli_res = mysqli_close($con))) ? false : $___mysqli_res);
 ?>
 --EXPECT-EXT/MYSQL-OUTPUT--
 SUCCESS: connect
