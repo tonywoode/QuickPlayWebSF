@@ -107,6 +107,25 @@ elif [[ "$1" = "--blankem" ]]; then
 	blankem
 	exit
 
+elif [[ "$1" = "--populate" ]]; then
+	echo "entering command line"
+	replacePHPConfigSecrets "local" 
+	$MAMPDir/bin/start.sh
+	open $MAMPDir/MAMP.app --args -AppCommandLineArg
+	timer
+  $mySQLDir/mysql -u root -p -e "create database "$db"" && {
+		echo "created a blank database "$db""
+		if [[ -e "$sqlLiveFile" ]]; then
+			$mySQLDir/mysql -u root -p "$db" < "$sqlLiveFile"
+		else
+			echo "can't find your database file at "$sqlLiveFile", or some other problem inserting it"
+		fi
+			echo "Success - database created "
+			echo "DON'T FORGET TO SETUP YOUR HTDOCS ROOT IN MAMP NOW............."
+  	read -n1 -r -p "Press any key to continue..."
+		$MAMPDir/bin/stop.sh
+	}
+
 else
 	echo "no flags"
 	blankem	

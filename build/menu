@@ -8,6 +8,7 @@ while true; do
 	echo "	5. Export the SQL"
 	echo "	6. Export the SQL and take the website live"
 	echo "	7. Enter SSH Remote command line"
+	echo "	8. Import the lastest database on a new local system"
 	echo "	9. Quit and blank secrets so its safe to commit"
 	
 	
@@ -20,6 +21,7 @@ while true; do
 		5) echo "Ok, Exporting the SQL"; ./switcher --exportSQL;;
 		6) echo "Ok, Exporting SQL and Going live"; ./switcher --live;;
 		7) echo "Ok, SSH Command Line"; ./switcher --SSHCmd;;
+		8) echo "Ok, make and import a new local quickplay database, we'll use the local sql you hopefully have"; ./switcher --populate;;
 		9) echo "Ok, exiting, blankly..."; ./switcher --blankem; break;; 
 		*) echo "Try again";;
 	esac
