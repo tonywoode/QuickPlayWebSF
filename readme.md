@@ -20,3 +20,5 @@ This allows for agile release of Quickplay and easy update of the sites. Links e
 * regex-replaced secrets for each use (local, remote, github) get checked
 * www code wasnt safe as evidenced by spam in the DB - made mysqli prepared statement alternative (since SF's site doesn't support MySQLi::GetResult) (use pdo in future!)
 
+## to run the build/release tool
+* See the readme and quickplay instructions in the build folder
