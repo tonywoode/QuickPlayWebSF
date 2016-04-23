@@ -1,21 +1,21 @@
 /**
  * Reads the local copy of the qp database and updates QPVer
  */
-var fs					= require("fs"),
-		connection  = require('./dbConnect'),
-		version_name = process.env.version, //quickplay version number we're releasing
-		qpZip       = process.env.localZipFile,
-		stats       = fs.statSync(qpZip),
-		zipSizeInBytes = stats["size"],
-		filesize = Math.floor(zipSizeInBytes / 1000000) + "MB",
-		downloadURL = process.env.sfFileURL; 
+var fs							=	require("fs"),
+		connection			=	require('./dbConnect'),
+		version_name		=	process.env.version, //quickplay version number we're releasing
+		qpZip						=	process.env.localZipFile,
+		stats						=	fs.statSync(qpZip),
+		zipSizeInBytes	=	stats.size,
+		filesize				=	Math.floor(zipSizeInBytes / 1000000) + "MB",
+		downloadURL			=	process.env.sfFileURL; 
 
 function updateQPVerManually() { 
-	var prompt      = require('./userInput'),
-			getVersion  = require('./getVersion'),
-			version_name = getVersion(), //to force return value not function itself
-			downloadURl = result.downloadURL,
-			filesize		= result.filesize;
+	var prompt				= require('./userInput'),
+			getVersion		= require('./getVersion'),
+			version_name	= getVersion(), //to force return value not function itself
+			downloadURl		= result.downloadURL,
+			filesize			= result.filesize;
 	
 	console.log('Enter the details for Version ' + version_name); //force string return value not function code
 
@@ -39,11 +39,10 @@ the anonymous function we just defined has the same signature as showTable,
  */
 
 //prompt(function(result){ //if we make the manual update we'll need to add this to the flow
-    //async-101: we can't call insertRow serially after show table, or it'll run both at the same time
-		showTable(function() {
-           insertRow(version_name, downloadURL, filesize)
-            }); //here's why we use promises, this could become the callback pyramid of doom
-//});
+//async-101: we can't call insertRow serially after show table, or it'll run both at the same time
+showTable(function() {
+   insertRow(version_name, downloadURL, filesize);
+}); //here's why we use promises, this could become the callback pyramid of doom
 
 function showTable(next) {
     console.log('EXISTING VERSION TABLE FOLLOWS:');

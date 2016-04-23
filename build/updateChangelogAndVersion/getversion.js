@@ -8,6 +8,7 @@ module.exports = function() {
 	var version = (match[1]);
 	return version;
 
-}
+};
+
 
 

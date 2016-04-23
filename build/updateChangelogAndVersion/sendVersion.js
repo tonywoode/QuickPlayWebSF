@@ -1,3 +1,4 @@
+// TODO: wtf?
 var getVersion  = require('./getVersion'),
     version_name = getVersion();
 

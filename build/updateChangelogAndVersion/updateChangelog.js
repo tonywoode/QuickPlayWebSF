@@ -6,30 +6,33 @@ var fs					= require('fs'),
 		execFile		= require('child_process').execFile,
 		optipng			= require('pandoc-bin').path,	
 		connection  = require('./dbConnect'),
-/*
-In Node, __dirname is always the dir in which the currently executing script resides. 
-In other words, you typed __dirname into one of your script files and value would be 
-that file's directory. By contrast, . gives you the directory from which you ran the 
-node command in your terminal window (i.e. you working directory). 
-The exception is when you use . with require(), in which case it acts like __dirname.
-*/
-	// so whilst require is rooted in this file's dir, fs appears rooted in the callers dir one level up
-	// so this is rooted in the js scripts folder:
+		/*
+		In Node, __dirname is always the dir in which the currently executing script resides. 
+		In other words, you typed __dirname into one of your script files and value would be 
+		that file's directory. By contrast, . gives you the directory from which you ran the 
+		node command in your terminal window (i.e. your working directory). 
+		The exception is when you use . with require(), in which case it acts like __dirname.
+		so whilst require is rooted in this file's dir, fs appears rooted in the callers dir one level up
+		so this is rooted in the js scripts folder:
+		*/
   	prompt  	= require('prompt'),
    	
-	//whilst these are rooted in the build folder (parent):
-	changelogLF	= '../../../Release/changelogLF',
-	changelogHTML = '../../../Release/changelogHTML'
-	changeText = fs.readFileSync('../../../Release/changelogHTML', 'ascii'),
+		//whilst these are rooted in the build folder (parent):
+		changelogLF	= '../../../Release/changelogLF',
+		changelogHTML = '../../../Release/changelogHTML',
+		changeText = fs.readFileSync('../../../Release/changelogHTML', 'ascii'),
 	
-	//...we can do this to avoid this ambiguity, but its a little ugly
-	getVersion = require( '' + __dirname + '/getVersion'),
+		//...we can do this to avoid this ambiguity, but its a little ugly
+		getVersion = require( '' + __dirname + '/getVersion'),
 
-	version    = getVersion(),
-	argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF,'-o', changelogHTML],
+		version    = getVersion(),
+		argsToPandoc = ['-f', 'markdown', '-t', 'html', changelogLF,'-o', changelogHTML],
 
-	date 		= new Date().toISOString().slice(0, 10).replace('T', ' '),
-	tony		= 5; //my id in the qp database
+		date 		= new Date().toISOString().slice(0, 10).replace('T', ' '),
+		
+		//my id in the qp database
+		tony		= 5; 
+
 
 printWhatWeStartWith(function(callback){ 
        yesorno(function(answer){
