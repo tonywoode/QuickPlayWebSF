@@ -38,7 +38,7 @@
             [Main Page|news_show]
           </div>
           <div class="menuelement">
-            <a href="http://www.quickplayfrontend.com/">Forums</a>
+            <a href="http://forums.quickplayfrontend.com/">Forums</a>
           </div>
 	  <div class="menuelement">
             <a href="wiki">Wiki</a>
