@@ -58,7 +58,7 @@ function showTable(next) {
 
 //insert values for the next tuple - primary key version_id in the table auto-increments
 function insertRow(versionName, downloadURL, filesize) {
-  connection.query('INSERT INTO version (versionName, download, filesize) values ("'+versionName+'","'+downloadURL+'", "'+filesize+'")',
+  connection.query('INSERT INTO version (version_name, download, filesize) values ("'+versionName+'","'+downloadURL+'", "'+filesize+'")',
   function (error, results, fields) {
     if (error) { console.log('ERRORS=', error); }
     if (results) { console.log('RESULTS=', results); }
