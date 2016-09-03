@@ -73,7 +73,7 @@ function yesorno (next) { //next holds the address of the function i declared in
 }
 
 function pandocIt (doItOrNot, next) {	
-  if ( doItOrNot==='y' ) {
+  if ( doItOrNot==='y'||'yes' ) {
     execFile(optipng, argsToPandoc, function (err, stdout, stderr) {
       console.log(stdout);
       if ( err ) { console.log(err); } //else prints null
