@@ -56,11 +56,7 @@
 		(Remember script HAS transferred local vars to the server, so e.g.: if we want to logon to mysql just go mysql -h mysql-q -u "$dbuser" “$db”)
 
 8) REFRESH BROWSER and check release
-
-____________
-delete from version/changes/news where version_id or id=xxx;
-alter table version/changes/news AUTO_INCREMENT = 21; (delete anything higher FIRST)
-
+9) Bear in mind your QuickPlayFrontend repo is now on master, and you have uncommited changelog changes. So add these to master, and then make sure they get ported to develop (git checkout develop && git add -A && git commit -m "adding released changelog")
 
 
 
