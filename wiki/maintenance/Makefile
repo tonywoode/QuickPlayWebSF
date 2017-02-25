@@ -1,20 +1,19 @@
-.PHONY: help test test-light
 help:
-	# Run 'make test' to run the parser tests.
-	# Run 'make doc' to run the phpdoc generation.
-	# Run 'make doxydoc' (unsupported doxygen generation).
+	@echo "Run 'make test' to run the parser tests."
+	@echo "Run 'make doc' to run the doxygen generation."
+	@echo "Run 'make man' to run the doxygen generation with man pages."
 
 test:
-	php parserTests.php
-
-test-light:
-	php parserTests.php --color=light
+	php tests/parserTests.php --quiet
 
 doc:
-	php mwdocgen.php -all
-	echo 'Doc generation done. Look at ./docs/html/'
+	php mwdocgen.php --all
+	./mwjsduck-gen
+	@echo 'PHP documentation (by Doxygen) in ./docs/html/'
+	@echo 'JS documentation (by JSDuck) in ./docs/js/'
 
-doxydoc:
-	cd .. && doxygen maintenance/mwdoxygen.cfg
-	echo 'Doc generation done. Look at ./docs/html/'
-
+man:
+	php mwdocgen.php --all --generate-man
+	@echo 'Doc generation done. Look at ./docs/html/ and ./docs/man'
+	@echo 'You might want to update your MANPATH currently:'
+	@echo 'MANPATH: $(MANPATH)'

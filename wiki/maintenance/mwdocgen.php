@@ -1,167 +1,167 @@
 <?php
 /**
- * Script to easily generate the mediawiki documentation.
+ * Generate class and file reference documentation for MediaWiki using doxygen.
  *
- * By default it will generate the whole documentation but you will be able to
- * generate just some parts.
+ * If the dot DOT language processor is available, attempt call graph
+ * generation.
  *
  * Usage:
  *   php mwdocgen.php
  *
- * Then make a selection from the menu
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @file
  * @todo document
- * @package MediaWiki
- * @subpackage Maintenance
+ * @ingroup Maintenance
  *
- * @author Ashar Voultoiz <thoane@altern.org>
+ * @author Antoine Musso <hashar at free dot fr>
+ * @author Brion Vibber
+ * @author Alexandre Emsenhuber
  * @version first release
  */
 
-#
-# Variables / Configuration
-#
+require_once __DIR__ . '/Maintenance.php';
 
-if( php_sapi_name() != 'cli' ) {
-	echo "Run me from the command line.";
-	die( -1 );
-}
+/**
+ * Maintenance script that builds doxygen documentation.
+ * @ingroup Maintenance
+ */
+class MWDocGen extends Maintenance {
 
-/** Phpdoc script with full path */
-#$pdExec	= '/usr/bin/phpdoc';
-$pdExec = 'phpdoc';
+	/**
+	 * Prepare Maintenance class
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->mDescription = 'Build doxygen documentation';
 
-/** Figure out the base directory. */
-$here = dirname( dirname( __FILE__ ) ) . DIRECTORY_SEPARATOR;
-
-/** where Phpdoc should output documentation */
-#$pdOutput = '/var/www/mwdoc/';
-$pdOutput = "{$here}docs" . DIRECTORY_SEPARATOR . 'html';
-
-/** Some more Phpdoc settings */
-# This will be used as the default for all files that don't have a package,
-# it's useful to set it to something like 'untagged' to hunt down and fix files
-# that don't have a package name declared.
-$pdOthers = " -dn MediaWiki";
-$pdOthers .= ' --title "MediaWiki generated documentation"';
-$pdOthers .= ' --output "HTML:Smarty:HandS"'; #,HTML:Smarty:HandS"'; ###### HTML:frames:DOM/earthli
-$pdOthers .= ' --ignore AdminSettings.php,LocalSettings.php,tests/LocalTestSettings.php';
-$pdOthers .= ' --parseprivate on';
-$pdOthers .= ' --sourcecode on';
-
-/** MediaWiki location */
-#$mwPath = '/var/www/mediawiki/';
-$mwPath = "{$here}";
-
-/** MediaWiki subpaths */
-$mwPathI = $mwPath.'includes/';
-$mwPathL = $mwPath.'languages/';
-$mwPathM = $mwPath.'maintenance/';
-$mwPathS = $mwPath.'skins/';
-$mwBaseFiles = $mwPath.'*php ';
-
-
-/** Variable to get user input */
-$input = '';
-/** shell command that will be run */
-$command = '';
-
-#
-# Functions
-#
-
-function readaline( $prompt = '') {
-	print $prompt;
-	$fp = fopen( "php://stdin", "r" );
-	$resp = trim( fgets( $fp, 1024 ) );
-	fclose( $fp );
-	return $resp;
+		$this->addOption( 'doxygen',
+			'Path to doxygen',
+			false, true );
+		$this->addOption( 'version',
+			'Pass a MediaWiki version',
+			false, true );
+		$this->addOption( 'generate-man',
+			'Whether to generate man files' );
+		$this->addOption( 'file',
+			"Only process given file or directory. Multiple values " .
+			"accepted with comma separation. Path relative to \$IP.",
+			false, true );
+		$this->addOption( 'output',
+			'Path to write doc to',
+			false, true );
+		$this->addOption( 'no-extensions',
+			'Ignore extensions' );
 	}
 
-#
-# Main !
-#
+	public function getDbType() {
+		return Maintenance::DB_NONE;
+	}
 
-unset( $file );
+	protected function init() {
+		global $IP;
 
-if( is_array( $argv ) && isset( $argv[1] ) ) {
-	switch( $argv[1] ) {
-	case '--all':         $input = 0; break;
-	case '--includes':    $input = 1; break;
-	case '--languages':   $input = 2; break;
-	case '--maintenance': $input = 3; break;
-	case '--skins':       $input = 4; break;
-	case '--file':
-		$input = 5;
-		if( isset( $argv[2] ) ) {
-			$file = $argv[2];
+		$this->doxygen = $this->getOption( 'doxygen', 'doxygen' );
+		$this->mwVersion = $this->getOption( 'version', 'master' );
+
+		$this->input = '';
+		$inputs = explode( ',', $this->getOption( 'file', '' ) );
+		foreach ( $inputs as $input ) {
+			# Doxygen inputs are space separted and double quoted
+			$this->input .= " \"$IP/$input\"";
 		}
-		break;
-	}
-}
 
-if( $input === '' ) {
-?>Several documentation possibilities:
- 0 : whole documentation (1 + 2 + 3)
- 1 : only includes
- 2 : only languages
- 3 : only maintenance
- 4 : only skins
- 5 : only a given file<?php
-	while ( !is_numeric($input) )
-	{
-		$input = readaline( "\nEnter your choice [0]:" );
-		if($input == '') {
-			$input = 0;
+		$this->output = $this->getOption( 'output', "$IP/docs" );
+
+		$this->inputFilter = wfShellWikiCmd(
+			$IP . '/maintenance/mwdoc-filter.php' );
+		$this->template = $IP . '/maintenance/Doxyfile';
+		$this->excludes = array(
+			'vendor',
+			'images',
+			'static',
+		);
+		$this->excludePatterns = array();
+		if ( $this->hasOption( 'no-extensions' ) ) {
+			$this->excludePatterns[] = 'extensions';
 		}
+
+		$this->doDot = `which dot`;
+		$this->doMan = $this->hasOption( 'generate-man' );
 	}
-}
 
-$command = 'phpdoc ';
-switch ($input) {
-case 0:
-	$command .= " -f $mwBaseFiles -d $mwPathI,$mwPathL,$mwPathM,$mwPathS";
-	break;
-case 1:
-	$command .= "-d $mwPathI";
-	break;
-case 2:
-	$command .= "-d $mwPathL";
-	break;
-case 3:
-	$command .= "-d $mwPathM";
-	break;
-case 4:
-	$command .= "-d $mwPathS";
-	break;
-case 5:
-	if( !isset( $file ) ) {
-		$file = readaline("Enter file name $mwPath");
-	}
-	$command .= ' -f '.$mwPath.$file;
-}
+	public function execute() {
+		global $IP;
 
-$command .= " -t $pdOutput ".$pdOthers;
+		$this->init();
 
-?>
+		# Build out directories we want to exclude
+		$exclude = '';
+		foreach ( $this->excludes as $item ) {
+			$exclude .= " $IP/$item";
+		}
+
+		$excludePatterns = implode( ' ', $this->excludePatterns );
+
+		$conf = strtr( file_get_contents( $this->template ),
+			array(
+				'{{OUTPUT_DIRECTORY}}' => $this->output,
+				'{{STRIP_FROM_PATH}}' => $IP,
+				'{{CURRENT_VERSION}}' => $this->mwVersion,
+				'{{INPUT}}' => $this->input,
+				'{{EXCLUDE}}' => $exclude,
+				'{{EXCLUDE_PATTERNS}}' => $excludePatterns,
+				'{{HAVE_DOT}}' => $this->doDot ? 'YES' : 'NO',
+				'{{GENERATE_MAN}}' => $this->doMan ? 'YES' : 'NO',
+				'{{INPUT_FILTER}}' => $this->inputFilter,
+			)
+		);
+
+		$tmpFile = tempnam( wfTempDir(), 'MWDocGen-' );
+		if ( file_put_contents( $tmpFile, $conf ) === false ) {
+			$this->error( "Could not write doxygen configuration to file $tmpFile\n",
+				/** exit code: */ 1 );
+		}
+
+		$command = $this->doxygen . ' ' . $tmpFile;
+		$this->output( "Executing command:\n$command\n" );
+
+		$exitcode = 1;
+		system( $command, $exitcode );
+
+		$this->output( <<<TEXT
 ---------------------------------------------------
-Launching the command:
-
-<?php echo $command ?>
-
----------------------------------------------------
-<?php
-
-passthru($command);
-
-?>
----------------------------------------------------
-Phpdoc execution finished.
+Doxygen execution finished.
 Check above for possible errors.
-<?php
 
-# phpdoc -d ./mediawiki/includes/ ./mediawiki/maintenance/ -f ./mediawiki/*php -t ./mwdoc/ -dn 'MediaWiki' --title 'MediaWiki generated documentation' -o 'HTML:frames:DOM/earthli'
+You might want to delete the temporary file:
+ $tmpFile
+---------------------------------------------------
 
-# phpdoc -f ./mediawiki/includes/GlobalFunctions.php -t ./mwdoc/ -dn 'MediaWiki' --title 'MediaWiki generated documentation' -o 'HTML:frames:DOM/earthli'
+TEXT
+	);
 
-?>
+		if ( $exitcode !== 0 ) {
+			$this->error( "Something went wrong (exit: $exitcode)\n",
+				$exitcode );
+		}
+
+	}
+
+}
+
+$maintClass = 'MWDocGen';
+require_once RUN_MAINTENANCE_IF_MAIN;

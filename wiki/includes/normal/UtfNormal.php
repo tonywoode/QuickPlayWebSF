@@ -1,21 +1,35 @@
 <?php
-# Copyright (C) 2004 Brion Vibber <brion@pobox.com>
-# http://www.mediawiki.org/
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-# http://www.gnu.org/copyleft/gpl.html
+/**
+ * Unicode normalization routines
+ *
+ * Copyright © 2004 Brion Vibber <brion@pobox.com>
+ * https://www.mediawiki.org/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @file
+ * @ingroup UtfNormal
+ */
+
+/**
+ * @defgroup UtfNormal UtfNormal
+ */
+
+define( 'NORMALIZE_ICU', function_exists( 'utf8_normalize' ) );
+define( 'NORMALIZE_INTL', function_exists( 'normalizer_normalize' ) );
 
 /**
  * Unicode normalization routines for working with UTF-8 strings.
@@ -23,98 +37,35 @@
  *
  * Not as fast as I'd like, but should be usable for most purposes.
  * UtfNormal::toNFC() will bail early if given ASCII text or text
- * it can quickly deterimine is already normalized.
+ * it can quickly determine is already normalized.
  *
  * All functions can be called static.
  *
  * See description of forms at http://www.unicode.org/reports/tr15/
  *
- * @package UtfNormal
- */
-
-/** */
-require_once dirname(__FILE__).'/UtfNormalUtil.php';
-
-global $utfCombiningClass, $utfCanonicalComp, $utfCanonicalDecomp;
-$utfCombiningClass = NULL;
-$utfCanonicalComp = NULL;
-$utfCanonicalDecomp = NULL;
-
-# Load compatibility decompositions on demand if they are needed.
-global $utfCompatibilityDecomp;
-$utfCompatibilityDecomp = NULL;
-
-define( 'UNICODE_HANGUL_FIRST', 0xac00 );
-define( 'UNICODE_HANGUL_LAST',  0xd7a3 );
-
-define( 'UNICODE_HANGUL_LBASE', 0x1100 );
-define( 'UNICODE_HANGUL_VBASE', 0x1161 );
-define( 'UNICODE_HANGUL_TBASE', 0x11a7 );
-
-define( 'UNICODE_HANGUL_LCOUNT', 19 );
-define( 'UNICODE_HANGUL_VCOUNT', 21 );
-define( 'UNICODE_HANGUL_TCOUNT', 28 );
-define( 'UNICODE_HANGUL_NCOUNT', UNICODE_HANGUL_VCOUNT * UNICODE_HANGUL_TCOUNT );
-
-define( 'UNICODE_HANGUL_LEND', UNICODE_HANGUL_LBASE + UNICODE_HANGUL_LCOUNT - 1 );
-define( 'UNICODE_HANGUL_VEND', UNICODE_HANGUL_VBASE + UNICODE_HANGUL_VCOUNT - 1 );
-define( 'UNICODE_HANGUL_TEND', UNICODE_HANGUL_TBASE + UNICODE_HANGUL_TCOUNT - 1 );
-
-define( 'UNICODE_SURROGATE_FIRST', 0xd800 );
-define( 'UNICODE_SURROGATE_LAST', 0xdfff );
-define( 'UNICODE_MAX', 0x10ffff );
-define( 'UNICODE_REPLACEMENT', 0xfffd );
-
-
-define( 'UTF8_HANGUL_FIRST', "\xea\xb0\x80" /*codepointToUtf8( UNICODE_HANGUL_FIRST )*/ );
-define( 'UTF8_HANGUL_LAST', "\xed\x9e\xa3" /*codepointToUtf8( UNICODE_HANGUL_LAST )*/ );
-
-define( 'UTF8_HANGUL_LBASE', "\xe1\x84\x80" /*codepointToUtf8( UNICODE_HANGUL_LBASE )*/ );
-define( 'UTF8_HANGUL_VBASE', "\xe1\x85\xa1" /*codepointToUtf8( UNICODE_HANGUL_VBASE )*/ );
-define( 'UTF8_HANGUL_TBASE', "\xe1\x86\xa7" /*codepointToUtf8( UNICODE_HANGUL_TBASE )*/ );
-
-define( 'UTF8_HANGUL_LEND', "\xe1\x84\x92" /*codepointToUtf8( UNICODE_HANGUL_LEND )*/ );
-define( 'UTF8_HANGUL_VEND', "\xe1\x85\xb5" /*codepointToUtf8( UNICODE_HANGUL_VEND )*/ );
-define( 'UTF8_HANGUL_TEND', "\xe1\x87\x82" /*codepointToUtf8( UNICODE_HANGUL_TEND )*/ );
-
-define( 'UTF8_SURROGATE_FIRST', "\xed\xa0\x80" /*codepointToUtf8( UNICODE_SURROGATE_FIRST )*/ );
-define( 'UTF8_SURROGATE_LAST', "\xed\xbf\xbf" /*codepointToUtf8( UNICODE_SURROGATE_LAST )*/ );
-define( 'UTF8_MAX', "\xf4\x8f\xbf\xbf" /*codepointToUtf8( UNICODE_MAX )*/ );
-define( 'UTF8_REPLACEMENT', "\xef\xbf\xbd" /*codepointToUtf8( UNICODE_REPLACEMENT )*/ );
-#define( 'UTF8_REPLACEMENT', '!' );
-
-define( 'UTF8_OVERLONG_A', "\xc1\xbf" );
-define( 'UTF8_OVERLONG_B', "\xe0\x9f\xbf" );
-define( 'UTF8_OVERLONG_C', "\xf0\x8f\xbf\xbf" );
-
-# These two ranges are illegal
-define( 'UTF8_FDD0', "\xef\xb7\x90" /*codepointToUtf8( 0xfdd0 )*/ );
-define( 'UTF8_FDEF', "\xef\xb7\xaf" /*codepointToUtf8( 0xfdef )*/ );
-define( 'UTF8_FFFE', "\xef\xbf\xbe" /*codepointToUtf8( 0xfffe )*/ );
-define( 'UTF8_FFFF', "\xef\xbf\xbf" /*codepointToUtf8( 0xffff )*/ );
-
-define( 'UTF8_HEAD', false );
-define( 'UTF8_TAIL', true );
-
-
-/**
- * For using the ICU wrapper
- */
-define( 'UNORM_NONE', 1 );
-define( 'UNORM_NFD',  2 );
-define( 'UNORM_NFKD', 3 );
-define( 'UNORM_NFC',  4 );
-define( 'UNORM_DEFAULT', UNORM_NFC );
-define( 'UNORM_NFKC', 5 );
-define( 'UNORM_FCD',  6 );
-
-define( 'NORMALIZE_ICU', function_exists( 'utf8_normalize' ) );
-
-/**
- *
- * @package MediaWiki
+ * @ingroup UtfNormal
  */
 class UtfNormal {
+	/**
+	 * For using the ICU wrapper
+	 */
+	const UNORM_NONE = 1;
+	const UNORM_NFD  = 2;
+	const UNORM_NFKD = 3;
+	const UNORM_NFC  = 4;
+	const UNORM_NFKC = 5;
+	const UNORM_FCD  = 6;
+	const UNORM_DEFAULT = self::UNORM_NFC;
+
+	static $utfCombiningClass = null;
+	static $utfCanonicalComp = null;
+	static $utfCanonicalDecomp = null;
+
+	# Load compatibility decompositions on demand if they are needed.
+	static $utfCompatibilityDecomp = null;
+
+	static $utfCheckNFC;
+
 	/**
 	 * The ultimate convenience function! Clean up invalid UTF-8 sequences,
 	 * and convert to normal form C, canonical composition.
@@ -125,19 +76,31 @@ class UtfNormal {
 	 * @param string $string a UTF-8 string
 	 * @return string a clean, shiny, normalized UTF-8 string
 	 */
-	function cleanUp( $string ) {
+	static function cleanUp( $string ) {
 		if( NORMALIZE_ICU ) {
-			# We exclude a few chars that ICU would not.
-			$string = preg_replace(
-				'/[\x00-\x08\x0b\x0c\x0e-\x1f]/',
-				UTF8_REPLACEMENT,
-				$string );
-			$string = str_replace( UTF8_FFFE, UTF8_REPLACEMENT, $string );
-			$string = str_replace( UTF8_FFFF, UTF8_REPLACEMENT, $string );
+			$string = self::replaceForNativeNormalize( $string );
 
 			# UnicodeString constructor fails if the string ends with a
 			# head byte. Add a junk char at the end, we'll strip it off.
-			return rtrim( utf8_normalize( $string . "\x01", UNORM_NFC ), "\x01" );
+			return rtrim( utf8_normalize( $string . "\x01", self::UNORM_NFC ), "\x01" );
+		} elseif( NORMALIZE_INTL ) {
+			$string = self::replaceForNativeNormalize( $string );
+			$norm = normalizer_normalize( $string, Normalizer::FORM_C );
+			if( $norm === null || $norm === false ) {
+				# normalizer_normalize will either return false or null
+				# (depending on which doc you read) if invalid utf8 string.
+				# quickIsNFCVerify cleans up invalid sequences.
+
+				if( UtfNormal::quickIsNFCVerify( $string ) ) {
+					# if that's true, the string is actually already normal.
+					return $string;
+				} else {
+					# Now we are valid but non-normal
+					return normalizer_normalize( $string, Normalizer::FORM_C );
+				}
+			} else {
+				return $norm;
+			}
 		} elseif( UtfNormal::quickIsNFCVerify( $string ) ) {
 			# Side effect -- $string has had UTF-8 errors cleaned up.
 			return $string;
@@ -154,9 +117,11 @@ class UtfNormal {
 	 * @param string $string a valid UTF-8 string. Input is not validated.
 	 * @return string a UTF-8 string in normal form C
 	 */
-	function toNFC( $string ) {
-		if( NORMALIZE_ICU )
-			return utf8_normalize( $string, UNORM_NFC );
+	static function toNFC( $string ) {
+		if( NORMALIZE_INTL )
+			return normalizer_normalize( $string, Normalizer::FORM_C );
+		elseif( NORMALIZE_ICU )
+			return utf8_normalize( $string, self::UNORM_NFC );
 		elseif( UtfNormal::quickIsNFC( $string ) )
 			return $string;
 		else
@@ -170,9 +135,11 @@ class UtfNormal {
 	 * @param string $string a valid UTF-8 string. Input is not validated.
 	 * @return string a UTF-8 string in normal form D
 	 */
-	function toNFD( $string ) {
-		if( NORMALIZE_ICU )
-			return utf8_normalize( $string, UNORM_NFD );
+	static function toNFD( $string ) {
+		if( NORMALIZE_INTL )
+			return normalizer_normalize( $string, Normalizer::FORM_D );
+		elseif( NORMALIZE_ICU )
+			return utf8_normalize( $string, self::UNORM_NFD );
 		elseif( preg_match( '/[\x80-\xff]/', $string ) )
 			return UtfNormal::NFD( $string );
 		else
@@ -187,9 +154,11 @@ class UtfNormal {
 	 * @param string $string a valid UTF-8 string. Input is not validated.
 	 * @return string a UTF-8 string in normal form KC
 	 */
-	function toNFKC( $string ) {
-		if( NORMALIZE_ICU )
-			return utf8_normalize( $string, UNORM_NFKC );
+	static function toNFKC( $string ) {
+		if( NORMALIZE_INTL )
+			return normalizer_normalize( $string, Normalizer::FORM_KC );
+		elseif( NORMALIZE_ICU )
+			return utf8_normalize( $string, self::UNORM_NFKC );
 		elseif( preg_match( '/[\x80-\xff]/', $string ) )
 			return UtfNormal::NFKC( $string );
 		else
@@ -204,9 +173,11 @@ class UtfNormal {
 	 * @param string $string a valid UTF-8 string. Input is not validated.
 	 * @return string a UTF-8 string in normal form KD
 	 */
-	function toNFKD( $string ) {
-		if( NORMALIZE_ICU )
-			return utf8_normalize( $string, UNORM_NFKD );
+	static function toNFKD( $string ) {
+		if( NORMALIZE_INTL )
+			return normalizer_normalize( $string, Normalizer::FORM_KD );
+		elseif( NORMALIZE_ICU )
+			return utf8_normalize( $string, self::UNORM_NFKD );
 		elseif( preg_match( '/[\x80-\xff]/', $string ) )
 			return UtfNormal::NFKD( $string );
 		else
@@ -217,11 +188,9 @@ class UtfNormal {
 	 * Load the basic composition data if necessary
 	 * @private
 	 */
-	function loadData() {
-		# fixme : are $utfCanonicalComp, $utfCanonicalDecomp really used?
-		global $utfCombiningClass, $utfCanonicalComp, $utfCanonicalDecomp;
-		if( !isset( $utfCombiningClass ) ) {
-			require_once( 'UtfNormalData.inc' );
+	static function loadData() {
+		if( !isset( self::$utfCombiningClass ) ) {
+			require_once __DIR__ . '/UtfNormalData.inc';
 		}
 	}
 
@@ -231,16 +200,15 @@ class UtfNormal {
 	 * @param string $string a valid UTF-8 string. Input is not validated.
 	 * @return bool
 	 */
-	function quickIsNFC( $string ) {
+	static function quickIsNFC( $string ) {
 		# ASCII is always valid NFC!
 		# If it's pure ASCII, let it through.
 		if( !preg_match( '/[\x80-\xff]/', $string ) ) return true;
 
 		UtfNormal::loadData();
-		global $utfCheckNFC, $utfCombiningClass;
 		$len = strlen( $string );
 		for( $i = 0; $i < $len; $i++ ) {
-			$c = $string{$i};
+			$c = $string[$i];
 			$n = ord( $c );
 			if( $n < 0x80 ) {
 				continue;
@@ -254,11 +222,11 @@ class UtfNormal {
 				$c = substr( $string, $i, 2 );
 				$i++;
 			}
-			if( isset( $utfCheckNFC[$c] ) ) {
+			if( isset( self::$utfCheckNFC[$c] ) ) {
 				# If it's NO or MAYBE, bail and do the slow check.
 				return false;
 			}
-			if( isset( $utfCombiningClass[$c] ) ) {
+			if( isset( self::$utfCombiningClass[$c] ) ) {
 				# Combining character? We might have to do sorting, at least.
 				return false;
 			}
@@ -270,8 +238,9 @@ class UtfNormal {
 	 * Returns true if the string is _definitely_ in NFC.
 	 * Returns false if not or uncertain.
 	 * @param string $string a UTF-8 string, altered on output to be valid UTF-8 safe for XML.
+	 * @return bool
 	 */
-	function quickIsNFCVerify( &$string ) {
+	static function quickIsNFCVerify( &$string ) {
 		# Screen out some characters that eg won't be allowed in XML
 		$string = preg_replace( '/[\x00-\x08\x0b\x0c\x0e-\x1f]/', UTF8_REPLACEMENT, $string );
 
@@ -284,9 +253,8 @@ class UtfNormal {
 		if( !isset( $checkit ) ) {
 			# Load/build some scary lookup tables...
 			UtfNormal::loadData();
-			global $utfCheckNFC, $utfCombiningClass;
 
-			$utfCheckOrCombining = array_merge( $utfCheckNFC, $utfCombiningClass );
+			$utfCheckOrCombining = array_merge( self::$utfCheckNFC, self::$utfCombiningClass );
 
 			# Head bytes for sequences which we should do further validity checks
 			$checkit = array_flip( array_map( 'chr',
@@ -321,6 +289,7 @@ class UtfNormal {
 		# large ASCII parts can be handled much more quickly.
 		# Don't chop up Unicode areas for punctuation, though,
 		# that wastes energy.
+		$matches = array();
 		preg_match_all(
 			'/([\x00-\x7f]+|[\x80-\xff][\x00-\x40\x5b-\x5f\x7b-\xff]*)/',
 			$string, $matches );
@@ -331,7 +300,7 @@ class UtfNormal {
 		foreach( $matches[1] as $str ) {
 			$chunk = strlen( $str );
 
-			if( $str{0} < "\x80" ) {
+			if( $str[0] < "\x80" ) {
 				# ASCII chunk: guaranteed to be valid UTF-8
 				# and in normal form C, so skip over it.
 				$base += $chunk;
@@ -349,12 +318,13 @@ class UtfNormal {
 			$len = $chunk + 1; # Counting down is faster. I'm *so* sorry.
 
 			for( $i = -1; --$len; ) {
-				if( $remaining = $tailBytes[$c = $str{++$i}] ) {
+				$remaining = $tailBytes[$c = $str[++$i]];
+				if( $remaining ) {
 					# UTF-8 head byte!
 					$sequence = $head = $c;
 					do {
 						# Look for the defined number of tail bytes...
-						if( --$len && ( $c = $str{++$i} ) >= "\x80" && $c < "\xc0" ) {
+						if( --$len && ( $c = $str[++$i] ) >= "\x80" && $c < "\xc0" ) {
 							# Legal tail bytes are nice.
 							$sequence .= $c;
 						} else {
@@ -485,47 +455,46 @@ class UtfNormal {
 	# checking for validity or any optimization etc. Input must be
 	# VALID UTF-8!
 	/**
-	 * @param string $string
+	 * @param $string string
 	 * @return string
 	 * @private
 	 */
-	function NFC( $string ) {
+	static function NFC( $string ) {
 		return UtfNormal::fastCompose( UtfNormal::NFD( $string ) );
 	}
 
 	/**
-	 * @param string $string
+	 * @param $string string
 	 * @return string
 	 * @private
 	 */
-	function NFD( $string ) {
+	static function NFD( $string ) {
 		UtfNormal::loadData();
-		global $utfCanonicalDecomp;
+
 		return UtfNormal::fastCombiningSort(
-			UtfNormal::fastDecompose( $string, $utfCanonicalDecomp ) );
+			UtfNormal::fastDecompose( $string, self::$utfCanonicalDecomp ) );
 	}
 
 	/**
-	 * @param string $string
+	 * @param $string string
 	 * @return string
 	 * @private
 	 */
-	function NFKC( $string ) {
+	static function NFKC( $string ) {
 		return UtfNormal::fastCompose( UtfNormal::NFKD( $string ) );
 	}
 
 	/**
-	 * @param string $string
+	 * @param $string string
 	 * @return string
 	 * @private
 	 */
-	function NFKD( $string ) {
-		global $utfCompatibilityDecomp;
-		if( !isset( $utfCompatibilityDecomp ) ) {
-			require_once( 'UtfNormalDataK.inc' );
+	static function NFKD( $string ) {
+		if( !isset( self::$utfCompatibilityDecomp ) ) {
+			require_once 'UtfNormalDataK.inc';
 		}
-		return UtfNormal::fastCombiningSort(
-			UtfNormal::fastDecompose( $string, $utfCompatibilityDecomp ) );
+		return self::fastCombiningSort(
+			self::fastDecompose( $string, self::$utfCompatibilityDecomp ) );
 	}
 
 
@@ -534,16 +503,16 @@ class UtfNormal {
 	 * (depending on which decomposition map is passed to us).
 	 * Input is assumed to be *valid* UTF-8. Invalid code will break.
 	 * @private
-	 * @param string $string Valid UTF-8 string
+	 * @param string $string valid UTF-8 string
 	 * @param array $map hash of expanded decomposition map
 	 * @return string a UTF-8 string decomposed, not yet normalized (needs sorting)
 	 */
-	function fastDecompose( $string, &$map ) {
+	static function fastDecompose( $string, $map ) {
 		UtfNormal::loadData();
 		$len = strlen( $string );
 		$out = '';
 		for( $i = 0; $i < $len; $i++ ) {
-			$c = $string{$i};
+			$c = $string[$i];
 			$n = ord( $c );
 			if( $n < 0x80 ) {
 				# ASCII chars never decompose
@@ -570,9 +539,9 @@ class UtfNormal {
 					# A lookup table would be slightly faster,
 					# but adds a lot of memory & disk needs.
 					#
-					$index = ( (ord( $c{0} ) & 0x0f) << 12
-					         | (ord( $c{1} ) & 0x3f) <<  6
-					         | (ord( $c{2} ) & 0x3f) )
+					$index = ( (ord( $c[0] ) & 0x0f) << 12
+					         | (ord( $c[1] ) & 0x3f) <<  6
+					         | (ord( $c[2] ) & 0x3f) )
 					       - UNICODE_HANGUL_FIRST;
 					$l = intval( $index / UNICODE_HANGUL_NCOUNT );
 					$v = intval( ($index % UNICODE_HANGUL_NCOUNT) / UNICODE_HANGUL_TCOUNT);
@@ -598,15 +567,14 @@ class UtfNormal {
 	 * @param string $string a valid, decomposed UTF-8 string. Input is not validated.
 	 * @return string a UTF-8 string with combining characters sorted in canonical order
 	 */
-	function fastCombiningSort( $string ) {
+	static function fastCombiningSort( $string ) {
 		UtfNormal::loadData();
-		global $utfCombiningClass;
 		$len = strlen( $string );
 		$out = '';
 		$combiners = array();
 		$lastClass = -1;
 		for( $i = 0; $i < $len; $i++ ) {
-			$c = $string{$i};
+			$c = $string[$i];
 			$n = ord( $c );
 			if( $n >= 0x80 ) {
 				if( $n >= 0xf0 ) {
@@ -619,9 +587,13 @@ class UtfNormal {
 					$c = substr( $string, $i, 2 );
 					$i++;
 				}
-				if( isset( $utfCombiningClass[$c] ) ) {
-					$lastClass = $utfCombiningClass[$c];
-					@$combiners[$lastClass] .= $c;
+				if( isset( self::$utfCombiningClass[$c] ) ) {
+					$lastClass = self::$utfCombiningClass[$c];
+					if( isset( $combiners[$lastClass] ) ) {
+						$combiners[$lastClass] .= $c;
+					} else {
+						$combiners[$lastClass] = $c;
+					}
 					continue;
 				}
 			}
@@ -647,19 +619,18 @@ class UtfNormal {
 	 * @param string $string a valid UTF-8 string in sorted normal form D or KD. Input is not validated.
 	 * @return string a UTF-8 string with canonical precomposed characters used where possible
 	 */
-	function fastCompose( $string ) {
+	static function fastCompose( $string ) {
 		UtfNormal::loadData();
-		global $utfCanonicalComp, $utfCombiningClass;
 		$len = strlen( $string );
 		$out = '';
 		$lastClass = -1;
 		$lastHangul = 0;
 		$startChar = '';
 		$combining = '';
-		$x1 = ord(substr(UTF8_HANGUL_VBASE,0,1));
-		$x2 = ord(substr(UTF8_HANGUL_TEND,0,1));
+		$x1 = ord(substr(UTF8_HANGUL_VBASE, 0, 1));
+		$x2 = ord(substr(UTF8_HANGUL_TEND, 0, 1));
 		for( $i = 0; $i < $len; $i++ ) {
-			$c = $string{$i};
+			$c = $string[$i];
 			$n = ord( $c );
 			if( $n < 0x80 ) {
 				# No combining characters here...
@@ -681,14 +652,14 @@ class UtfNormal {
 			}
 			$pair = $startChar . $c;
 			if( $n > 0x80 ) {
-				if( isset( $utfCombiningClass[$c] ) ) {
+				if( isset( self::$utfCombiningClass[$c] ) ) {
 					# A combining char; see what we can do with it
-					$class = $utfCombiningClass[$c];
+					$class = self::$utfCombiningClass[$c];
 					if( !empty( $startChar ) &&
 						$lastClass < $class &&
 						$class > 0 &&
-						isset( $utfCanonicalComp[$pair] ) ) {
-						$startChar = $utfCanonicalComp[$pair];
+						isset( self::$utfCanonicalComp[$pair] ) ) {
+						$startChar = self::$utfCanonicalComp[$pair];
 						$class = 0;
 					} else {
 						$combining .= $c;
@@ -700,8 +671,8 @@ class UtfNormal {
 			}
 			# New start char
 			if( $lastClass == 0 ) {
-				if( isset( $utfCanonicalComp[$pair] ) ) {
-					$startChar = $utfCanonicalComp[$pair];
+				if( isset( self::$utfCanonicalComp[$pair] ) ) {
+					$startChar = self::$utfCanonicalComp[$pair];
 					$lastHangul = 0;
 					continue;
 				}
@@ -719,8 +690,8 @@ class UtfNormal {
 						#
 						#$lIndex = utf8ToCodepoint( $startChar ) - UNICODE_HANGUL_LBASE;
 						#$vIndex = utf8ToCodepoint( $c ) - UNICODE_HANGUL_VBASE;
-						$lIndex = ord( $startChar{2} ) - 0x80;
-						$vIndex = ord( $c{2}         ) - 0xa1;
+						$lIndex = ord( $startChar[2] ) - 0x80;
+						$vIndex = ord( $c[2]         ) - 0xa1;
 
 						$hangulPoint = UNICODE_HANGUL_FIRST +
 							UNICODE_HANGUL_TCOUNT *
@@ -738,23 +709,23 @@ class UtfNormal {
 							  $startChar <= UTF8_HANGUL_LAST &&
 							  !$lastHangul ) {
 						# $tIndex = utf8ToCodepoint( $c ) - UNICODE_HANGUL_TBASE;
-						$tIndex = ord( $c{2} ) - 0xa7;
-						if( $tIndex < 0 ) $tIndex = ord( $c{2} ) - 0x80 + (0x11c0 - 0x11a7);
+						$tIndex = ord( $c[2] ) - 0xa7;
+						if( $tIndex < 0 ) $tIndex = ord( $c[2] ) - 0x80 + (0x11c0 - 0x11a7);
 
 						# Increment the code point by $tIndex, without
 						# the function overhead of decoding and recoding UTF-8
 						#
-						$tail = ord( $startChar{2} ) + $tIndex;
+						$tail = ord( $startChar[2] ) + $tIndex;
 						if( $tail > 0xbf ) {
 							$tail -= 0x40;
-							$mid = ord( $startChar{1} ) + 1;
+							$mid = ord( $startChar[1] ) + 1;
 							if( $mid > 0xbf ) {
-								$startChar{0} = chr( ord( $startChar{0} ) + 1 );
+								$startChar[0] = chr( ord( $startChar[0] ) + 1 );
 								$mid -= 0x40;
 							}
-							$startChar{1} = chr( $mid );
+							$startChar[1] = chr( $mid );
 						}
-						$startChar{2} = chr( $tail );
+						$startChar[2] = chr( $tail );
 
 						# If there's another jamo char after this, *don't* try to merge it.
 						$lastHangul = 1;
@@ -776,17 +747,31 @@ class UtfNormal {
 	/**
 	 * This is just used for the benchmark, comparing how long it takes to
 	 * interate through a string without really doing anything of substance.
-	 * @param string $string
+	 * @param $string string
 	 * @return string
 	 */
-	function placebo( $string ) {
+	static function placebo( $string ) {
 		$len = strlen( $string );
 		$out = '';
 		for( $i = 0; $i < $len; $i++ ) {
-			$out .= $string{$i};
+			$out .= $string[$i];
 		}
 		return $out;
 	}
+	/**
+	 * Function to replace some characters that we don't want
+	 * but most of the native normalize functions keep.
+	 *
+	 * @param string $string The string
+	 * @return String String with the character codes replaced.
+	 */
+	private static function replaceForNativeNormalize( $string ) {
+		$string = preg_replace(
+			'/[\x00-\x08\x0b\x0c\x0e-\x1f]/',
+			UTF8_REPLACEMENT,
+			$string );
+		$string = str_replace( UTF8_FFFE, UTF8_REPLACEMENT, $string );
+		$string = str_replace( UTF8_FFFF, UTF8_REPLACEMENT, $string );
+		return $string;
+	}
 }
-
-?>

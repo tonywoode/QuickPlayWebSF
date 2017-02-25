@@ -26,7 +26,7 @@
 	* Choose item 2 on the list - upload release file. (automated equivalent of uploading release to: https://sourceforge.net/projects/quickplay/files/quickplay/ )
 		(script makes a new folder called after your tag (omitting the v.), then rsyncs the new release zip into it from local release dir)
 		(Seems SourceForge at this point needs to check the file, as manually checking for zip in a browser takes about 5 mins to appear, despite being there if you ssh)
-		(Without this automation, SF’s Latest Version prompt would only have changed for anything NON windows. Script uses the SF api to change (using my api key - see 		comments in switcher script. If the script didn’t do this we would have do this lot:  (http://stackoverflow.com/questions/6777327/how-to-manually-set-the-default-		download-file-in-a-sourceforge-project#7280936): (i) Log into SF (ii) Browse to preferred file (iii) click ‘i’ icon at the right of the file’s entry in the table of 		files (iv) In popup, under Default for, select all (v) Save (vi) Wait a few minutes, refresh page and check.)
+		(Without this automation, SF’s Latest Version prompt would only have changed for anything NON windows. Script uses the SF api to change (using my api key - see	comments in switcher script. If the script didn’t do this we would have do this lot:  (http://stackoverflow.com/questions/6777327/how-to-manually-set-the-default-download-file-in-a-sourceforge-project#7280936): (i) Log into SF (ii) Browse to preferred file (iii) click ‘i’ icon at the right of the file’s entry in the table of 		files (iv) In popup, under Default for, select all (v) Save (vi) Wait a few minutes, refresh page and check.)
 
 6) Do the website:
 	* Get the release file details info into the local db with option 3

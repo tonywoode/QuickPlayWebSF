@@ -1,84 +1,160 @@
 <?php
+/**
+ * Handle ajax requests and send them to the proper handler.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @file
+ * @ingroup Ajax
+ */
 
-//$wgRequestTime = microtime();
+/**
+ * @defgroup Ajax Ajax
+ */
 
-// unset( $IP );
-// @ini_set( 'allow_url_fopen', 0 ); # For security...
-
-# Valid web server entry point, enable includes.
-# Please don't move this line to includes/Defines.php. This line essentially defines
-# a valid entry point. If you put it in includes/Defines.php, then any script that includes
-# it becomes an entry point, thereby defeating its purpose.
-// define( 'MEDIAWIKI', true );
-// require_once( './includes/Defines.php' );
-// require_once( './LocalSettings.php' );
-// require_once( 'includes/Setup.php' );
-require_once( 'AjaxFunctions.php' );
-
-if ( ! $wgUseAjax ) {
-	die ( -1 );
-}
-
+/**
+ * Object-Oriented Ajax functions.
+ * @ingroup Ajax
+ */
 class AjaxDispatcher {
-	var $mode;
-	var $func_name;
-	var $args;
+	/**
+	 * The way the request was made, either a 'get' or a 'post'
+	 * @var string $mode
+	 */
+	private $mode;
 
-	function AjaxDispatcher() {
-		global $wgAjaxCachePolicy;
+	/**
+	 * Name of the requested handler
+	 * @var string $func_name
+	 */
+	private $func_name;
 
-		wfProfileIn( 'AjaxDispatcher::AjaxDispatcher' );
+	/** Arguments passed
+	 * @var array $args
+	 */
+	private $args;
 
-		$wgAjaxCachePolicy = new AjaxCachePolicy();
+	/**
+	 * Load up our object with user supplied data
+	 */
+	function __construct() {
+		wfProfileIn( __METHOD__ );
 
 		$this->mode = "";
 
-		if (! empty($_GET["rs"])) {
+		if ( ! empty( $_GET["rs"] ) ) {
 			$this->mode = "get";
 		}
 
-		if (!empty($_POST["rs"])) {
+		if ( !empty( $_POST["rs"] ) ) {
 			$this->mode = "post";
 		}
 
-		if ($this->mode == "get") {
-			$this->func_name = $_GET["rs"];
-			if (! empty($_GET["rsargs"])) {
-				$this->args = $_GET["rsargs"];
-			} else {
-				$this->args = array();
-			}
-		} else {
-			$this->func_name = $_POST["rs"];
-			if (! empty($_POST["rsargs"])) {
-				$this->args = $_POST["rsargs"];
-			} else {
-				$this->args = array();
-			}
+		switch ( $this->mode ) {
+			case 'get':
+				$this->func_name = isset( $_GET["rs"] ) ? $_GET["rs"] : '';
+				if ( ! empty( $_GET["rsargs"] ) ) {
+					$this->args = $_GET["rsargs"];
+				} else {
+					$this->args = array();
+				}
+				break;
+			case 'post':
+				$this->func_name = isset( $_POST["rs"] ) ? $_POST["rs"] : '';
+				if ( ! empty( $_POST["rsargs"] ) ) {
+					$this->args = $_POST["rsargs"];
+				} else {
+					$this->args = array();
+				}
+				break;
+			default:
+				wfProfileOut( __METHOD__ );
+				return;
+				# Or we could throw an exception:
+				# throw new MWException( __METHOD__ . ' called without any data (mode empty).' );
 		}
-		wfProfileOut( 'AjaxDispatcher::AjaxDispatcher' );
+
+		wfProfileOut( __METHOD__ );
 	}
 
+	/**
+	 * Pass the request to our internal function.
+	 * BEWARE! Data are passed as they have been supplied by the user,
+	 * they should be carefully handled in the function processing the
+	 * request.
+	 */
 	function performAction() {
-		global $wgAjaxCachePolicy, $wgAjaxExportList;
+		global $wgAjaxExportList, $wgUser;
+
 		if ( empty( $this->mode ) ) {
 			return;
 		}
-		wfProfileIn( 'AjaxDispatcher::performAction' );
 
-		if (! in_array( $this->func_name, $wgAjaxExportList ) ) {
-			header( 'Content-Type: text/html; charset=utf-8', true );
-			echo "-:" . htmlspecialchars( (string)$this->func_name ) . " not callable";
+		wfProfileIn( __METHOD__ );
+
+		if ( ! in_array( $this->func_name, $wgAjaxExportList ) ) {
+			wfDebug( __METHOD__ . ' Bad Request for unknown function ' . $this->func_name . "\n" );
+
+			wfHttpError(
+				400,
+				'Bad Request',
+				"unknown function " . $this->func_name
+			);
+		} elseif ( !User::isEveryoneAllowed( 'read' ) && !$wgUser->isAllowed( 'read' ) ) {
+			wfHttpError(
+				403,
+				'Forbidden',
+				'You are not allowed to view pages.' );
 		} else {
-			echo "+:";
-			$result = call_user_func_array($this->func_name, $this->args);
-			header( 'Content-Type: text/html; charset=utf-8', true );
-			$wgAjaxCachePolicy->writeHeader();
-			echo $result;
+			wfDebug( __METHOD__ . ' dispatching ' . $this->func_name . "\n" );
+
+			try {
+				$result = call_user_func_array( $this->func_name, $this->args );
+
+				if ( $result === false || $result === null ) {
+					wfDebug( __METHOD__ . ' ERROR while dispatching '
+							. $this->func_name . "(" . var_export( $this->args, true ) . "): "
+							. "no data returned\n" );
+
+					wfHttpError( 500, 'Internal Error',
+						"{$this->func_name} returned no data" );
+				} else {
+					if ( is_string( $result ) ) {
+						$result = new AjaxResponse( $result );
+					}
+
+					$result->sendHeaders();
+					$result->printText();
+
+					wfDebug( __METHOD__ . ' dispatch complete for ' . $this->func_name . "\n" );
+				}
+			} catch ( Exception $e ) {
+				wfDebug( __METHOD__ . ' ERROR while dispatching '
+						. $this->func_name . "(" . var_export( $this->args, true ) . "): "
+						. get_class( $e ) . ": " . $e->getMessage() . "\n" );
+
+				if ( !headers_sent() ) {
+					wfHttpError( 500, 'Internal Error',
+						$e->getMessage() );
+				} else {
+					print $e->getMessage();
+				}
+			}
 		}
-		wfProfileOut( 'AjaxDispatcher::performAction' );
-		exit;
+
+		wfProfileOut( __METHOD__ );
 	}
 }
-
-?>

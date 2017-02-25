@@ -1,23 +1,23 @@
+
 This file provides an overview of the MediaWiki upgrade process. For help with
 specific problems, check
 
-* the documentation at http://meta.wikimedia.org
-* the documentation at http://www.mediawiki.org
+* the documentation at https://www.mediawiki.org
 * the mediawiki-l mailing list archive at
-  http://mail.wikipedia.org/pipermail/mediawiki-l
-* the bug tracker at http://bugzilla.wikimedia.org
+  http://lists.wikimedia.org/pipermail/mediawiki-l/
+* the bug tracker at https://bugzilla.wikimedia.org
 
 for information and workarounds to common issues.
 
 == Overview ==
 
-* Documentation on upgrading from 1.5 to 1.6 can also be found at
-http://www.mediawiki.org/wiki/Help:Upgrading_to_1.6
+Comprehensive documentation on upgrading to the latest version of the software
+is available at https://www.mediawiki.org/wiki/Manual:Upgrading.
 
 === Consult the release notes ===
 
 Before doing anything, stop and consult the release notes supplied with the new
-version of the software. This detail bug fixes, new features and functionality,
+version of the software. These detail bug fixes, new features and functionality,
 and any particular points that may need to be noted during the upgrade
 procedure.
 
@@ -28,35 +28,52 @@ you take a complete backup of your wiki database and files and verify it. While
 the upgrade scripts are somewhat robust, there is no guarantee that things will
 not fail, leaving the database in an inconsistent state.
 
-Refer to the MySQL documentation for information on backing up a database. For
-information on making copies of files, consult the documentation for your
-operating system.
+https://www.mediawiki.org/wiki/Manual:Backing_up_a_wiki provides an overview of
+the backup process. You should also refer to the documentation for your
+database management system for information on backing up a database, and to
+your operating system documentation for information on making copies of files.
 
 === Perform the file upgrade ===
 
-Having downloaded the desired new version of the software, either as a package
-from SourceForge, or via an export from Subversion, decompress the files as
-needed, and replace the existing MediaWiki files with the new.
+Download the files for the new version of the software. These are available
+as a compressed "tar" archive from the Wikimedia Download Service
+(http://download.wikimedia.org/mediawiki).
 
-You should preserve:
+You can also obtain the new files directly from our Git source code
+repository.
 
-* The LocalSettings.php file
-* The AdminSettings.php file, where it exists
-* The extensions directory
-* The images directory
+Replace the existing MediaWiki files with the new. You should preserve the
+LocalSettings.php file and the "extensions" and "images" directories.
 
-If using an alternative uploads directory, preserve this; and if using custom
-skins, preserve these too. The core code is now updated.
+Depending upon your configuration, you may also need to preserve additional
+directories, including a custom upload directory ($wgUploadDirectory),
+deleted file archives, and any custom skins.
 
 === Perform the database upgrade ===
 
-You will need an AdminSettings.php file set up in the correct format; see
-AdminSettings.sample in the wiki root for more information and examples.
+As of 1.21, it is possible to separate schema changes (i.e. adding,
+dropping, or changing tables, fields, or indices) from all other
+database changes (e.g. populating fields).  If you need this
+capability, see "From the command line" below.
 
-From the command line, browse to the maintenance directory and run the 
+==== From the web ====
+
+If you browse to the web-based installation script (usually at
+/mw-config/index.php) from your wiki installation you can follow the script and
+upgrade your database in place.
+
+==== From the command line ====
+
+From the command line, browse to the "maintenance" directory and run the
 update.php script to check and update the schema. This will insert missing
 tables, update existing tables, and move data around as needed. In most cases,
 this is successful and nothing further needs to be done.
+
+If you need to separate out the schema changes so they can be run
+by someone with more privileges, then you can use the --schema option
+to produce a text file with the necessary commands.  You can use
+--schema, --noschema, $wgAllowSchemaUpdates as well as proper database
+permissions to enforce this separation.
 
 === Check configuration settings ===
 
@@ -64,7 +81,15 @@ The names of configuration variables, and their default values and purposes,
 can change between release branches, e.g. $wgDisableUploads in 1.4 is replaced
 with $wgEnableUploads in later versions. When upgrading, consult the release
 notes to check for configuration changes which would alter the expected
-behaviour of MediaWiki.
+behavior of MediaWiki.
+
+=== Check installed extensions ===
+
+Extensions usually need to be upgraded at the same time as the MediaWiki core.
+
+In MediaWiki 1.14 some extensions were migrated into the core. Please see the
+HISTORY section "Migrated extensions" and disable these extensions in your
+LocalSettings.php
 
 === Test ===
 
@@ -73,7 +98,45 @@ procedure, and especially after upgrading; check that page views and edits work
 normally and that special pages continue to function, etc. and correct errors
 and quirks which reveal themselves.
 
-== Upgrading from pre-1.5 wikis ==
+You should also test any extensions, and upgrade these if necessary.
+
+== Upgrading from 1.16 or earlier ==
+
+If you have a Chinese or Japanese wiki ($wgLanguageCode is set to one
+of "zh", "ja", or "yue") and you are using MySQL fulltext search, you
+will probably want to update the search index.
+
+In the "maintenance" directory, run the updateDoubleWidthSearch.php
+script.  This will update the searchindex table for those pages that
+contain double-byte latin characters.
+
+== Upgrading from 1.8 or earlier ==
+
+MediaWiki 1.9 and later no longer keep default localized message text
+in the database; 'MediaWiki:'-namespace pages that do not exist in the
+database are simply transparently filled-in on demand.
+
+The upgrade process will delete any 'MediaWiki:' pages which are left
+in the default state (last edited by 'MediaWiki default'). This may
+take a few moments, similar to the old initial setup.
+
+Note that the large number of deletions may cause older edits to expire
+from the list on Special:Recentchanges, although the deletions themselves
+will be hidden by default. (Click "show bot edits" to list them.)
+
+See RELEASE-NOTES for more details about new and changed options.
+
+== Upgrading from 1.7 or earlier ==
+
+$wgDefaultUserOptions now contains all the defaults, not only overrides.
+If you're setting this as a complete array(), you may need to change it
+to set only specific items as recommended in DefaultSettings.php.
+
+== Upgrading from 1.6 or earlier ==
+
+$wgLocalTZoffset was in hours, it is now using minutes.
+
+== Upgrading from 1.5 or earlier ==
 
 Major changes have been made to the schema from 1.4.x. The updater
 has not been fully tested for all conditions, and might well break.
@@ -87,16 +150,20 @@ UTF-8; an experimental command-line upgrade helper script,
 'upgrade1_5.php', can do this -- run it prior to 'update.php' or
 the web upgrader.
 
+NOTE that upgrade1_5.php does not work properly with recent version
+of MediaWiki. If upgrading a 1.4.x wiki, you should upgrade to 1.5
+first.  upgrade1_5.php has been removed from MediaWiki 1.21.
+
 If you absolutely cannot make the UTF-8 upgrade work, you can try
 doing it by hand: dump your old database, convert the dump file
-using iconv as described here: 
+using iconv as described here:
 http://portal.suse.com/sdb/en/2004/05/jbartsh_utf-8.html
 and then reimport it. You can also convert filenames using convmv,
 but note that the old directory hashes will no longer be valid,
 so you will also have to move them to new destinations.
 
 Message changes:
-* A number of additional UI messages have been chagned from HTML to
+* A number of additional UI messages have been changed from HTML to
   wikitext, and will need to be manually fixed if customized.
 
 === Configuration changes from 1.4.x: ===
@@ -129,60 +196,7 @@ If using Memcached, you must enabled it differently now:
 should be replaced with:
   $wgMainCacheType = CACHE_MEMCACHED;
 
-
-=== Web installer ===
-
-You can use the web-based installer wizard if you first remove the
-LocalSettings.php (and AdminSettings.php, if any) files; be sure to
-give the installer the same information as you did on the original
-install (language/encoding, database name, password, etc). This will
-also generate a fresh LocalSettings.php, which you may need to customize.
-
-You may change some settings during the install, but be very careful!
-Changing the encoding in particular will generally leave you with a
-lot of corrupt pages, particularly if your wiki is not in English.
-
-=== Command-line upgrade ===
-
-Additionally, as of 1.4.0 you can run an in-place upgrade script from
-the command line, keeping your existing LocalSettings.php. This requires
-that you create an AdminSettings.php giving an appropriate database user
-and password with privileges to modify the database structure.
-
-Once the new files are in place, go into the maintenance subdirectory and
-run the script:
-
-  php update.php
-
-See caveats below on upgrading from 1.3.x or earlier.
-
-
-== Backups! ==
-
-To upgrade an existing MediaWiki installation, first BACK UP YOUR WIKI!
-If something goes wrong, you want to be able to start again.
-
-Your image files, configuration, etc can simply be copied or archived as
-you would any other files. (Make sure that the contents of your
-LocalSettings.php are not accidentally made public, as this contains
-a database password.)
-
-To back up the database, use the tools provided by your service provider
-(if applicable) or the standard mysqldump program.
-
-For general help on mysqldump:
-http://dev.mysql.com/doc/mysql/en/mysqldump.html
-
-WARNING: If using MySQL 4.1.x, mysqldump's charset conversion may in
-some cases damage data in your wiki. If necessary, set the charset
-option to 'latin1' to avoid the conversion. Fore more info see:
-http://mail.wikipedia.org/pipermail/wikitech-l/2004-November/026359.html
-
-
-== Caveats ==
-
-
-=== Upgrading from 1.4.2 or earlier ===
+== Upgrading from 1.4.2 or earlier ==
 
 1.4.3 has added new fields to the sitestats table. These fields are
 optional and help to speed Special:Statistics on large sites. If you
@@ -194,7 +208,7 @@ manually run the SQL commands from this file:
   maintenance/archives/patch-ss_total_articles.sql
 
 
-=== Upgrading from 1.4rc1 or earlier betas ===
+== Upgrading from 1.4rc1 or earlier betas ==
 
 The logging table has been altered from 1.4beta4 to 1.4beta5
 and again in 1.4.0 final. Copy in the new files and use the web
@@ -207,7 +221,7 @@ files:
    maintenance/archives/patch-logging-title.sql
 
 
-=== Upgrading from 1.3.x ===
+== Upgrading from 1.3 or earlier ==
 
 This should generally go smoothly.
 
@@ -225,19 +239,20 @@ to this:
 As well as new messages, the processing of some messages has changed.
 If you have customized them, please compare the new format using
 Special:Allmessages or the relevant LanguageXX.php files:
-  copyrightwarning
-  dberrortext
-  editingcomment  (was named commentedit)
-  editingsection  (was named sectionedit)
-  numauthors
-  numedits
-  numtalkauthors
-  numtalkedits
-  numwatchers
-  protectedarticle
-  searchresulttext
-  showhideminor
-  unprotectedarticle
+
+* copyrightwarning
+* dberrortext
+* editingcomment  (was named commentedit)
+* editingsection  (was named sectionedit)
+* numauthors
+* numedits
+* numtalkauthors
+* numtalkedits
+* numwatchers
+* protectedarticle
+* searchresulttext
+* showhideminor
+* unprotectedarticle
 
 Note that the 1.3 beta releases included a potential vulnerability if PHP
 is configured with register_globals on and the includes directory is
@@ -249,7 +264,7 @@ send them a kind note explaining that it can expose their servers and their
 customers to attacks.
 
 
-=== Upgrading from 1.2.x ===
+== Upgrading from 1.2 or earlier ==
 
 If you've been using the MediaWiki: namespace for custom page templates,
 note that things are a little different. The Template: namespace has been
@@ -269,7 +284,7 @@ to dump the database to SQL, run it through iconv or another conversion tool,
 and restore it. Sorry.
 
 
-=== Upgrading from 1.1.x or earlier ===
+== Upgrading from 1.1 or earlier ==
 
 This is less thoroughly tested, but should work.
 
@@ -281,16 +296,3 @@ If you have a very old database (earlier than organized MediaWiki releases
 in late August 2003) you may need to manually run some of the update SQL
 scripts in maintenance/archives before the installer is able to pick up
 with remaining updates.
-
-
-=== Upgrading from UseModWiki or old "phase 2" Wikipedia code ===
-
-There is a semi-maintained UseModWiki to MediaWiki conversion script at
-maintenance/importUseModWiki.php; it may require tweaking and customization
-to work for you.
-
-Install a new MediaWiki first, then use the conversion script which will
-output SQL statements; direct these to a file and then run that into your
-database.
-
-You will have to rebuild the links tables etc after importing.

@@ -1,39 +1,37 @@
 <?php
-# Copyright (C) 2004 Brion Vibber <brion@pobox.com>
-# http://www.mediawiki.org/
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-# http://www.gnu.org/copyleft/gpl.html
-
 /**
  * Some of these functions are adapted from places in MediaWiki.
  * Should probably merge them for consistency.
  *
- * @package UtfNormal
- * @access public
+ * Copyright © 2004 Brion Vibber <brion@pobox.com>
+ * https://www.mediawiki.org/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @file
+ * @ingroup UtfNormal
  */
-
-/** */
 
 /**
  * Return UTF-8 sequence for a given Unicode code point.
  * May die if fed out of range data.
  *
- * @param int $codepoint
- * @return string
- * @access public
+ * @param $codepoint Integer:
+ * @return String
+ * @public
  */
 function codepointToUtf8( $codepoint ) {
 	if($codepoint <		0x80) return chr($codepoint);
@@ -56,9 +54,9 @@ function codepointToUtf8( $codepoint ) {
  * Unicode code points and return a UTF-8 string composed of those
  * characters. Used by UTF-8 data generation and testing routines.
  *
- * @param string $sequence
- * @return string
- * @access private
+ * @param $sequence String
+ * @return String
+ * @private
  */
 function hexSequenceToUtf8( $sequence ) {
 	$utf = '';
@@ -73,27 +71,29 @@ function hexSequenceToUtf8( $sequence ) {
  * Take a UTF-8 string and return a space-separated series of hex
  * numbers representing Unicode code points. For debugging.
  *
- * @param string $str
+ * @param string $str UTF-8 string.
  * @return string
- * @access private
+ * @private
  */
 function utf8ToHexSequence( $str ) {
-	return rtrim( preg_replace( '/(.)/uSe',
-	                            'sprintf("%04x ", utf8ToCodepoint("$1"))',
-	                            $str ) );
+	$buf = '';
+	foreach ( preg_split( '//u', $str, -1, PREG_SPLIT_NO_EMPTY ) as $cp ) {
+		$buf .= sprintf( '%04x ', utf8ToCodepoint( $cp ) );
+	}
+	return rtrim( $buf );
 }
 
 /**
  * Determine the Unicode codepoint of a single-character UTF-8 sequence.
  * Does not check for invalid input data.
  *
- * @param string $char
- * @return int
- * @access public
+ * @param $char String
+ * @return Integer
+ * @public
  */
 function utf8ToCodepoint( $char ) {
 	# Find the length
-	$z = ord( $char{0} );
+	$z = ord( $char[0] );
 	if ( $z & 0x80 ) {
 		$length = 0;
 		while ( $z & 0x80 ) {
@@ -116,9 +116,9 @@ function utf8ToCodepoint( $char ) {
 	$z >>= $length;
 
 	# Add in the free bits from subsequent bytes
-	for ( $i=1; $i<$length; $i++ ) {
+	for ( $i=1; $i < $length; $i++ ) {
 		$z <<= 6;
-		$z |= ord( $char{$i} ) & 0x3f;
+		$z |= ord( $char[$i] ) & 0x3f;
 	}
 
 	return $z;
@@ -127,9 +127,9 @@ function utf8ToCodepoint( $char ) {
 /**
  * Escape a string for inclusion in a PHP single-quoted string literal.
  *
- * @param string $string
- * @return string
- * @access public
+ * @param string $string string to be escaped.
+ * @return String: escaped string.
+ * @public
  */
 function escapeSingleString( $string ) {
 	return strtr( $string,
@@ -138,5 +138,3 @@ function escapeSingleString( $string ) {
 			'\'' => '\\\''
 		));
 }
-
-?>

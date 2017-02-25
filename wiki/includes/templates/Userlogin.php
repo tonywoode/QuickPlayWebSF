@@ -1,204 +1,190 @@
 <?php
 /**
- * @package MediaWiki
- * @subpackage Templates
+ * Html form for user login (since 1.22 with VForm appearance).
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @file
+ * @ingroup Templates
  */
-if( !defined( 'MEDIAWIKI' ) ) die( -1 );
 
-/** */
-require_once( 'includes/SkinTemplate.php' );
+class UserloginTemplate extends BaseTemplate {
 
-/**
- * HTML template for Special:Userlogin form
- * @package MediaWiki
- * @subpackage Templates
- */
-class UserloginTemplate extends QuickTemplate {
 	function execute() {
-		if( $this->data['message'] ) {
+		global $wgCookieExpiration;
+		$expirationDays = ceil( $wgCookieExpiration / ( 3600 * 24 ) );
 ?>
-	<div class="<?php $this->text('messagetype') ?>box">
-		<?php if ( $this->data['messagetype'] == 'error' ) { ?>
-			<h2><?php $this->msg('loginerror') ?>:</h2>
-		<?php } ?>
-		<?php $this->html('message') ?>
-	</div>
-	<div class="visualClear"></div>
-<?php } ?>
-
-<div id="userloginForm">
-<form name="userlogin" method="post" action="<?php $this->text('action') ?>">
-	<h2><?php $this->msg('login') ?></h2>
-	<p id="userloginlink"><?php $this->html('link') ?></p>
-	<div id="userloginprompt"><?php  $this->msgWiki('loginprompt') ?></div>
-	<table>
-		<tr>
-			<td align='right'><label for='wpName1'><?php $this->msg('yourname') ?>:</label></td>
-			<td align='left'>
-				<input type='text' class='loginText' name="wpName" id="wpName1"
-					value="<?php $this->text('name') ?>" size='20' />
-			</td>
-		</tr>
-		<tr>
-			<td align='right'><label for='wpPassword1'><?php $this->msg('yourpassword') ?>:</label></td>
-			<td align='left'>
-				<input type='password' class='loginPassword' name="wpPassword" id="wpPassword1"
-					value="<?php $this->text('password') ?>" size='20' />
-			</td>
-		</tr>
-	<?php if( $this->data['usedomain'] ) {
-		$doms = "";
-		foreach( $this->data['domainnames'] as $dom ) {
-			$doms .= "<option>" . htmlspecialchars( $dom ) . "</option>";
-		}
-	?>
-		<tr>
-			<td align='right'><?php $this->msg( 'yourdomainname' ) ?>:</td>
-			<td align='left'>
-				<select name="wpDomain" value="<?php $this->text( 'domain' ) ?>">
-					<?php echo $doms ?>
-				</select>
-			</td>
-		</tr>
+<div class="mw-ui-container">
+	<div id="userloginprompt"><?php $this->msgWiki('loginprompt') ?></div>
+	<?php if ( $this->haveData( 'languages' ) ) { ?>
+		<div id="languagelinks">
+			<p><?php $this->html( 'languages' ); ?></p>
+		</div>
 	<?php } ?>
-		<tr>
-			<td></td>
-			<td align='left'>
-				<input type='checkbox' name="wpRemember"
-					value="1" id="wpRemember"
-					<?php if( $this->data['remember'] ) { ?>checked="checked"<?php } ?>
-					/> <label for="wpRemember"><?php $this->msg('remembermypassword') ?></label>
-			</td>
-		</tr>
-		<tr>
-			<td></td>
-			<td align='left' style="white-space:nowrap">
-				<input type='submit' name="wpLoginattempt" id="wpLoginattempt" value="<?php $this->msg('login') ?>" />&nbsp;<?php if( $this->data['useemail'] ) { ?><input type='submit' name="wpMailmypassword" id="wpMailmypassword"
-									value="<?php $this->msg('mailmypassword') ?>" />
+	<div id="userloginForm">
+		<form name="userlogin" class="mw-ui-vform" method="post" action="<?php $this->text( 'action' ); ?>">
+			<?php if ( $this->data['loggedin'] ) { ?>
+				<div class="warningbox">
+					<?php echo $this->getMsg( 'userlogin-loggedin' )->params( $this->data['loggedinuser'] )->parse(); ?>
+				</div>
+			<?php } ?>
+			<section class="mw-form-header">
+				<?php $this->html( 'header' ); /* extensions such as ConfirmEdit add form HTML here */ ?>
+			</section>
+
+			<?php if ( $this->data['message'] ) { ?>
+				<div class="<?php $this->text( 'messagetype' ); ?>box">
+					<?php if ( $this->data['messagetype'] == 'error' ) { ?>
+						<strong><?php $this->msg( 'loginerror' ); ?></strong>
+						<br />
+					<?php } ?>
+					<?php $this->html( 'message' ); ?>
+				</div>
+			<?php } ?>
+
+			<div>
+				<label for='wpName1'>
+					<?php
+					$this->msg( 'userlogin-yourname' );
+
+					if ( $this->data['secureLoginUrl'] ) {
+						echo Html::element( 'a', array(
+							'href' => $this->data['secureLoginUrl'],
+							'class' => 'mw-ui-flush-right mw-secure',
+						), $this->getMsg( 'userlogin-signwithsecure' )->text() );
+					}
+					?>
+				</label>
+				<?php
+				$extraAttrs = array();
+				echo Html::input( 'wpName', $this->data['name'], 'text', array(
+					'class' => 'loginText',
+					'id' => 'wpName1',
+					'tabindex' => '1',
+					'size' => '20',
+					// 'required' is blacklisted for now in Html.php due to browser issues.
+					// Keeping here in case that changes.
+					'required' => true,
+					// Set focus to this field if it's blank.
+					'autofocus' => !$this->data['name'],
+					'placeholder' => $this->getMsg( 'userlogin-yourname-ph' )->text()
+				) );
+				?>
+			</div>
+
+			<div>
+				<label for='wpPassword1'>
+					<?php
+					$this->msg( 'userlogin-yourpassword' );
+
+					if ( $this->data['useemail'] && $this->data['canreset'] && $this->data['resetlink'] === true ) {
+						echo ' ' . Linker::link(
+							SpecialPage::getTitleFor( 'PasswordReset' ),
+							$this->getMsg( 'userlogin-resetpassword-link' )->parse(),
+							array( 'class' => 'mw-ui-flush-right' )
+						);
+					}
+					?>
+				</label>
+				<?php
+				echo Html::input( 'wpPassword', null, 'password', array(
+					'class' => 'loginPassword',
+					'id' => 'wpPassword1',
+					'tabindex' => '2',
+					'size' => '20',
+					// Set focus to this field if username is filled in.
+					'autofocus' => (bool)$this->data['name'],
+					'placeholder' => $this->getMsg( 'userlogin-yourpassword-ph' )->text()
+				) );
+				?>
+			</div>
+
+			<?php
+			if ( isset( $this->data['usedomain'] ) && $this->data['usedomain'] ) {
+				$select = new XmlSelect( 'wpDomain', false, $this->data['domain'] );
+				$select->setAttribute( 'tabindex', 3 );
+				foreach ( $this->data['domainnames'] as $dom ) {
+					$select->addOption( $dom );
+				}
+			?>
+				<div id="mw-user-domain-section">
+					<label for='wpDomain'><?php $this->msg( 'yourdomainname' ); ?></label>
+					<?php echo $select->getHTML(); ?>
+				</div>
+			<?php } ?>
+
+			<?php
+			if ( $this->haveData( 'extrafields' ) ) {
+				echo $this->data['extrafields'];
+			}
+			?>
+
+			<div>
+				<?php if ( $this->data['canremember'] ) { ?>
+					<label class="mw-ui-checkbox-label">
+						<input name="wpRemember" type="checkbox" value="1" id="wpRemember" tabindex="4"
+							<?php if ( $this->data['remember'] ) {
+								echo 'checked="checked"';
+							} ?>
+						>
+						<?php echo $this->getMsg( 'userlogin-remembermypassword' )->numParams( $expirationDays )->escaped(); ?>
+					</label>
 				<?php } ?>
-			</td>
-		</tr>
-	</table>
-</form>
+			</div>
+
+			<div>
+				<?php
+				echo Html::input( 'wpLoginAttempt', $this->getMsg( 'pt-login-button' )->text(), 'submit', array(
+					'id' => 'wpLoginAttempt',
+					'tabindex' => '6',
+					'class' => 'mw-ui-button mw-ui-big mw-ui-block mw-ui-constructive'
+				) );
+				?>
+			</div>
+			<div id="mw-userlogin-help">
+				<?php
+				echo Html::element(
+					'a',
+					array(
+						'href' => Skin::makeInternalOrExternalUrl(
+							wfMessage( 'helplogin-url' )->inContentLanguage()->text()
+						),
+					),
+					$this->getMsg( 'userlogin-helplink2' )->text()
+				);
+				?>
+			</div>
+			<?php if ( $this->haveData( 'createOrLoginHref' ) ) { ?>
+				<?php if ( $this->data['loggedin'] ) { ?>
+					<div id="mw-createaccount-another">
+						<a href="<?php $this->text( 'createOrLoginHref' ); ?>" id="mw-createaccount-join" tabindex="7"  class="mw-ui-button"><?php $this->msg( 'userlogin-createanother' ); ?></a>
+					</div>
+				<?php } else { ?>
+					<div id="mw-createaccount-cta">
+						<?php $this->msg( 'userlogin-noaccount' ); ?><a href="<?php $this->text( 'createOrLoginHref' ); ?>" id="mw-createaccount-join" tabindex="7"  class="mw-ui-button mw-ui-progressive"><?php $this->msg( 'userlogin-joinproject' ); ?></a>
+					</div>
+				<?php } ?>
+			<?php } ?>
+			<?php if ( $this->haveData( 'uselang' ) ) { ?><input type="hidden" name="uselang" value="<?php $this->text( 'uselang' ); ?>" /><?php } ?>
+			<?php if ( $this->haveData( 'token' ) ) { ?><input type="hidden" name="wpLoginToken" value="<?php $this->text( 'token' ); ?>" /><?php } ?>
+			<?php if ( $this->data['cansecurelogin'] ) {?><input type="hidden" name="wpForceHttps" value="<?php $this->text( 'stickhttps' ); ?>" /><?php } ?>
+		</form>
+	</div>
 </div>
-<div id="loginend"><?php $this->msgWiki( 'loginend' ); ?></div>
 <?php
 
 	}
 }
-
-class UsercreateTemplate extends QuickTemplate {
-	function execute() {
-		if( $this->data['message'] ) {
-?>
-	<div class="<?php $this->text('messagetype') ?>box">
-		<?php if ( $this->data['messagetype'] == 'error' ) { ?>
-			<h2><?php $this->msg('loginerror') ?>:</h2>
-		<?php } ?>
-		<?php $this->html('message') ?>
-	</div>
-	<div class="visualClear"></div>
-<?php } ?>
-<div id="userlogin">
-
-<?php if( $this->data['create'] ) { ?>
-<form name="userlogin2" id="userlogin2" method="post" action="<?php $this->text('action') ?>">
-	<h2><?php $this->msg('createaccount') ?></h2>
-	<p id="userloginlink"><?php $this->html('link') ?></p>
-	<?php $this->html('header'); /* pre-table point for form plugins... */ ?>
-	<table>
-		<tr>
-			<td align='right'><label for='wpName2'><?php $this->msg('yourname') ?>:</label></td>
-			<td align='left'>
-				<input type='text' class='loginText' name="wpName" id="wpName2"
-					value="<?php $this->text('name') ?>" size='20' />
-			</td>
-		</tr>
-		<tr>
-			<td align='right'><label for='wpPassword2'><?php $this->msg('yourpassword') ?>:</label></td>
-			<td align='left'>
-				<input type='password' class='loginPassword' name="wpPassword" id="wpPassword2"
-					value="<?php $this->text('password') ?>" size='20' />
-			</td>
-		</tr>
-	<?php if( $this->data['usedomain'] ) {
-		$doms = "";
-		foreach( $this->data['domainnames'] as $dom ) {
-			$doms .= "<option>" . htmlspecialchars( $dom ) . "</option>";
-		}
-	?>
-		<tr>
-			<td align='right'><?php $this->msg( 'yourdomainname' ) ?>:</td>
-			<td align='left'>
-				<select name="wpDomain" value="<?php $this->text( 'domain' ) ?>">
-					<?php echo $doms ?>
-				</select>
-			</td>
-		</tr>
-	<?php } ?>
-		<tr>
-			<td align='right'><label for='wpRetype'><?php $this->msg('yourpasswordagain') ?>:</label></td>
-			<td align='left'>
-				<input type='password' class='loginPassword' name="wpRetype" id="wpRetype"
-					value="<?php $this->text('retype') ?>"
-					size='20' />
-			</td>
-		</tr>
-		<tr>
-			<?php if( $this->data['useemail'] ) { ?>
-				<td align='right'><label for='wpEmail'><?php $this->msg('youremail') ?>:</label></td>
-				<td align='left'>
-					<input type='text' class='loginText' name="wpEmail" id="wpEmail"
-						value="<?php $this->text('email') ?>" size='20' />
-				</td>
-			<?php } ?>
-			<?php if( $this->data['userealname'] ) { ?>
-				</tr>
-				<tr>
-					<td align='right'><label for='wpRealName'><?php $this->msg('yourrealname') ?>:</label></td>
-					<td align='left'>
-						<input type='text' class='loginText' name="wpRealName" id="wpRealName"
-							value="<?php $this->text('realname') ?>" size='20' />
-					</td>
-			<?php } ?>
-		</tr>
-		<tr>
-			<td></td>
-			<td align='left'>
-				<input type='checkbox' name="wpRemember"
-					value="1" id="wpRemember"
-					<?php if( $this->data['remember'] ) { ?>checked="checked"<?php } ?>
-					/> <label for="wpRemember"><?php $this->msg('remembermypassword') ?></label>
-			</td>
-		</tr>
-		<tr>
-			<td></td>
-			<td align='left'>
-				<input type='submit' name="wpCreateaccount" id="wpCreateaccount"
-					value="<?php $this->msg('createaccount') ?>" />
-				<?php if( $this->data['createemail'] ) { ?>
-				<input type='submit' name="wpCreateaccountMail" id="wpCreateaccountMail"
-					value="<?php $this->msg('createaccountmail') ?>" />
-				<?php } ?>
-			</td>
-		</tr>
-	<?php } ?>
-	</table>
-	<?php
-
-		if( $this->data['useemail'] ) {
-			echo '<div id="login-emailforlost">';
-			$this->msgHtml( 'emailforlost' );
-			echo '</div>';
-		}
-
-	?>
-</form>
-</div>
-<div id="signupend"><?php $this->msgWiki( 'signupend' ); ?></div>
-<?php
-
-	}
-}
-
-?>

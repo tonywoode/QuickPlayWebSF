@@ -1,113 +1,217 @@
 <?php
-# Basic support for outputting syndication feeds in RSS, other formats
-#
-# Copyright (C) 2004 Brion Vibber <brion@pobox.com>
-# http://www.mediawiki.org/
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-# http://www.gnu.org/copyleft/gpl.html
-
 /**
+ * Basic support for outputting syndication feeds in RSS, other formats.
+ *
  * Contain a feed class as well as classes to build rss / atom ... feeds
  * Available feeds are defined in Defines.php
- * @package MediaWiki
+ *
+ * Copyright © 2004 Brion Vibber <brion@pobox.com>
+ * https://www.mediawiki.org/
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @file
  */
-
 
 /**
- * @todo document
- * @package MediaWiki
+ * @defgroup Feed Feed
+ */
+
+/**
+ * A base class for basic support for outputting syndication feeds in RSS and other formats.
+ *
+ * @ingroup Feed
  */
 class FeedItem {
-	/**#@+
-	 * @var string
-	 * @access private
+	/**
+	 * @var Title
 	 */
-	var $Title = 'Wiki';
-	var $Description = '';
-	var $Url = '';
-	var $Date = '';
-	var $Author = '';
-	/**#@-*/
+	var $title;
 
-	/**#@+
-	 * @todo document
+	var $description;
+	var $url;
+	var $date;
+	var $author;
+	var $uniqueId;
+	var $comments;
+	var $rssIsPermalink = false;
+
+	/**
+	 * Constructor
+	 *
+	 * @param string|Title $title Item's title
+	 * @param $description String
+	 * @param string $url URL uniquely designating the item.
+	 * @param string $date Item's date
+	 * @param string $author Author's user name
+	 * @param $comments String
 	 */
-	function FeedItem( $Title, $Description, $Url, $Date = '', $Author = '', $Comments = '' ) {
-		$this->Title = $Title;
-		$this->Description = $Description;
-		$this->Url = $Url;
-		$this->Date = $Date;
-		$this->Author = $Author;
-		$this->Comments = $Comments;
+	function __construct( $title, $description, $url, $date = '', $author = '', $comments = '' ) {
+		$this->title = $title;
+		$this->description = $description;
+		$this->url = $url;
+		$this->uniqueId = $url;
+		$this->date = $date;
+		$this->author = $author;
+		$this->comments = $comments;
 	}
 
 	/**
-	 * @static
+	 * Encode $string so that it can be safely embedded in a XML document
+	 *
+	 * @param string $string string to encode
+	 * @return String
 	 */
-	function xmlEncode( $string ) {
+	public function xmlEncode( $string ) {
 		$string = str_replace( "\r\n", "\n", $string );
 		$string = preg_replace( '/[\x00-\x08\x0b\x0c\x0e-\x1f]/', '', $string );
 		return htmlspecialchars( $string );
 	}
 
-	function getTitle() { return $this->xmlEncode( $this->Title ); }
-	function getUrl() { return $this->xmlEncode( $this->Url ); }
-	function getDescription() { return $this->xmlEncode( $this->Description ); }
-	function getLanguage() {
-		global $wgContLanguageCode;
-		return $wgContLanguageCode;
+	/**
+	 * Get the unique id of this item
+	 *
+	 * @return String
+	 */
+	public function getUniqueId() {
+		if ( $this->uniqueId ) {
+			return $this->xmlEncode( $this->uniqueId );
+		}
 	}
-	function getDate() { return $this->Date; }
-	function getAuthor() { return $this->xmlEncode( $this->Author ); }
-	function getComments() { return $this->xmlEncode( $this->Comments ); }
+
+	/**
+	 * set the unique id of an item
+	 *
+	 * @param string $uniqueId unique id for the item
+	 * @param $rssIsPermalink Boolean: set to true if the guid (unique id) is a permalink (RSS feeds only)
+	 */
+	public function setUniqueId( $uniqueId, $rssIsPermalink = false ) {
+		$this->uniqueId = $uniqueId;
+		$this->rssIsPermalink = $rssIsPermalink;
+	}
+
+	/**
+	 * Get the title of this item; already xml-encoded
+	 *
+	 * @return String
+	 */
+	public function getTitle() {
+		return $this->xmlEncode( $this->title );
+	}
+
+	/**
+	 * Get the URL of this item; already xml-encoded
+	 *
+	 * @return String
+	 */
+	public function getUrl() {
+		return $this->xmlEncode( $this->url );
+	}
+
+	/**
+	 * Get the description of this item; already xml-encoded
+	 *
+	 * @return String
+	 */
+	public function getDescription() {
+		return $this->xmlEncode( $this->description );
+	}
+
+	/**
+	 * Get the language of this item
+	 *
+	 * @return String
+	 */
+	public function getLanguage() {
+		global $wgLanguageCode;
+		return $wgLanguageCode;
+	}
+
+	/**
+	 * Get the title of this item
+	 *
+	 * @return String
+	 */
+	public function getDate() {
+		return $this->date;
+	}
+
+	/**
+	 * Get the author of this item; already xml-encoded
+	 *
+	 * @return String
+	 */
+	public function getAuthor() {
+		return $this->xmlEncode( $this->author );
+	}
+
+	/**
+	 * Get the comment of this item; already xml-encoded
+	 *
+	 * @return String
+	 */
+	public function getComments() {
+		return $this->xmlEncode( $this->comments );
+	}
+
+	/**
+	 * Quickie hack... strip out wikilinks to more legible form from the comment.
+	 *
+	 * @param string $text wikitext
+	 * @return String
+	 */
+	public static function stripComment( $text ) {
+		return preg_replace( '/\[\[([^]]*\|)?([^]]+)\]\]/', '\2', $text );
+	}
 	/**#@-*/
 }
 
 /**
- * @todo document
- * @package MediaWiki
+ * @todo document (needs one-sentence top-level class description).
+ * @ingroup Feed
  */
-class ChannelFeed extends FeedItem {
-	/**#@+
-	 * Abstract function, override!
-	 * @abstract
-	 */
-
+abstract class ChannelFeed extends FeedItem {
 	/**
 	 * Generate Header of the feed
+	 * @par Example:
+	 * @code
+	 * print "<feed>";
+	 * @endcode
+	 * @param $item
 	 */
-	function outHeader() {
-		# print "<feed>";
-	}
+	abstract public function outHeader();
 
 	/**
 	 * Generate an item
+	 * @par Example:
+	 * @code
+	 * print "<item>...</item>";
+	 * @endcode
 	 * @param $item
 	 */
-	function outItem( $item ) {
-		# print "<item>...</item>";
-	}
+	abstract public function outItem( $item );
 
 	/**
 	 * Generate Footer of the feed
+	 * @par Example:
+	 * @code
+	 * print "</feed>";
+	 * @endcode
 	 */
-	function outFooter() {
-		# print "</feed>";
-	}
-	/**#@-*/
+	abstract public function outFooter();
 
 	/**
 	 * Setup and send HTTP headers. Don't send any content;
@@ -116,16 +220,17 @@ class ChannelFeed extends FeedItem {
 	 *
 	 * This should be called from the outHeader() method,
 	 * but can also be called separately.
-	 *
-	 * @access public
 	 */
-	function httpHeaders() {
-		global $wgOut;
+	public function httpHeaders() {
+		global $wgOut, $wgVaryOnXFP;
 
 		# We take over from $wgOut, excepting its cache header info
 		$wgOut->disable();
 		$mimetype = $this->contentType();
 		header( "Content-type: $mimetype; charset=UTF-8" );
+		if ( $wgVaryOnXFP ) {
+			$wgOut->addVaryHeader( 'X-Forwarded-Proto' );
+		}
 		$wgOut->sendCacheControl();
 
 	}
@@ -134,48 +239,50 @@ class ChannelFeed extends FeedItem {
 	 * Return an internet media type to be sent in the headers.
 	 *
 	 * @return string
-	 * @access private
+	 * @private
 	 */
 	function contentType() {
 		global $wgRequest;
-		$ctype = $wgRequest->getVal('ctype','application/xml');
-		$allowedctypes = array('application/xml','text/xml','application/rss+xml','application/atom+xml');
-		return (in_array($ctype, $allowedctypes) ? $ctype : 'application/xml');
+		$ctype = $wgRequest->getVal( 'ctype', 'application/xml' );
+		$allowedctypes = array( 'application/xml', 'text/xml', 'application/rss+xml', 'application/atom+xml' );
+		return ( in_array( $ctype, $allowedctypes ) ? $ctype : 'application/xml' );
 	}
 
 	/**
 	 * Output the initial XML headers with a stylesheet for legibility
 	 * if someone finds it in a browser.
-	 * @access private
+	 * @private
 	 */
 	function outXmlHeader() {
-		global $wgServer, $wgStylePath;
+		global $wgStylePath, $wgStyleVersion;
 
 		$this->httpHeaders();
-		echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
+		echo '<?xml version="1.0"?>' . "\n";
 		echo '<?xml-stylesheet type="text/css" href="' .
-			htmlspecialchars( "$wgServer$wgStylePath/common/feed.css" ) . '"?' . ">\n";
+			htmlspecialchars( wfExpandUrl( "$wgStylePath/common/feed.css?$wgStyleVersion", PROTO_CURRENT ) ) .
+			'"?' . ">\n";
 	}
 }
 
 /**
  * Generate a RSS feed
- * @todo document
- * @package MediaWiki
+ *
+ * @ingroup Feed
  */
 class RSSFeed extends ChannelFeed {
 
 	/**
 	 * Format a date given a timestamp
-	 * @param integer $ts Timestamp
-	 * @return string Date string
+	 *
+	 * @param $ts Integer: timestamp
+	 * @return String: date string
 	 */
 	function formatTime( $ts ) {
 		return gmdate( 'D, d M Y H:i:s \G\M\T', wfTimestamp( TS_UNIX, $ts ) );
 	}
 
 	/**
-	 * Ouput an RSS 2.0 header
+	 * Output an RSS 2.0 header
 	 */
 	function outHeader() {
 		global $wgVersion;
@@ -184,7 +291,7 @@ class RSSFeed extends ChannelFeed {
 		?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
 	<channel>
 		<title><?php print $this->getTitle() ?></title>
-		<link><?php print $this->getUrl() ?></link>
+		<link><?php print wfExpandUrl( $this->getUrl(), PROTO_CURRENT ) ?></link>
 		<description><?php print $this->getDescription() ?></description>
 		<language><?php print $this->getLanguage() ?></language>
 		<generator>MediaWiki <?php print $wgVersion ?></generator>
@@ -194,23 +301,24 @@ class RSSFeed extends ChannelFeed {
 
 	/**
 	 * Output an RSS 2.0 item
-	 * @param FeedItem item to be output
+	 * @param $item FeedItem: item to be output
 	 */
 	function outItem( $item ) {
 	?>
 		<item>
-			<title><?php print $item->getTitle() ?></title>
-			<link><?php print $item->getUrl() ?></link>
+			<title><?php print $item->getTitle(); ?></title>
+			<link><?php print wfExpandUrl( $item->getUrl(), PROTO_CURRENT ); ?></link>
+			<guid<?php if ( !$item->rssIsPermalink ) { print ' isPermaLink="false"'; } ?>><?php print $item->getUniqueId(); ?></guid>
 			<description><?php print $item->getDescription() ?></description>
-			<?php if( $item->getDate() ) { ?><pubDate><?php print $this->formatTime( $item->getDate() ) ?></pubDate><?php } ?>
-			<?php if( $item->getAuthor() ) { ?><dc:creator><?php print $item->getAuthor() ?></dc:creator><?php }?>
-			<?php if( $item->getComments() ) { ?><comments><?php print $item->getComments() ?></comments><?php }?>
+			<?php if ( $item->getDate() ) { ?><pubDate><?php print $this->formatTime( $item->getDate() ); ?></pubDate><?php } ?>
+			<?php if ( $item->getAuthor() ) { ?><dc:creator><?php print $item->getAuthor(); ?></dc:creator><?php }?>
+			<?php if ( $item->getComments() ) { ?><comments><?php print wfExpandUrl( $item->getComments(), PROTO_CURRENT ); ?></comments><?php }?>
 		</item>
 <?php
 	}
 
 	/**
-	 * Ouput an RSS 2.0 footer
+	 * Output an RSS 2.0 footer
 	 */
 	function outFooter() {
 	?>
@@ -221,12 +329,13 @@ class RSSFeed extends ChannelFeed {
 
 /**
  * Generate an Atom feed
- * @todo document
- * @package MediaWiki
+ *
+ * @ingroup Feed
  */
 class AtomFeed extends ChannelFeed {
 	/**
 	 * @todo document
+	 * @return string
 	 */
 	function formatTime( $ts ) {
 		// need to use RFC 822 time format at least for rss2.0
@@ -234,7 +343,7 @@ class AtomFeed extends ChannelFeed {
 	}
 
 	/**
-	 * @todo document
+	 * Outputs a basic header for Atom 1.0 feeds.
 	 */
 	function outHeader() {
 		global $wgVersion;
@@ -243,8 +352,8 @@ class AtomFeed extends ChannelFeed {
 		?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="<?php print $this->getLanguage() ?>">
 		<id><?php print $this->getFeedId() ?></id>
 		<title><?php print $this->getTitle() ?></title>
-		<link rel="self" type="application/atom+xml" href="<?php print $this->getSelfUrl() ?>"/>
-		<link rel="alternate" type="text/html" href="<?php print $this->getUrl() ?>"/>
+		<link rel="self" type="application/atom+xml" href="<?php print wfExpandUrl( $this->getSelfUrl(), PROTO_CURRENT ) ?>"/>
+		<link rel="alternate" type="text/html" href="<?php print wfExpandUrl( $this->getUrl(), PROTO_CURRENT ) ?>"/>
 		<updated><?php print $this->formatTime( wfTimestampNow() ) ?>Z</updated>
 		<subtitle><?php print $this->getDescription() ?></subtitle>
 		<generator>MediaWiki <?php print $wgVersion ?></generator>
@@ -253,13 +362,13 @@ class AtomFeed extends ChannelFeed {
 	}
 
 	/**
-	 * Atom 1.0 requires a unique, opaque IRI as a unique indentifier
+	 * Atom 1.0 requires a unique, opaque IRI as a unique identifier
 	 * for every feed we create. For now just use the URL, but who
 	 * can tell if that's right? If we put options on the feed, do we
 	 * have to change the id? Maybe? Maybe not.
 	 *
 	 * @return string
-	 * @access private
+	 * @private
 	 */
 	function getFeedId() {
 		return $this->getSelfUrl();
@@ -268,7 +377,7 @@ class AtomFeed extends ChannelFeed {
 	/**
 	 * Atom 1.0 requests a self-reference to the feed.
 	 * @return string
-	 * @access private
+	 * @private
 	 */
 	function getSelfUrl() {
 		global $wgRequest;
@@ -276,34 +385,33 @@ class AtomFeed extends ChannelFeed {
 	}
 
 	/**
-	 * @todo document
+	 * Output a given item.
+	 * @param $item
 	 */
 	function outItem( $item ) {
 		global $wgMimeType;
 	?>
 	<entry>
-		<id><?php print $item->getUrl() ?></id>
-		<title><?php print $item->getTitle() ?></title>
-		<link rel="alternate" type="<?php print $wgMimeType ?>" href="<?php print $item->getUrl() ?>"/>
-		<?php if( $item->getDate() ) { ?>
-		<updated><?php print $this->formatTime( $item->getDate() ) ?>Z</updated>
+		<id><?php print $item->getUniqueId(); ?></id>
+		<title><?php print $item->getTitle(); ?></title>
+		<link rel="alternate" type="<?php print $wgMimeType ?>" href="<?php print wfExpandUrl( $item->getUrl(), PROTO_CURRENT ); ?>"/>
+		<?php if ( $item->getDate() ) { ?>
+		<updated><?php print $this->formatTime( $item->getDate() ); ?>Z</updated>
 		<?php } ?>
 
 		<summary type="html"><?php print $item->getDescription() ?></summary>
-		<?php if( $item->getAuthor() ) { ?><author><name><?php print $item->getAuthor() ?></name></author><?php }?>
+		<?php if ( $item->getAuthor() ) { ?><author><name><?php print $item->getAuthor(); ?></name></author><?php }?>
 	</entry>
 
-<?php /* FIXME need to add comments
+<?php /* @todo FIXME: Need to add comments
 	<?php if( $item->getComments() ) { ?><dc:comment><?php print $item->getComments() ?></dc:comment><?php }?>
-      */
+	  */
 	}
 
 	/**
-	 * @todo document
+	 * Outputs the footer for Atom 1.0 feed (basically '\</feed\>').
 	 */
 	function outFooter() {?>
 	</feed><?php
 	}
 }
-
-?>

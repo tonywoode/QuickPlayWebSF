@@ -1,66 +1,57 @@
 <?php
 /**
- * @todo document
- * @package MediaWiki
- * @subpackage Maintenance
+ * Purge all languages from the message cache.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @file
+ * @ingroup Maintenance
  */
 
-/** */
-$options = array( 'update' => null, 'rebuild' => null );
-require_once( "commandLine.inc" );
-include_once( "InitialiseMessages.inc" );
+require_once __DIR__ . '/Maintenance.php';
 
-$wgTitle = Title::newFromText( "Rebuild messages script" );
-
-if ( isset( $args[0] ) ) {
-	# Retain script compatibility
-	$response = array_shift( $args );
-	if ( $response == "update" ) {
-		$response = 1;
-	} elseif ( $response == "rebuild" ) {
-		$response = 2;
+/**
+ * Maintenance script that purges all languages from the message cache.
+ *
+ * @ingroup Maintenance
+ */
+class RebuildMessages extends Maintenance {
+	public function __construct() {
+		parent::__construct();
+		$this->mDescription = "Purge all language messages from the cache";
 	}
-} else {
-	$response = 0;
-}
-if ( isset( $args[0] ) ) {
-	$messages = loadLanguageFile( array_shift( $args ) );
-} else {
-	$messages = false;
-}
-if( isset( $options['update'] ) ) $response = 1;
-if( isset( $options['rebuild'] ) ) $response = 2;
 
-if ( $response == 0 ) {
-	$dbr =& wfGetDB( DB_SLAVE );
-	$row = $dbr->selectRow( "page", array("count(*) as c"), array("page_namespace" => NS_MEDIAWIKI) );
-	print "Current namespace size: {$row->c}\n";
+	public function execute() {
+		global $wgLocalDatabases, $wgDBname, $wgEnableSidebarCache, $messageMemc;
+		if ( $wgLocalDatabases ) {
+			$databases = $wgLocalDatabases;
+		} else {
+			$databases = array( $wgDBname );
+		}
 
-	print <<<END
-Usage:   php rebuildMessages.php <action> [filename]
-
-Action must be one of:
-  --update   Update messages to include latest additions to Language.php
-  --rebuild  Delete all messages and reinitialise namespace
-
-If a message dump file is given, messages will be read from it to supplement
-the defaults in MediaWiki's Language*.php. The file should contain a serialized
-PHP associative array, as produced by dumpMessages.php.
-
-
-END;
-	exit(0);
+		foreach ( $databases as $db ) {
+			$this->output( "Deleting message cache for {$db}... " );
+			$messageMemc->delete( "{$db}:messages" );
+			if ( $wgEnableSidebarCache ) {
+				$messageMemc->delete( "{$db}:sidebar" );
+			}
+			$this->output( "Deleted\n" );
+		}
+	}
 }
 
-switch ( $response ) {
-	case 1:
-		initialiseMessages( false, $messages );
-		break;
-	case 2:
-		initialiseMessages( true, $messages );
-		break;
-}
-
-exit();
-
-?>
+$maintClass = "RebuildMessages";
+require_once RUN_MAINTENANCE_IF_MAIN;
