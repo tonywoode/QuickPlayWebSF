@@ -22,7 +22,7 @@
 
 5) Upload the release:
 	* Do the rest in OSX: Go into the quickplayWeb folder, into htdocs and into build and ./runner
-    * If mySQL isn't going to have the quickplay database, run option 9 from the menu first
+    * If mySQL isn't going to have the quickplay database, run option 9 from the menu first. If you don't have the database you'll have errors about sql. If you don't have the database you probably don't have pandoc-bin for the node bit of the code, which needs to be npm installed globally not locally or it will error! (install it with global flag then locally and it should work)
 	* Choose item 2 on the list - upload release file. (automated equivalent of uploading release to: https://sourceforge.net/projects/quickplay/files/quickplay/ )
 		(script makes a new folder called after your tag (omitting the v.), then rsyncs the new release zip into it from local release dir)
 		(Seems SourceForge at this point needs to check the file, as manually checking for zip in a browser takes about 5 mins to appear, despite being there if you ssh)
