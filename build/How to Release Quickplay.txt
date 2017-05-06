@@ -14,7 +14,7 @@
 3)Make the release:
 	* Run makeRelease.bat (which will read latest tag)
 		(Script copies ALL files then deletes the ones that we don't want in release)
-	* Script opens notepad++ so you can remove dev/build/commit related changelog items. Save the txt file when you're done (at this point it has nix line endings).
+	* Script opens notepad++ so you can remove dev/build/commit related changelog items (bloody doesn't you have to do it yourself). Save the txt file when you're done (at this point it has nix line endings).
 		(Script puts result at top of changelog in BOTH release and dev (ie: MY!) quickplay folder (so any problems mean deleting the top entry of MY QP’s changelog)
 		(Script makes the zip out of the qp dir and then deletes the qp dir (zip overwrites if this isn't the first run))
 
