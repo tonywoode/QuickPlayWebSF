@@ -1,5 +1,6 @@
 1) Version number in Delphi must be right: In MAIN.pas around line 690 change version number of QP, compile and exit
 
+DO THIS IN WINDOWS (so you don't have to reset pc's between steps 2 and 3):
 2) Finish up with git. In windows ensure: 
 	* all commits are done on dev
 	* all changes merged into master
@@ -12,9 +13,9 @@
 		(if problems undo both local and remote tags: http://stackoverflow.com/questions/5480258/how-to-delete-a-remote-git-tag)
 
 3)Make the release:
-	* Run makeRelease.bat (which will read latest tag)
+	* Run makeRelease.bat in the QuickPlayFrontend folder (which will read latest tag)
 		(Script copies ALL files then deletes the ones that we don't want in release)
-	* Script opens notepad++ so you can remove dev/build/commit related changelog items (bloody doesn't you have to do it yourself). Save the txt file when you're done (at this point it has nix line endings).
+	* Script opens notepad++ so you can remove dev/build/commit related changelog items (bloody doesn't you have to do it yourself, when it says 'press any key to contune' do that and it'll tell you which file to open ). Save the txt file when you're done (at this point it has nix line endings).
 		(Script puts result at top of changelog in BOTH release and dev (ie: MY!) quickplay folder (so any problems mean deleting the top entry of MY QP’s changelog)
 		(Script makes the zip out of the qp dir and then deletes the qp dir (zip overwrites if this isn't the first run))
 
