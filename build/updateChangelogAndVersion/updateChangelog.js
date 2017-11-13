@@ -20,7 +20,6 @@ var fs = require('fs'),
   //whilst these are rooted in the build folder (parent):
   changelogLF	= '../../../Release/changelogLF',
   changelogHTML = '../../../Release/changelogHTML',
-  changeText = fs.readFileSync('../../../Release/changelogHTML', 'ascii'),
 
   //...we can do this to avoid this ambiguity, but its a little ugly
   getVersion = require( '' + __dirname + '/getVersion'),
@@ -36,6 +35,7 @@ var fs = require('fs'),
 printWhatWeStartWith(function(callback){ 
   yesorno(function(answer){
     pandocIt(answer, function() {
+      const changeText = fs.readFileSync(changelogHTML, 'ascii') //bugfix: we were reading this too early hence inserting previous change text 
       insertChangelog(date, getVersion(), changeText, tony);
     });
   });
