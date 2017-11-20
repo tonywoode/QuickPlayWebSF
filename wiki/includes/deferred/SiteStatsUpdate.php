@@ -23,9 +23,6 @@
  */
 class SiteStatsUpdate implements DeferrableUpdate {
 	/** @var int */
-	protected $views = 0;
-
-	/** @var int */
 	protected $edits = 0;
 
 	/** @var int */
@@ -42,7 +39,6 @@ class SiteStatsUpdate implements DeferrableUpdate {
 
 	// @todo deprecate this constructor
 	function __construct( $views, $edits, $good, $pages = 0, $users = 0 ) {
-		$this->views = $views;
 		$this->edits = $edits;
 		$this->articles = $good;
 		$this->pages = $pages;
@@ -68,6 +64,8 @@ class SiteStatsUpdate implements DeferrableUpdate {
 
 	public function doUpdate() {
 		global $wgSiteStatsAsyncFactor;
+
+		$this->doUpdateContextStats();
 
 		$rate = $wgSiteStatsAsyncFactor; // convenience
 		// If set to do so, only do actual DB updates 1 every $rate times.
@@ -100,7 +98,6 @@ class SiteStatsUpdate implements DeferrableUpdate {
 			}
 			$pd = $this->getPendingDeltas();
 			// Piggy-back the async deltas onto those of this stats update....
-			$this->views += ( $pd['ss_total_views']['+'] - $pd['ss_total_views']['-'] );
 			$this->edits += ( $pd['ss_total_edits']['+'] - $pd['ss_total_edits']['-'] );
 			$this->articles += ( $pd['ss_good_articles']['+'] - $pd['ss_good_articles']['-'] );
 			$this->pages += ( $pd['ss_total_pages']['+'] - $pd['ss_total_pages']['-'] );
@@ -110,7 +107,6 @@ class SiteStatsUpdate implements DeferrableUpdate {
 
 		// Build up an SQL query of deltas and apply them...
 		$updates = '';
-		$this->appendUpdate( $updates, 'ss_total_views', $this->views );
 		$this->appendUpdate( $updates, 'ss_total_edits', $this->edits );
 		$this->appendUpdate( $updates, 'ss_good_articles', $this->articles );
 		$this->appendUpdate( $updates, 'ss_total_pages', $this->pages );
@@ -134,7 +130,7 @@ class SiteStatsUpdate implements DeferrableUpdate {
 	 */
 	public static function cacheUpdate( $dbw ) {
 		global $wgActiveUserDays;
-		$dbr = wfGetDB( DB_SLAVE, array( 'SpecialStatistics', 'vslow' ) );
+		$dbr = wfGetDB( DB_SLAVE, 'vslow' );
 		# Get non-bot users than did some recent action other than making accounts.
 		# If account creation is included, the number gets inflated ~20+ fold on enwiki.
 		$activeUsers = $dbr->selectField(
@@ -159,8 +155,17 @@ class SiteStatsUpdate implements DeferrableUpdate {
 		return $activeUsers;
 	}
 
+	protected function doUpdateContextStats() {
+		$stats = RequestContext::getMain()->getStats();
+		foreach ( array( 'edits', 'articles', 'pages', 'users', 'images' ) as $type ) {
+			$delta = $this->$type;
+			if ( $delta !== 0 ) {
+				$stats->updateCount( "site.$type", $delta );
+			}
+		}
+	}
+
 	protected function doUpdatePendingDeltas() {
-		$this->adjustPending( 'ss_total_views', $this->views );
 		$this->adjustPending( 'ss_total_edits', $this->edits );
 		$this->adjustPending( 'ss_good_articles', $this->articles );
 		$this->adjustPending( 'ss_total_pages', $this->pages );
@@ -226,7 +231,7 @@ class SiteStatsUpdate implements DeferrableUpdate {
 		global $wgMemc;
 
 		$pending = array();
-		foreach ( array( 'ss_total_views', 'ss_total_edits',
+		foreach ( array( 'ss_total_edits',
 			'ss_good_articles', 'ss_total_pages', 'ss_users', 'ss_images' ) as $type
 		) {
 			// Get pending increments and pending decrements

@@ -39,7 +39,7 @@ class UploadFromUrlJob extends Job {
 	/** @var User */
 	protected $user;
 
-	public function __construct( $title, $params ) {
+	public function __construct( Title $title, array $params ) {
 		parent::__construct( 'uploadFromUrl', $title, $params );
 	}
 
@@ -81,7 +81,7 @@ class UploadFromUrlJob extends Job {
 			if ( $warnings ) {
 
 				# Stash the upload
-				$key = $this->upload->stashFile();
+				$key = $this->upload->stashFile( $this->user );
 
 				// @todo FIXME: This has been broken for a while.
 				// User::leaveUserMessage() does not exist.
@@ -155,8 +155,8 @@ class UploadFromUrlJob extends Job {
 	 * Store a result in the session data. Note that the caller is responsible
 	 * for appropriate session_start and session_write_close calls.
 	 *
-	 * @param string $result the result (Success|Warning|Failure)
-	 * @param string $dataKey the key of the extra data
+	 * @param string $result The result (Success|Warning|Failure)
+	 * @param string $dataKey The key of the extra data
 	 * @param mixed $dataValue The extra data itself
 	 */
 	protected function storeResultInSession( $result, $dataKey, $dataValue ) {
@@ -166,15 +166,15 @@ class UploadFromUrlJob extends Job {
 	}
 
 	/**
-	 * Initialize the session data. Sets the intial result to queued.
+	 * Initialize the session data. Sets the initial result to queued.
 	 */
 	public function initializeSessionData() {
 		$session =& self::getSessionData( $this->params['sessionKey'] );
-		$$session['result'] = 'Queued';
+		$session['result'] = 'Queued';
 	}
 
 	/**
-	 * @param $key
+	 * @param string $key
 	 * @return mixed
 	 */
 	public static function &getSessionData( $key ) {

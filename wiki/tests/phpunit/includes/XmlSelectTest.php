@@ -69,7 +69,10 @@ class XmlSelectTest extends MediaWikiTestCase {
 	 */
 	public function testAddOption() {
 		$this->select->addOption( 'foo' );
-		$this->assertEquals( '<select><option value="foo">foo</option></select>', $this->select->getHTML() );
+		$this->assertEquals(
+			'<select><option value="foo">foo</option></select>',
+			$this->select->getHTML()
+		);
 	}
 
 	/**
@@ -77,7 +80,10 @@ class XmlSelectTest extends MediaWikiTestCase {
 	 */
 	public function testAddOptionWithDefault() {
 		$this->select->addOption( 'foo', true );
-		$this->assertEquals( '<select><option value="1">foo</option></select>', $this->select->getHTML() );
+		$this->assertEquals(
+			'<select><option value="1">foo</option></select>',
+			$this->select->getHTML()
+		);
 	}
 
 	/**
@@ -85,7 +91,10 @@ class XmlSelectTest extends MediaWikiTestCase {
 	 */
 	public function testAddOptionWithFalse() {
 		$this->select->addOption( 'foo', false );
-		$this->assertEquals( '<select><option value="foo">foo</option></select>', $this->select->getHTML() );
+		$this->assertEquals(
+			'<select><option value="foo">foo</option></select>',
+			$this->select->getHTML()
+		);
 	}
 
 	/**
@@ -93,7 +102,10 @@ class XmlSelectTest extends MediaWikiTestCase {
 	 */
 	public function testAddOptionWithValueZero() {
 		$this->select->addOption( 'foo', 0 );
-		$this->assertEquals( '<select><option value="0">foo</option></select>', $this->select->getHTML() );
+		$this->assertEquals(
+			'<select><option value="0">foo</option></select>',
+			$this->select->getHTML()
+		);
 	}
 
 	/**
@@ -151,7 +163,7 @@ class XmlSelectTest extends MediaWikiTestCase {
 			'razor'
 		);
 
-		# inexistant keys should give us 'null'
+		# inexistent keys should give us 'null'
 		$this->assertEquals(
 			$this->select->getAttribute( 'I DO NOT EXIT' ),
 			null

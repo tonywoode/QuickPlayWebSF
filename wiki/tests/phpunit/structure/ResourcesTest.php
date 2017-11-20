@@ -12,7 +12,6 @@
  * @copyright © 2012, Santhosh Thottingal
  * @copyright © 2012, Timo Tijhof
  *
- * @license http://www.gnu.org/copyleft/gpl.html GNU General Public License 2.0 or later
  */
 class ResourcesTest extends MediaWikiTestCase {
 
@@ -31,18 +30,37 @@ class ResourcesTest extends MediaWikiTestCase {
 	public function testStyleMedia( $moduleName, $media, $filename, $css ) {
 		$cssText = CSSMin::minify( $css->cssText );
 
-		$this->assertTrue( strpos( $cssText, '@media' ) === false, 'Stylesheets should not both specify "media" and contain @media' );
+		$this->assertTrue(
+			strpos( $cssText, '@media' ) === false,
+			'Stylesheets should not both specify "media" and contain @media'
+		);
 	}
 
-	public function testDependencies() {
+	public function testVersionHash() {
+		$data = self::getAllModules();
+		foreach ( $data['modules'] as $moduleName => $module ) {
+			$version = $module->getVersionHash( $data['context'] );
+			$this->assertEquals( 8, strlen( $version ), "$moduleName must use ResourceLoader::makeHash" );
+		}
+	}
+
+	/**
+	 * Verify that nothing explicitly depends on the 'jquery' and 'mediawiki' modules.
+	 * They are always loaded, depending on them is unsupported and leads to unexpected behaviour.
+	 * TODO Modules can dynamically choose dependencies based on context. This method does not
+	 * test such dependencies. The same goes for testMissingDependencies() and
+	 * testUnsatisfiableDependencies().
+	 */
+	public function testIllegalDependencies() {
 		$data = self::getAllModules();
 		$illegalDeps = array( 'jquery', 'mediawiki' );
 
+		/** @var ResourceLoaderModule $module */
 		foreach ( $data['modules'] as $moduleName => $module ) {
 			foreach ( $illegalDeps as $illegalDep ) {
 				$this->assertNotContains(
 					$illegalDep,
-					$module->getDependencies(),
+					$module->getDependencies( $data['context'] ),
 					"Module '$moduleName' must not depend on '$illegalDep'"
 				);
 			}
@@ -50,7 +68,75 @@ class ResourcesTest extends MediaWikiTestCase {
 	}
 
 	/**
+	 * Verify that all modules specified as dependencies of other modules actually exist.
+	 */
+	public function testMissingDependencies() {
+		$data = self::getAllModules();
+		$validDeps = array_keys( $data['modules'] );
+
+		/** @var ResourceLoaderModule $module */
+		foreach ( $data['modules'] as $moduleName => $module ) {
+			foreach ( $module->getDependencies( $data['context'] ) as $dep ) {
+				$this->assertContains(
+					$dep,
+					$validDeps,
+					"The module '$dep' required by '$moduleName' must exist"
+				);
+			}
+		}
+	}
+
+	/**
+	 * Verify that all dependencies of all modules are always satisfiable with the 'targets' defined
+	 * for the involved modules.
+	 *
+	 * Example: A depends on B. A has targets: mobile, desktop. B has targets: desktop. Therefore the
+	 * dependency is sometimes unsatisfiable: it's impossible to load module A on mobile.
+	 */
+	public function testUnsatisfiableDependencies() {
+		$data = self::getAllModules();
+		$validDeps = array_keys( $data['modules'] );
+
+		/** @var ResourceLoaderModule $module */
+		foreach ( $data['modules'] as $moduleName => $module ) {
+			$moduleTargets = $module->getTargets();
+			foreach ( $module->getDependencies( $data['context'] ) as $dep ) {
+				if ( !isset( $data['modules'][$dep] ) ) {
+					// Missing dependencies reported by testMissingDependencies
+					continue;
+				}
+				$targets = $data['modules'][$dep]->getTargets();
+				foreach ( $moduleTargets as $moduleTarget ) {
+					$this->assertContains(
+						$moduleTarget,
+						$targets,
+						"The module '$moduleName' must not have target '$moduleTarget' "
+							. "because its dependency '$dep' does not have it"
+					);
+				}
+			}
+		}
+	}
+
+	/**
+	 * CSSMin::getAllLocalFileReferences should ignore url(...) expressions
+	 * that have been commented out.
+	 */
+	public function testCommentedLocalFileReferences() {
+		$basepath = __DIR__ . '/../data/css/';
+		$css = file_get_contents( $basepath . 'comments.css' );
+		$files = CSSMin::getAllLocalFileReferences( $css, $basepath );
+		$expected = array( $basepath . 'not-commented.gif' );
+		$this->assertArrayEquals(
+			$expected,
+			$files,
+			'Url(...) expression in comment should be omitted.'
+		);
+	}
+
+	/**
 	 * Get all registered modules from ResouceLoader.
+	 * @return array
 	 */
 	protected static function getAllModules() {
 		global $wgEnableJavaScriptTest;
@@ -112,7 +198,7 @@ class ResourcesTest extends MediaWikiTestCase {
 							$media,
 							$file,
 							// XXX: Wrapped in an object to keep it out of PHPUnit output
-							(object) array( 'cssText' => $readStyleFile->invoke( $module, $file, $flip ) ),
+							(object)array( 'cssText' => $readStyleFile->invoke( $module, $file, $flip ) ),
 						);
 					}
 				}
@@ -202,6 +288,25 @@ class ResourcesTest extends MediaWikiTestCase {
 			foreach ( $files as $file ) {
 				$cases[] = array(
 					$method->invoke( $module, $file ),
+					$moduleName,
+					( $file instanceof ResourceLoaderFilePath ? $file->getPath() : $file ),
+				);
+			}
+
+			// To populate missingLocalFileRefs. Not sure how sane this is inside this test...
+			$module->readStyleFiles(
+				$module->getStyleFiles( $data['context'] ),
+				$module->getFlip( $data['context'] ),
+				$data['context']
+			);
+
+			$property = $reflectedModule->getProperty( 'missingLocalFileRefs' );
+			$property->setAccessible( true );
+			$missingLocalFileRefs = $property->getValue( $module );
+
+			foreach ( $missingLocalFileRefs as $file ) {
+				$cases[] = array(
+					$file,
 					$moduleName,
 					$file,
 				);

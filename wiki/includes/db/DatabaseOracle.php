@@ -207,36 +207,22 @@ class DatabaseOracle extends DatabaseBase {
 	/** @var array */
 	private $mFieldInfoCache = array();
 
-	function __construct( $p = null ) {
+	function __construct( array $p ) {
 		global $wgDBprefix;
 
-		if ( !is_array( $p ) ) { // legacy calling pattern
-			wfDeprecated( __METHOD__ . " method called without parameter array.", "1.22" );
-			$args = func_get_args();
-			$p = array(
-				'host' => isset( $args[0] ) ? $args[0] : false,
-				'user' => isset( $args[1] ) ? $args[1] : false,
-				'password' => isset( $args[2] ) ? $args[2] : false,
-				'dbname' => isset( $args[3] ) ? $args[3] : false,
-				'flags' => isset( $args[4] ) ? $args[4] : 0,
-				'tablePrefix' => isset( $args[5] ) ? $args[5] : 'get from global',
-				'schema' => 'get from global',
-				'foreign' => isset( $args[6] ) ? $args[6] : false
-			);
-		}
 		if ( $p['tablePrefix'] == 'get from global' ) {
 			$p['tablePrefix'] = $wgDBprefix;
 		}
 		$p['tablePrefix'] = strtoupper( $p['tablePrefix'] );
 		parent::__construct( $p );
-		wfRunHooks( 'DatabaseOraclePostInit', array( $this ) );
+		Hooks::run( 'DatabaseOraclePostInit', array( $this ) );
 	}
 
 	function __destruct() {
 		if ( $this->mOpened ) {
-			wfSuppressWarnings();
+			MediaWiki\suppressWarnings();
 			$this->close();
-			wfRestoreWarnings();
+			MediaWiki\restoreWarnings();
 		}
 	}
 
@@ -320,7 +306,7 @@ class DatabaseOracle extends DatabaseBase {
 
 		$session_mode = $this->mFlags & DBO_SYSDBA ? OCI_SYSDBA : OCI_DEFAULT;
 
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		if ( $this->mFlags & DBO_PERSISTENT ) {
 			$this->mConn = oci_pconnect(
 				$this->mUser,
@@ -346,7 +332,7 @@ class DatabaseOracle extends DatabaseBase {
 				$session_mode
 			);
 		}
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 
 		if ( $this->mUser != $this->mDBname ) {
 			//change current schema in session
@@ -407,7 +393,7 @@ class DatabaseOracle extends DatabaseBase {
 			$explain_count
 		);
 
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 
 		if ( ( $this->mLastResult = $stmt = oci_parse( $this->mConn, $sql ) ) === false ) {
 			$e = oci_error( $this->mConn );
@@ -425,7 +411,7 @@ class DatabaseOracle extends DatabaseBase {
 			}
 		}
 
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 
 		if ( $explain_count > 0 ) {
 			return $this->doQuery( 'SELECT id, cardinality "ROWS" FROM plan_table ' .
@@ -621,7 +607,7 @@ class DatabaseOracle extends DatabaseBase {
 
 	/**
 	 * @param string $table
-	 * @param $row
+	 * @param array $row
 	 * @param string $fname
 	 * @return bool
 	 * @throws DBUnexpectedError
@@ -701,7 +687,7 @@ class DatabaseOracle extends DatabaseBase {
 			}
 		}
 
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 
 		if ( oci_execute( $stmt, $this->execFlags() ) === false ) {
 			$e = oci_error( $stmt );
@@ -716,7 +702,7 @@ class DatabaseOracle extends DatabaseBase {
 			$this->mAffectedRows = oci_num_rows( $stmt );
 		}
 
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 
 		if ( isset( $lob ) ) {
 			foreach ( $lob as $lob_v ) {
@@ -977,7 +963,7 @@ class DatabaseOracle extends DatabaseBase {
 	/**
 	 * Return aggregated value function call
 	 *
-	 * @param $valuedata
+	 * @param array $valuedata
 	 * @param string $valuename
 	 * @return mixed
 	 */
@@ -985,22 +971,8 @@ class DatabaseOracle extends DatabaseBase {
 		return $valuedata;
 	}
 
-	function reportQueryError( $error, $errno, $sql, $fname, $tempIgnore = false ) {
-		# Ignore errors during error handling to avoid infinite
-		# recursion
-		$ignore = $this->ignoreErrors( true );
-		++$this->mErrorCount;
-
-		if ( $ignore || $tempIgnore ) {
-			wfDebug( "SQL ERROR (ignored): $error\n" );
-			$this->ignoreErrors( $ignore );
-		} else {
-			throw new DBQueryError( $this, $error, $errno, $sql, $fname );
-		}
-	}
-
 	/**
-	 * @return string wikitext of a link to the server software's web site
+	 * @return string Wikitext of a link to the server software's web site
 	 */
 	public function getSoftwareLink() {
 		return '[{{int:version-db-oracle-url}} Oracle]';
@@ -1264,9 +1236,9 @@ class DatabaseOracle extends DatabaseBase {
 		}
 		$sql = 'ALTER SESSION SET CURRENT_SCHEMA=' . strtoupper( $db );
 		$stmt = oci_parse( $this->mConn, $sql );
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$success = oci_execute( $stmt );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( !$success ) {
 			$e = oci_error( $stmt );
 			if ( $e['code'] != '1435' ) {
@@ -1505,7 +1477,7 @@ class DatabaseOracle extends DatabaseBase {
 			}
 		}
 
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 
 		if ( oci_execute( $stmt, $this->execFlags() ) === false ) {
 			$e = oci_error( $stmt );
@@ -1520,7 +1492,7 @@ class DatabaseOracle extends DatabaseBase {
 			$this->mAffectedRows = oci_num_rows( $stmt );
 		}
 
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 
 		if ( isset( $lob ) ) {
 			foreach ( $lob as $lob_v ) {

@@ -294,9 +294,9 @@ class Exif {
 
 		$this->debugFile( $this->basename, __FUNCTION__, true );
 		if ( function_exists( 'exif_read_data' ) ) {
-			wfSuppressWarnings();
+			MediaWiki\suppressWarnings();
 			$data = exif_read_data( $this->file, 0, true );
-			wfRestoreWarnings();
+			MediaWiki\restoreWarnings();
 		} else {
 			throw new MWException( "Internal error: exif_read_data not present. " .
 				"\$wgShowEXIF may be incorrectly set or not checked by an extension." );
@@ -442,7 +442,7 @@ class Exif {
 	 * Do userComment tags and similar. See pg. 34 of exif standard.
 	 * basically first 8 bytes is charset, rest is value.
 	 * This has not been tested on any shift-JIS strings.
-	 * @param string $prop prop name.
+	 * @param string $prop Prop name
 	 */
 	private function charCodeString( $prop ) {
 		if ( isset( $this->mFilteredExifData[$prop] ) ) {
@@ -470,20 +470,18 @@ class Exif {
 					$charset = "";
 					break;
 			}
-			// This could possibly check to see if iconv is really installed
-			// or if we're using the compatibility wrapper in globalFunctions.php
 			if ( $charset ) {
-				wfSuppressWarnings();
+				MediaWiki\suppressWarnings();
 				$val = iconv( $charset, 'UTF-8//IGNORE', $val );
-				wfRestoreWarnings();
+				MediaWiki\restoreWarnings();
 			} else {
 				// if valid utf-8, assume that, otherwise assume windows-1252
 				$valCopy = $val;
-				UtfNormal::quickIsNFCVerify( $valCopy ); //validates $valCopy.
+				UtfNormal\Validator::quickIsNFCVerify( $valCopy ); //validates $valCopy.
 				if ( $valCopy !== $val ) {
-					wfSuppressWarnings();
+					MediaWiki\suppressWarnings();
 					$val = iconv( 'Windows-1252', 'UTF-8//IGNORE', $val );
-					wfRestoreWarnings();
+					MediaWiki\restoreWarnings();
 				}
 			}
 
@@ -565,6 +563,7 @@ class Exif {
 
 	/**
 	 * Get $this->mFilteredExifData
+	 * @return array
 	 */
 	function getFilteredData() {
 		return $this->mFilteredExifData;
@@ -588,7 +587,7 @@ class Exif {
 		return 2; // We don't need no bloddy constants!
 	}
 
-	/**#@+
+	/**
 	 * Validates if a tag value is of the type it should be according to the Exif spec
 	 *
 	 * @param mixed $in The input value to check
@@ -731,8 +730,8 @@ class Exif {
 	/**
 	 * Validates if a tag has a legal value according to the Exif spec
 	 *
-	 * @param string $section section where tag is located.
-	 * @param string $tag the tag to check.
+	 * @param string $section Section where tag is located.
+	 * @param string $tag The tag to check.
 	 * @param mixed $val The value of the tag.
 	 * @param bool $recursive True if called recursively for array types.
 	 * @return bool
@@ -842,7 +841,7 @@ class Exif {
 	/**
 	 * Convenience function for debugging output
 	 *
-	 * @param string $fname the name of the function calling this function
+	 * @param string $fname The name of the function calling this function
 	 * @param bool $io Specify whether we're beginning or ending
 	 */
 	private function debugFile( $fname, $io ) {

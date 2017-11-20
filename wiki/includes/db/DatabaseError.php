@@ -133,21 +133,17 @@ class DBConnectionError extends DBExpectedError {
 	 * @return string Unprocessed plain error text with parameters replaced
 	 */
 	function msg( $key, $fallback /*[, params...] */ ) {
-		global $wgLang;
-
 		$args = array_slice( func_get_args(), 2 );
 
 		if ( $this->useMessageCache() ) {
-			$message = $wgLang->getMessage( $key );
+			return wfMessage( $key, $args )->useDatabase( false )->text();
 		} else {
-			$message = $fallback;
+			return wfMsgReplaceArgs( $fallback, $args );
 		}
-
-		return wfMsgReplaceArgs( $message, $args );
 	}
 
 	/**
-	 * @return boolean
+	 * @return bool
 	 */
 	function isLoggable() {
 		// Don't send to the exception log, already in dberror log
@@ -172,12 +168,12 @@ class DBConnectionError extends DBExpectedError {
 		if ( $wgShowHostnames || $wgShowSQLErrors ) {
 			$info = str_replace(
 				'$1', Html::element( 'span', array( 'dir' => 'ltr' ), $this->error ),
-				htmlspecialchars( $this->msg( 'dberr-info', '(Cannot contact the database server: $1)' ) )
+				htmlspecialchars( $this->msg( 'dberr-info', '(Cannot access the database: $1)' ) )
 			);
 		} else {
 			$info = htmlspecialchars( $this->msg(
 				'dberr-info-hidden',
-				'(Cannot contact the database server)'
+				'(Cannot access the database)'
 			) );
 		}
 
@@ -233,7 +229,7 @@ class DBConnectionError extends DBExpectedError {
 
 					return;
 				}
-			} catch ( MWException $e ) {
+			} catch ( Exception $e ) {
 				// Do nothing, just use the default page
 			}
 		}
@@ -310,7 +306,7 @@ EOT;
 			}
 		}
 
-		$cache = HTMLFileCache::newFromTitle( $t, 'view' );
+		$cache = new HTMLFileCache( $t, 'view' );
 		if ( $cache->isCached() ) {
 			return $cache->fetchText();
 		} else {
@@ -333,26 +329,25 @@ class DBQueryError extends DBExpectedError {
 	 * @param string $fname
 	 */
 	function __construct( DatabaseBase $db, $error, $errno, $sql, $fname ) {
-		$message = "A database error has occurred. Did you forget to run " .
-			"maintenance/update.php after upgrading?  See: " .
-			"https://www.mediawiki.org/wiki/Manual:Upgrading#Run_the_update_script\n" .
-			"Query: $sql\n" .
-			"Function: $fname\n" .
-			"Error: $errno $error\n";
+		if ( $db->wasConnectionError( $errno ) ) {
+			$message = "A connection error occured. \n" .
+				"Query: $sql\n" .
+				"Function: $fname\n" .
+				"Error: $errno $error\n";
+		} else {
+			$message = "A database error has occurred. Did you forget to run " .
+				"maintenance/update.php after upgrading?  See: " .
+				"https://www.mediawiki.org/wiki/Manual:Upgrading#Run_the_update_script\n" .
+				"Query: $sql\n" .
+				"Function: $fname\n" .
+				"Error: $errno $error\n";
+		}
 		parent::__construct( $db, $message );
 
 		$this->error = $error;
 		$this->errno = $errno;
 		$this->sql = $sql;
 		$this->fname = $fname;
-	}
-
-	/**
-	 * @return bool
-	 */
-	function isLoggable() {
-		// Don't send to the exception log, already in dberror log
-		return false;
 	}
 
 	/**

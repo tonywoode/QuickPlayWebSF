@@ -35,7 +35,7 @@ class UnwatchedpagesPage extends QueryPage {
 		parent::__construct( $name, 'unwatchedpages' );
 	}
 
-	function isExpensive() {
+	public function isExpensive() {
 		return true;
 	}
 
@@ -43,7 +43,7 @@ class UnwatchedpagesPage extends QueryPage {
 		return false;
 	}
 
-	function getQueryInfo() {
+	public function getQueryInfo() {
 		return array(
 			'tables' => array( 'page', 'watchlist' ),
 			'fields' => array(
@@ -71,6 +71,15 @@ class UnwatchedpagesPage extends QueryPage {
 	}
 
 	/**
+	 * Add the JS
+	 * @param string|null $par
+	 */
+	public function execute( $par ) {
+		parent::execute( $par );
+		$this->getOutput()->addModules( 'mediawiki.special.unwatchedPages' );
+	}
+
+	/**
 	 * @param Skin $skin
 	 * @param object $result Result row
 	 * @return string
@@ -91,7 +100,7 @@ class UnwatchedpagesPage extends QueryPage {
 		$wlink = Linker::linkKnown(
 			$nt,
 			$this->msg( 'watch' )->escaped(),
-			array(),
+			array( 'class' => 'mw-watch-link' ),
 			array( 'action' => 'watch', 'token' => $token )
 		);
 

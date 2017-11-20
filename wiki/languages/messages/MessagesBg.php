@@ -1,8 +1,7 @@
 <?php
 /** Bulgarian (български)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -32,7 +31,7 @@ $namespaceNames = array(
 
 $namespaceAliases = array(
 	'Картинка' => NS_FILE,
-	'Картинка беседа' => NS_FILE_TALK,
+	'Картинка_беседа' => NS_FILE_TALK,
 );
 
 $specialPageAliases = array(
@@ -86,7 +85,6 @@ $specialPageAliases = array(
 	'Mytalk'                    => array( 'Моята_беседа' ),
 	'Newimages'                 => array( 'Нови_файлове' ),
 	'Newpages'                  => array( 'Нови_страници' ),
-	'Popularpages'              => array( 'Най-посещавани_страници' ),
 	'Preferences'               => array( 'Настройки' ),
 	'Prefixindex'               => array( 'Всички_страници_с_представка', 'Представка' ),
 	'Protectedpages'            => array( 'Защитени_страници' ),
@@ -151,7 +149,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'БРОЙПОТРЕБИТЕЛИ', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'БРОЙАКТИВНИПОТРЕБИТЕЛИ', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'БРОЙРЕДАКЦИИ', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'БРОЙПРЕГЛЕДИ', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'СТРАНИЦА', 'PAGENAME' ),
 	'pagenamee'                 => array( '1', 'СТРАНИЦАИ', 'PAGENAMEE' ),
 	'namespace'                 => array( '1', 'ИМЕННОПРОСТРАНСТВО', 'NAMESPACE' ),

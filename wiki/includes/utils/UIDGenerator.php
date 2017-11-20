@@ -20,6 +20,7 @@
  * @file
  * @author Aaron Schulz
  */
+use Wikimedia\Assert\Assert;
 
 /**
  * Class for getting statistically unique IDs
@@ -37,7 +38,7 @@ class UIDGenerator {
 	protected $lockFile88; // string; local file path
 	protected $lockFile128; // string; local file path
 
-	/** @var Array */
+	/** @var array */
 	protected $fileHandles = array(); // cache file handles
 
 	const QUICK_RAND = 1; // get randomness from fast and insecure sources
@@ -51,7 +52,7 @@ class UIDGenerator {
 		}
 		// Try to get some ID that uniquely identifies this machine (RFC 4122)...
 		if ( !preg_match( '/^[0-9a-f]{12}$/i', $nodeId ) ) {
-			wfSuppressWarnings();
+			MediaWiki\suppressWarnings();
 			if ( wfIsWindows() ) {
 				// http://technet.microsoft.com/en-us/library/bb490913.aspx
 				$csv = trim( wfShellExec( 'getmac /NH /FO CSV' ) );
@@ -65,7 +66,7 @@ class UIDGenerator {
 					wfShellExec( '/sbin/ifconfig -a' ), $m );
 				$nodeId = isset( $m[1] ) ? str_replace( ':', '', $m[1] ) : '';
 			}
-			wfRestoreWarnings();
+			MediaWiki\restoreWarnings();
 			if ( !preg_match( '/^[0-9a-f]{12}$/i', $nodeId ) ) {
 				$nodeId = MWCryptRand::generateHex( 12, true );
 				$nodeId[1] = dechex( hexdec( $nodeId[1] ) | 0x1 ); // set multicast bit
@@ -102,14 +103,15 @@ class UIDGenerator {
 	 *
 	 * UID generation is serialized on each server (as the node ID is for the whole machine).
 	 *
-	 * @param $base integer Specifies a base other than 10
+	 * @param int $base Specifies a base other than 10
 	 * @return string Number
 	 * @throws MWException
 	 */
 	public static function newTimestampedUID88( $base = 10 ) {
-		if ( !is_integer( $base ) || $base > 36 || $base < 2 ) {
-			throw new MWException( "Base must an integer be between 2 and 36" );
-		}
+		Assert::parameterType( 'integer', $base, '$base' );
+		Assert::parameter( $base <= 36, '$base', 'must be <= 36' );
+		Assert::parameter( $base >= 2, '$base', 'must be >= 2' );
+
 		$gen = self::singleton();
 		$time = $gen->getTimestampAndDelay( 'lockFile88', 1, 1024 );
 
@@ -117,8 +119,9 @@ class UIDGenerator {
 	}
 
 	/**
-	 * @param array $time (UIDGenerator::millitime(), clock sequence)
+	 * @param array $info (UIDGenerator::millitime(), counter, clock sequence)
 	 * @return string 88 bits
+	 * @throws MWException
 	 */
 	protected function getTimestampedID88( array $info ) {
 		list( $time, $counter ) = $info;
@@ -146,14 +149,15 @@ class UIDGenerator {
 	 *
 	 * UID generation is serialized on each server (as the node ID is for the whole machine).
 	 *
-	 * @param $base integer Specifies a base other than 10
+	 * @param int $base Specifies a base other than 10
 	 * @return string Number
 	 * @throws MWException
 	 */
 	public static function newTimestampedUID128( $base = 10 ) {
-		if ( !is_integer( $base ) || $base > 36 || $base < 2 ) {
-			throw new MWException( "Base must be an integer between 2 and 36" );
-		}
+		Assert::parameterType( 'integer', $base, '$base' );
+		Assert::parameter( $base <= 36, '$base', 'must be <= 36' );
+		Assert::parameter( $base >= 2, '$base', 'must be >= 2' );
+
 		$gen = self::singleton();
 		$time = $gen->getTimestampAndDelay( 'lockFile128', 16384, 1048576 );
 
@@ -163,6 +167,7 @@ class UIDGenerator {
 	/**
 	 * @param array $info (UIDGenerator::millitime(), counter, clock sequence)
 	 * @return string 128 bits
+	 * @throws MWException
 	 */
 	protected function getTimestampedID128( array $info ) {
 		list( $time, $counter, $clkSeq ) = $info;
@@ -185,7 +190,7 @@ class UIDGenerator {
 	/**
 	 * Return an RFC4122 compliant v4 UUID
 	 *
-	 * @param $flags integer Bitfield (supports UIDGenerator::QUICK_RAND)
+	 * @param int $flags Bitfield (supports UIDGenerator::QUICK_RAND)
 	 * @return string
 	 * @throws MWException
 	 */
@@ -211,7 +216,7 @@ class UIDGenerator {
 	/**
 	 * Return an RFC4122 compliant v4 UUID
 	 *
-	 * @param $flags integer Bitfield (supports UIDGenerator::QUICK_RAND)
+	 * @param int $flags Bitfield (supports UIDGenerator::QUICK_RAND)
 	 * @return string 32 hex characters with no hyphens
 	 * @throws MWException
 	 */
@@ -226,8 +231,8 @@ class UIDGenerator {
 	 * If UIDGenerator::QUICK_VOLATILE is used the counter might reset on server restart.
 	 *
 	 * @param string $bucket Arbitrary bucket name (should be ASCII)
-	 * @param integer $bits Bit size (<=48) of resulting numbers before wrap-around
-	 * @param integer $flags (supports UIDGenerator::QUICK_VOLATILE)
+	 * @param int $bits Bit size (<=48) of resulting numbers before wrap-around
+	 * @param int $flags (supports UIDGenerator::QUICK_VOLATILE)
 	 * @return float Integer value as float
 	 * @since 1.23
 	 */
@@ -240,9 +245,9 @@ class UIDGenerator {
 	 *
 	 * @see UIDGenerator::newSequentialPerNodeID()
 	 * @param string $bucket Arbitrary bucket name (should be ASCII)
-	 * @param integer $bits Bit size (16 to 48) of resulting numbers before wrap-around
-	 * @param integer $count Number of IDs to return (1 to 10000)
-	 * @param integer $flags (supports UIDGenerator::QUICK_VOLATILE)
+	 * @param int $bits Bit size (16 to 48) of resulting numbers before wrap-around
+	 * @param int $count Number of IDs to return (1 to 10000)
+	 * @param int $flags (supports UIDGenerator::QUICK_VOLATILE)
 	 * @return array Ordered list of float integer values
 	 * @since 1.23
 	 */
@@ -256,10 +261,11 @@ class UIDGenerator {
 	 *
 	 * @see UIDGenerator::newSequentialPerNodeID()
 	 * @param string $bucket Arbitrary bucket name (should be ASCII)
-	 * @param integer $bits Bit size (16 to 48) of resulting numbers before wrap-around
-	 * @param integer $count Number of IDs to return (1 to 10000)
-	 * @param integer $flags (supports UIDGenerator::QUICK_VOLATILE)
+	 * @param int $bits Bit size (16 to 48) of resulting numbers before wrap-around
+	 * @param int $count Number of IDs to return (1 to 10000)
+	 * @param int $flags (supports UIDGenerator::QUICK_VOLATILE)
 	 * @return array Ordered list of float integer values
+	 * @throws MWException
 	 */
 	protected function getSequentialPerNodeIDs( $bucket, $bits, $count, $flags ) {
 		if ( $count <= 0 ) {
@@ -277,13 +283,15 @@ class UIDGenerator {
 		$cache = null;
 		if ( ( $flags & self::QUICK_VOLATILE ) && PHP_SAPI !== 'cli' ) {
 			try {
-				$cache = ObjectCache::newAccelerator( array() );
-			} catch ( MWException $e ) {} // not supported
+				$cache = ObjectCache::newAccelerator();
+			} catch ( Exception $e ) {
+				// not supported
+			}
 		}
 		if ( $cache ) {
 			$counter = $cache->incr( $bucket, $count );
 			if ( $counter === false ) {
-				if ( !$cache->add( $bucket, $count ) ) {
+				if ( !$cache->add( $bucket, (int)$count ) ) {
 					throw new MWException( 'Unable to set value to ' . get_class( $cache ) );
 				}
 				$counter = $count;
@@ -335,9 +343,9 @@ class UIDGenerator {
 	 * This is useful for making UIDs sequential on a per-node bases.
 	 *
 	 * @param string $lockFile Name of a local lock file
-	 * @param $clockSeqSize integer The number of possible clock sequence values
-	 * @param $counterSize integer The number of possible counter values
-	 * @return Array (result of UIDGenerator::millitime(), counter, clock sequence)
+	 * @param int $clockSeqSize The number of possible clock sequence values
+	 * @param int $counterSize The number of possible counter values
+	 * @return array (result of UIDGenerator::millitime(), counter, clock sequence)
 	 * @throws MWException
 	 */
 	protected function getTimestampAndDelay( $lockFile, $clockSeqSize, $counterSize ) {
@@ -418,7 +426,7 @@ class UIDGenerator {
 	 * timestamp. This returns false if it would have to wait more than 10ms.
 	 *
 	 * @param array $time Result of UIDGenerator::millitime()
-	 * @return Array|bool UIDGenerator::millitime() result or false
+	 * @return array|bool UIDGenerator::millitime() result or false
 	 */
 	protected function timeWaitUntil( array $time ) {
 		do {
@@ -434,6 +442,7 @@ class UIDGenerator {
 	/**
 	 * @param array $time Result of UIDGenerator::millitime()
 	 * @return string 46 MSBs of "milliseconds since epoch" in binary (rolls over in 4201)
+	 * @throws MWException
 	 */
 	protected function millisecondsSinceEpochBinary( array $time ) {
 		list( $sec, $msec ) = $time;
@@ -447,7 +456,7 @@ class UIDGenerator {
 	}
 
 	/**
-	 * @return Array (current time in seconds, milliseconds since then)
+	 * @return array (current time in seconds, milliseconds since then)
 	 */
 	protected static function millitime() {
 		list( $msec, $sec ) = explode( ' ', microtime() );

@@ -29,15 +29,20 @@
  * @see Database
  */
 class DatabaseMysqli extends DatabaseMysqlBase {
+	/** @var mysqli */
+	protected $mConn;
+
 	/**
 	 * @param string $sql
 	 * @return resource
 	 */
 	protected function doQuery( $sql ) {
+		$conn = $this->getBindingHandle();
+
 		if ( $this->bufferResults() ) {
-			$ret = $this->mConn->query( $sql );
+			$ret = $conn->query( $sql );
 		} else {
-			$ret = $this->mConn->query( $sql, MYSQLI_USE_RESULT );
+			$ret = $conn->query( $sql, MYSQLI_USE_RESULT );
 		}
 
 		return $ret;
@@ -50,8 +55,8 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 	 */
 	protected function mysqlConnect( $realServer ) {
 		global $wgDBmysql5;
-		# Fail now
-		# Otherwise we get a suppressed fatal error, which is very hard to track down
+
+		# Avoid suppressed fatal error, which is very hard to track down
 		if ( !function_exists( 'mysqli_init' ) ) {
 			throw new DBConnectionError( $this, "MySQLi functions missing,"
 				. " have you compiled PHP with the --with-mysqli option?\n" );
@@ -95,17 +100,12 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 		} else {
 			$mysqli->options( MYSQLI_SET_CHARSET_NAME, 'binary' );
 		}
+		$mysqli->options( MYSQLI_OPT_CONNECT_TIMEOUT, 3 );
 
-		$numAttempts = 2;
-		for ( $i = 0; $i < $numAttempts; $i++ ) {
-			if ( $i > 1 ) {
-				usleep( 1000 );
-			}
-			if ( $mysqli->real_connect( $realServer, $this->mUser,
-				$this->mPassword, $this->mDBname, $port, $socket, $connFlags )
-			) {
-				return $mysqli;
-			}
+		if ( $mysqli->real_connect( $realServer, $this->mUser,
+			$this->mPassword, $this->mDBname, $port, $socket, $connFlags )
+		) {
+			return $mysqli;
 		}
 
 		return false;
@@ -121,8 +121,10 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 	 * @return bool
 	 */
 	protected function mysqlSetCharset( $charset ) {
-		if ( method_exists( $this->mConn, 'set_charset' ) ) {
-			return $this->mConn->set_charset( $charset );
+		$conn = $this->getBindingHandle();
+
+		if ( method_exists( $conn, 'set_charset' ) ) {
+			return $conn->set_charset( $charset );
 		} else {
 			return $this->query( 'SET NAMES ' . $charset, __METHOD__ );
 		}
@@ -132,14 +134,18 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 	 * @return bool
 	 */
 	protected function closeConnection() {
-		return $this->mConn->close();
+		$conn = $this->getBindingHandle();
+
+		return $conn->close();
 	}
 
 	/**
 	 * @return int
 	 */
 	function insertId() {
-		return $this->mConn->insert_id;
+		$conn = $this->getBindingHandle();
+
+		return (int)$conn->insert_id;
 	}
 
 	/**
@@ -157,7 +163,9 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 	 * @return int
 	 */
 	function affectedRows() {
-		return $this->mConn->affected_rows;
+		$conn = $this->getBindingHandle();
+
+		return $conn->affected_rows;
 	}
 
 	/**
@@ -165,16 +173,11 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 	 * @return bool
 	 */
 	function selectDB( $db ) {
+		$conn = $this->getBindingHandle();
+
 		$this->mDBname = $db;
 
-		return $this->mConn->select_db( $db );
-	}
-
-	/**
-	 * @return string
-	 */
-	function getServerVersion() {
-		return $this->mConn->server_info;
+		return $conn->select_db( $db );
 	}
 
 	/**
@@ -236,11 +239,18 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 	 */
 	protected function mysqlFetchField( $res, $n ) {
 		$field = $res->fetch_field_direct( $n );
+
+		// Add missing properties to result (using flags property)
+		// which will be part of function mysql-fetch-field for backward compatibility
 		$field->not_null = $field->flags & MYSQLI_NOT_NULL_FLAG;
 		$field->primary_key = $field->flags & MYSQLI_PRI_KEY_FLAG;
 		$field->unique_key = $field->flags & MYSQLI_UNIQUE_KEY_FLAG;
 		$field->multiple_key = $field->flags & MYSQLI_MULTIPLE_KEY_FLAG;
 		$field->binary = $field->flags & MYSQLI_BINARY_FLAG;
+		$field->numeric = $field->flags & MYSQLI_NUM_FLAG;
+		$field->blob = $field->flags & MYSQLI_BLOB_FLAG;
+		$field->unsigned = $field->flags & MYSQLI_UNSIGNED_FLAG;
+		$field->zerofill = $field->flags & MYSQLI_ZEROFILL_FLAG;
 
 		return $field;
 	}
@@ -294,17 +304,22 @@ class DatabaseMysqli extends DatabaseMysqlBase {
 	 * @return string
 	 */
 	protected function mysqlRealEscapeString( $s ) {
-		return $this->mConn->real_escape_string( $s );
+		$conn = $this->getBindingHandle();
+
+		return $conn->real_escape_string( $s );
 	}
 
 	protected function mysqlPing() {
-		return $this->mConn->ping();
+		$conn = $this->getBindingHandle();
+
+		return $conn->ping();
 	}
 
 	/**
 	 * Give an id for the connection
 	 *
 	 * mysql driver used resource id, but mysqli objects cannot be cast to string.
+	 * @return string
 	 */
 	public function __toString() {
 		if ( $this->mConn instanceof Mysqli ) {

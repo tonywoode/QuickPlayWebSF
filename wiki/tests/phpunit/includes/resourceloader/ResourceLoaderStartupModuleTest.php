@@ -1,6 +1,6 @@
 <?php
 
-class ResourceLoaderStartupModuleTest extends ResourceLoaderTestCase {
+class ResourceLoaderStartUpModuleTest extends ResourceLoaderTestCase {
 
 	public static function provideGetModuleRegistrations() {
 		return array(
@@ -9,11 +9,9 @@ class ResourceLoaderStartupModuleTest extends ResourceLoaderTestCase {
 				'modules' => array(),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    }
-} );mw.loader.register( [] );'
+    "local": "/w/load.php"
+} );
+mw.loader.register( [] );'
 			) ),
 			array( array(
 				'msg' => 'Basic registry',
@@ -22,14 +20,12 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    }
-} );mw.loader.register( [
+    "local": "/w/load.php"
+} );
+mw.loader.register( [
     [
         "test.blank",
-        "1388534400"
+        "wvTifjse"
     ]
 ] );',
 			) ),
@@ -42,24 +38,22 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    }
-} );mw.loader.register( [
+    "local": "/w/load.php"
+} );
+mw.loader.register( [
     [
         "test.blank",
-        "1388534400"
+        "wvTifjse"
     ],
     [
         "test.group.foo",
-        "1388534400",
+        "wvTifjse",
         [],
         "x-foo"
     ],
     [
         "test.group.bar",
-        "1388534400",
+        "wvTifjse",
         [],
         "x-bar"
     ]
@@ -73,14 +67,12 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    }
-} );mw.loader.register( [
+    "local": "/w/load.php"
+} );
+mw.loader.register( [
     [
         "test.blank",
-        "1388534400"
+        "wvTifjse"
     ]
 ] );'
 			) ),
@@ -97,23 +89,77 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    },
-    "example": {
-        "loadScript": "http://example.org/w/load.php",
-        "apiScript": "http://example.org/w/api.php"
-    }
-} );mw.loader.register( [
+    "local": "/w/load.php",
+    "example": "http://example.org/w/load.php"
+} );
+mw.loader.register( [
     [
         "test.blank",
-        "1388534400",
+        "wvTifjse",
         [],
         null,
         "example"
     ]
 ] );'
+			) ),
+			array( array(
+				'msg' => 'Conditional dependency function',
+				'modules' => array(
+					'test.x.core' => new ResourceLoaderTestModule(),
+					'test.x.polyfill' => new ResourceLoaderTestModule( array(
+						'skipFunction' => 'return true;'
+					) ),
+					'test.y.polyfill' => new ResourceLoaderTestModule( array(
+						'skipFunction' =>
+							'return !!(' .
+							'    window.JSON &&' .
+							'    JSON.parse &&' .
+							'    JSON.stringify' .
+							');'
+					) ),
+					'test.z.foo' => new ResourceLoaderTestModule( array(
+						'dependencies' => array(
+							'test.x.core',
+							'test.x.polyfill',
+							'test.y.polyfill',
+						),
+					) ),
+				),
+				'out' => '
+mw.loader.addSource( {
+    "local": "/w/load.php"
+} );
+mw.loader.register( [
+    [
+        "test.x.core",
+        "wvTifjse"
+    ],
+    [
+        "test.x.polyfill",
+        "wvTifjse",
+        [],
+        null,
+        null,
+        "return true;"
+    ],
+    [
+        "test.y.polyfill",
+        "wvTifjse",
+        [],
+        null,
+        null,
+        "return !!(    window.JSON \u0026\u0026    JSON.parse \u0026\u0026    JSON.stringify);"
+    ],
+    [
+        "test.z.foo",
+        "wvTifjse",
+        [
+            0,
+            1,
+            2
+        ]
+    ]
+] );',
 			) ),
 			array( array(
 				// This may seem like an edge case, but a plain MediaWiki core install
@@ -151,6 +197,7 @@ mw.loader.addSource( {
 							'test.x.foo',
 							'test.x.bar',
 							'test.x.util',
+							'test.x.unknown',
 						),
 					) ),
 					'test.group.foo.1' => new ResourceLoaderTestModule( array(
@@ -176,75 +223,69 @@ mw.loader.addSource( {
 				),
 				'out' => '
 mw.loader.addSource( {
-    "local": {
-        "loadScript": "/w/load.php",
-        "apiScript": "/w/api.php"
-    },
-    "example": {
-        "loadScript": "http://example.org/w/load.php",
-        "apiScript": "http://example.org/w/api.php"
-    }
-} );mw.loader.register( [
+    "local": "/w/load.php",
+    "example": "http://example.org/w/load.php"
+} );
+mw.loader.register( [
     [
         "test.blank",
-        "1388534400"
+        "wvTifjse"
     ],
     [
         "test.x.core",
-        "1388534400"
+        "wvTifjse"
     ],
     [
         "test.x.util",
-        "1388534400",
+        "wvTifjse",
         [
-            "test.x.core"
+            1
         ]
     ],
     [
         "test.x.foo",
-        "1388534400",
+        "wvTifjse",
         [
-            "test.x.core"
+            1
         ]
     ],
     [
         "test.x.bar",
-        "1388534400",
+        "wvTifjse",
         [
-            "test.x.core",
-            "test.x.util"
+            2
         ]
     ],
     [
         "test.x.quux",
-        "1388534400",
+        "wvTifjse",
         [
-            "test.x.foo",
-            "test.x.bar",
-            "test.x.util"
+            3,
+            4,
+            "test.x.unknown"
         ]
     ],
     [
         "test.group.foo.1",
-        "1388534400",
+        "wvTifjse",
         [],
         "x-foo"
     ],
     [
         "test.group.foo.2",
-        "1388534400",
+        "wvTifjse",
         [],
         "x-foo"
     ],
     [
         "test.group.bar.1",
-        "1388534400",
+        "wvTifjse",
         [],
         "x-bar"
     ],
     [
         "test.group.bar.2",
-        "1388534400",
+        "wvTifjse",
         [],
         "x-bar",
         "example"
@@ -256,22 +297,99 @@ mw.loader.addSource( {
 
 	/**
 	 * @dataProvider provideGetModuleRegistrations
+	 * @covers ResourceLoaderStartUpModule::compileUnresolvedDependencies
 	 * @covers ResourceLoaderStartUpModule::getModuleRegistrations
+	 * @covers ResourceLoader::makeLoaderSourcesScript
+	 * @covers ResourceLoader::makeLoaderRegisterScript
 	 */
 	public function testGetModuleRegistrations( $case ) {
 		if ( isset( $case['sources'] ) ) {
 			$this->setMwGlobals( 'wgResourceLoaderSources', $case['sources'] );
 		}
 
-		$context = self::getResourceLoaderContext();
+		$context = $this->getResourceLoaderContext();
 		$rl = $context->getResourceLoader();
 
 		$rl->register( $case['modules'] );
 
+		$module = new ResourceLoaderStartUpModule();
 		$this->assertEquals(
 			ltrim( $case['out'], "\n" ),
-			ResourceLoaderStartUpModule::getModuleRegistrations( $context ),
+			$module->getModuleRegistrations( $context ),
 			$case['msg']
+		);
+	}
+
+	public static function provideRegistrations() {
+		return array(
+			array( array(
+				'test.blank' => new ResourceLoaderTestModule(),
+				'test.min' => new ResourceLoaderTestModule( array(
+					'skipFunction' =>
+						'return !!(' .
+						'    window.JSON &&' .
+						'    JSON.parse &&' .
+						'    JSON.stringify' .
+						');',
+					'dependencies' => array(
+						'test.blank',
+					),
+				) ),
+			) )
+		);
+	}
+	/**
+	 * @dataProvider provideRegistrations
+	 */
+	public function testRegistrationsMinified( $modules ) {
+		$this->setMwGlobals( 'wgResourceLoaderDebug', false );
+
+		$context = $this->getResourceLoaderContext();
+		$rl = $context->getResourceLoader();
+		$rl->register( $modules );
+		$module = new ResourceLoaderStartUpModule();
+		$this->assertEquals(
+'mw.loader.addSource({"local":"/w/load.php"});' . "\n"
+. 'mw.loader.register(['
+. '["test.blank","wvTifjse"],'
+. '["test.min","wvTifjse",[0],null,null,'
+. '"return!!(window.JSON\u0026\u0026JSON.parse\u0026\u0026JSON.stringify);"'
+. ']]);',
+			$module->getModuleRegistrations( $context ),
+			'Minified output'
+		);
+	}
+
+	/**
+	 * @dataProvider provideRegistrations
+	 */
+	public function testRegistrationsUnminified( $modules ) {
+		$context = $this->getResourceLoaderContext();
+		$rl = $context->getResourceLoader();
+		$rl->register( $modules );
+		$module = new ResourceLoaderStartUpModule();
+		$this->assertEquals(
+'mw.loader.addSource( {
+    "local": "/w/load.php"
+} );
+mw.loader.register( [
+    [
+        "test.blank",
+        "wvTifjse"
+    ],
+    [
+        "test.min",
+        "wvTifjse",
+        [
+            0
+        ],
+        null,
+        null,
+        "return !!(    window.JSON \u0026\u0026    JSON.parse \u0026\u0026    JSON.stringify);"
+    ]
+] );',
+			$module->getModuleRegistrations( $context ),
+			'Unminified output'
 		);
 	}
 

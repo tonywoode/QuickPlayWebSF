@@ -34,13 +34,14 @@ class EnhancedChangesList extends ChangesList {
 
 	/**
 	 * @param IContextSource|Skin $obj
+	 * @throws MWException
 	 */
 	public function __construct( $obj ) {
 		if ( $obj instanceof Skin ) {
 			// @todo: deprecate constructing with Skin
 			$context = $obj->getContext();
 		} else {
-			if ( ! $obj instanceof IContextSource ) {
+			if ( !$obj instanceof IContextSource ) {
 				throw new MWException( 'EnhancedChangesList must be constructed with a '
 					. 'context source or skin.' );
 			}
@@ -88,9 +89,7 @@ class EnhancedChangesList extends ChangesList {
 	 * @return string
 	 */
 	public function recentChangesLine( &$baseRC, $watched = false ) {
-		wfProfileIn( __METHOD__ );
 
-		# If it's a new day, add the headline and flush the cache
 		$date = $this->getLanguage()->userDate(
 			$baseRC->mAttribs['rc_timestamp'],
 			$this->getUser()
@@ -98,6 +97,7 @@ class EnhancedChangesList extends ChangesList {
 
 		$ret = '';
 
+		# If it's a new day, add the headline and flush the cache
 		if ( $date != $this->lastdate ) {
 			# Process current cache
 			$ret = $this->recentChangesBlock();
@@ -109,8 +109,6 @@ class EnhancedChangesList extends ChangesList {
 		$cacheEntry = $this->cacheEntryFactory->newFromRecentChange( $baseRC, $watched );
 		$this->addCacheEntry( $cacheEntry );
 
-		wfProfileOut( __METHOD__ );
-
 		return $ret;
 	}
 
@@ -121,28 +119,37 @@ class EnhancedChangesList extends ChangesList {
 	 * @param RCCacheEntry $cacheEntry
 	 */
 	protected function addCacheEntry( RCCacheEntry $cacheEntry ) {
+		$cacheGroupingKey = $this->makeCacheGroupingKey( $cacheEntry );
+
+		if ( !isset( $this->rc_cache[$cacheGroupingKey] ) ) {
+			$this->rc_cache[$cacheGroupingKey] = array();
+		}
+
+		array_push( $this->rc_cache[$cacheGroupingKey], $cacheEntry );
+	}
+
+	/**
+	 * @todo use rc_source to group, if set; fallback to rc_type
+	 *
+	 * @param RCCacheEntry $cacheEntry
+	 *
+	 * @return string
+	 */
+	protected function makeCacheGroupingKey( RCCacheEntry $cacheEntry ) {
 		$title = $cacheEntry->getTitle();
-		$secureName = $title->getPrefixedDBkey();
+		$cacheGroupingKey = $title->getPrefixedDBkey();
 
 		$type = $cacheEntry->mAttribs['rc_type'];
 
-		if ( $type == RC_MOVE || $type == RC_MOVE_OVER_REDIRECT ) {
-			# Use an @ character to prevent collision with page names
-			$this->rc_cache['@@' . ( $this->rcMoveIndex++ )] = array( $cacheEntry );
-		} else {
-			# Logs are grouped by type
-			if ( $type == RC_LOG ) {
-				$secureName = SpecialPage::getTitleFor(
-					'Log',
-					$cacheEntry->mAttribs['rc_log_type']
-				)->getPrefixedDBkey();
-			}
-			if ( !isset( $this->rc_cache[$secureName] ) ) {
-				$this->rc_cache[$secureName] = array();
-			}
-
-			array_push( $this->rc_cache[$secureName], $cacheEntry );
+		if ( $type == RC_LOG ) {
+			// Group by log type
+			$cacheGroupingKey = SpecialPage::getTitleFor(
+				'Log',
+				$cacheEntry->mAttribs['rc_log_type']
+			)->getPrefixedDBkey();
 		}
+
+		return $cacheGroupingKey;
 	}
 
 	/**
@@ -151,9 +158,6 @@ class EnhancedChangesList extends ChangesList {
 	 * @return string
 	 */
 	protected function recentChangesBlockGroup( $block ) {
-		global $wgRCShowChangedSize;
-
-		wfProfileIn( __METHOD__ );
 
 		# Add the namespace and title of the block as part of the class
 		$classes = array( 'mw-collapsible', 'mw-collapsed', 'mw-enhanced-rc' );
@@ -177,13 +181,12 @@ class EnhancedChangesList extends ChangesList {
 		$isnew = false;
 		$allBots = true;
 		$allMinors = true;
-		$curId = $currentRevision = 0;
+		$curId = 0;
 		# Some catalyst variables...
 		$namehidden = true;
 		$allLogs = true;
-		$oldid = '';
+		$RCShowChangedSize = $this->getConfig()->get( 'RCShowChangedSize' );
 		foreach ( $block as $rcObj ) {
-			$oldid = $rcObj->mAttribs['rc_last_oldid'];
 			if ( $rcObj->mAttribs['rc_type'] == RC_NEW ) {
 				$isnew = true;
 			}
@@ -206,9 +209,6 @@ class EnhancedChangesList extends ChangesList {
 			# since logs may not have these.
 			if ( !$curId && $rcObj->mAttribs['rc_cur_id'] ) {
 				$curId = $rcObj->mAttribs['rc_cur_id'];
-			}
-			if ( !$currentRevision && $rcObj->mAttribs['rc_this_oldid'] ) {
-				$currentRevision = $rcObj->mAttribs['rc_this_oldid'];
 			}
 
 			if ( !$rcObj->mAttribs['rc_bot'] ) {
@@ -270,6 +270,189 @@ class EnhancedChangesList extends ChangesList {
 
 		$queryParams['curid'] = $curId;
 
+		# Sub-entries
+		$lines = '';
+		foreach ( $block as $i => $rcObj ) {
+			$line = $this->getLineData( $block, $rcObj, $queryParams );
+			$lines .= $line;
+			if ( !$line ) {
+				// completely ignore this RC entry if we don't want to render it
+				unset( $block[$i] );
+			}
+		}
+		// Further down are some assumptions that $block is a 0-indexed array
+		// with (count-1) as last key. Let's make sure it is.
+		$block = array_values( $block );
+
+		$r .= $this->getLogText( $block, $queryParams, $allLogs, $isnew, $namehidden );
+
+		$r .= ' <span class="mw-changeslist-separator">. .</span> ';
+
+		# Character difference (does not apply if only log items)
+		if ( $RCShowChangedSize && !$allLogs ) {
+			$last = 0;
+			$first = count( $block ) - 1;
+			# Some events (like logs) have an "empty" size, so we need to skip those...
+			while ( $last < $first && $block[$last]->mAttribs['rc_new_len'] === null ) {
+				$last++;
+			}
+			while ( $first > $last && $block[$first]->mAttribs['rc_old_len'] === null ) {
+				$first--;
+			}
+			# Get net change
+			$chardiff = $this->formatCharacterDifference( $block[$first], $block[$last] );
+
+			if ( $chardiff == '' ) {
+				$r .= ' ';
+			} else {
+				$r .= ' ' . $chardiff . ' <span class="mw-changeslist-separator">. .</span> ';
+			}
+		}
+
+		$r .= $users;
+		$r .= $this->numberofWatchingusers( $block[0]->numberofWatchingusers );
+		$r .= '</td></tr>';
+
+		if ( !$lines ) {
+			// if there are no lines to be rendered (all aborted by hook), don't render the block
+			return '';
+		}
+
+		$r .= $lines;
+		$r .= "</table>\n";
+
+		$this->rcCacheIndex++;
+
+		return $r;
+	}
+
+	/**
+	 * @param RCCacheEntry[] $block
+	 * @param RCCacheEntry $rcObj
+	 * @param array $queryParams
+	 * @return string
+	 * @throws Exception
+	 * @throws FatalError
+	 * @throws MWException
+	 */
+	protected function getLineData( array $block, RCCacheEntry $rcObj, array $queryParams = array() ) {
+		$RCShowChangedSize = $this->getConfig()->get( 'RCShowChangedSize' );
+
+		# Classes to apply -- TODO implement
+		$classes = array();
+		$type = $rcObj->mAttribs['rc_type'];
+		$data = array();
+
+		$trClass = $rcObj->watched && $rcObj->mAttribs['rc_timestamp'] >= $rcObj->watched
+			? ' class="mw-enhanced-watched"' : '';
+		$separator = ' <span class="mw-changeslist-separator">. .</span> ';
+
+		$data['recentChangesFlags'] = array(
+			'newpage' => $type == RC_NEW,
+			'minor' => $rcObj->mAttribs['rc_minor'],
+			'unpatrolled' => $rcObj->unpatrolled,
+			'bot' => $rcObj->mAttribs['rc_bot'],
+		);
+
+		$params = $queryParams;
+
+		if ( $rcObj->mAttribs['rc_this_oldid'] != 0 ) {
+			$params['oldid'] = $rcObj->mAttribs['rc_this_oldid'];
+		}
+
+		# Log timestamp
+		if ( $type == RC_LOG ) {
+			$link = $rcObj->timestamp;
+			# Revision link
+		} elseif ( !ChangesList::userCan( $rcObj, Revision::DELETED_TEXT, $this->getUser() ) ) {
+			$link = '<span class="history-deleted">' . $rcObj->timestamp . '</span> ';
+		} else {
+			$link = Linker::linkKnown(
+				$rcObj->getTitle(),
+				$rcObj->timestamp,
+				array(),
+				$params
+			);
+			if ( $this->isDeleted( $rcObj, Revision::DELETED_TEXT ) ) {
+				$link = '<span class="history-deleted">' . $link . '</span> ';
+			}
+		}
+		$data['timestampLink'] = $link;
+
+		$currentAndLastLinks = '';
+		if ( !$type == RC_LOG || $type == RC_NEW ) {
+			$currentAndLastLinks .= ' ' . $this->msg( 'parentheses' )->rawParams(
+					$rcObj->curlink .
+					$this->message['pipe-separator'] .
+					$rcObj->lastlink
+				)->escaped();
+		}
+		$data['currentAndLastLinks'] = $currentAndLastLinks;
+		$data['separatorAfterCurrentAndLastLinks'] = $separator;
+
+		# Character diff
+		if ( $RCShowChangedSize ) {
+			$cd = $this->formatCharacterDifference( $rcObj );
+			if ( $cd !== '' ) {
+				$data['characterDiff'] = $cd;
+				$data['separatorAfterCharacterDiff'] = $separator;
+			}
+		}
+
+		if ( $rcObj->mAttribs['rc_type'] == RC_LOG ) {
+			$data['logEntry'] = $this->insertLogEntry( $rcObj );
+		} else {
+			# User links
+			$data['userLink'] = $rcObj->userlink;
+			$data['userTalkLink'] = $rcObj->usertalklink;
+			$data['comment'] = $this->insertComment( $rcObj );
+		}
+
+		# Rollback
+		$data['rollback'] = $this->getRollback( $rcObj );
+
+		# Tags
+		$data['tags'] = $this->getTags( $rcObj, $classes );
+
+		// give the hook a chance to modify the data
+		$success = Hooks::run( 'EnhancedChangesListModifyLineData',
+			array( $this, &$data, $block, $rcObj ) );
+		if ( !$success ) {
+			// skip entry if hook aborted it
+			return '';
+		}
+
+		$line = '<tr' . $trClass . '><td></td><td class="mw-enhanced-rc">';
+		if ( isset( $data['recentChangesFlags'] ) ) {
+			$line .= $this->recentChangesFlags( $data['recentChangesFlags'] );
+			unset( $data['recentChangesFlags'] );
+		}
+		$line .= '&#160;</td><td class="mw-enhanced-rc-nested">';
+
+		if ( isset( $data['timestampLink'] ) ) {
+			$line .= '<span class="mw-enhanced-rc-time">' . $data['timestampLink'] . '</span>';
+			unset( $data['timestampLink'] );
+		}
+
+		// everything else: makes it easier for extensions to add or remove data
+		$line .= implode( '', $data );
+
+		$line .= "</td></tr>\n";
+
+		return $line;
+	}
+
+	/**
+	 * Generates amount of changes (linking to diff ) & link to history.
+	 *
+	 * @param array $block
+	 * @param array $queryParams
+	 * @param bool $allLogs
+	 * @param bool $isnew
+	 * @param bool $namehidden
+	 * @return string
+	 */
+	protected function getLogText( $block, $queryParams, $allLogs, $isnew, $namehidden ) {
 		# Changes message
 		static $nchanges = array();
 		static $sinceLastVisitMsg = array();
@@ -294,38 +477,45 @@ class EnhancedChangesList extends ChangesList {
 				$this->msg( 'enhancedrc-since-last-visit' )->numParams( $sinceLast )->escaped();
 		}
 
+		$currentRevision = 0;
+		foreach ( $block as $rcObj ) {
+			if ( !$currentRevision ) {
+				$currentRevision = $rcObj->mAttribs['rc_this_oldid'];
+			}
+		}
+
 		# Total change link
-		$r .= ' ';
-		$logtext = '';
+		$links = array();
 		/** @var $block0 RecentChange */
 		$block0 = $block[0];
+		$last = $block[count( $block ) - 1];
 		if ( !$allLogs ) {
 			if ( !ChangesList::userCan( $rcObj, Revision::DELETED_TEXT, $this->getUser() ) ) {
-				$logtext .= $nchanges[$n];
+				$links['total-changes'] = $nchanges[$n];
 			} elseif ( $isnew ) {
-				$logtext .= $nchanges[$n];
+				$links['total-changes'] = $nchanges[$n];
 			} else {
-				$logtext .= Linker::link(
+				$links['total-changes'] = Linker::link(
 					$block0->getTitle(),
 					$nchanges[$n],
 					array(),
 					$queryParams + array(
 						'diff' => $currentRevision,
-						'oldid' => $oldid,
+						'oldid' => $last->mAttribs['rc_last_oldid'],
 					),
 					array( 'known', 'noclasses' )
 				);
 				if ( $sinceLast > 0 && $sinceLast < $n ) {
-					$logtext .= $this->message['pipe-separator'] . Linker::link(
-						$block0->getTitle(),
-						$sinceLastVisitMsg[$sinceLast],
-						array(),
-						$queryParams + array(
-							'diff' => $currentRevision,
-							'oldid' => $unvisitedOldid,
-						),
-						array( 'known', 'noclasses' )
-					);
+					$links['total-changes-since-last'] = Linker::link(
+							$block0->getTitle(),
+							$sinceLastVisitMsg[$sinceLast],
+							array(),
+							$queryParams + array(
+								'diff' => $currentRevision,
+								'oldid' => $unvisitedOldid,
+							),
+							array( 'known', 'noclasses' )
+						);
 				}
 			}
 		}
@@ -334,13 +524,12 @@ class EnhancedChangesList extends ChangesList {
 		if ( $allLogs ) {
 			// don't show history link for logs
 		} elseif ( $namehidden || !$block0->getTitle()->exists() ) {
-			$logtext .= $this->message['pipe-separator'] . $this->message['enhancedrc-history'];
+			$links['history'] = $this->message['enhancedrc-history'];
 		} else {
 			$params = $queryParams;
 			$params['action'] = 'history';
 
-			$logtext .= $this->message['pipe-separator'] .
-				Linker::linkKnown(
+			$links['history'] = Linker::linkKnown(
 					$block0->getTitle(),
 					$this->message['enhancedrc-history'],
 					array(),
@@ -348,165 +537,17 @@ class EnhancedChangesList extends ChangesList {
 				);
 		}
 
-		if ( $logtext !== '' ) {
-			$r .= $this->msg( 'parentheses' )->rawParams( $logtext )->escaped();
+		# Allow others to alter, remove or add to these links
+		Hooks::run( 'EnhancedChangesList::getLogText',
+			array( $this, &$links, $block ) );
+
+		if ( !$links ) {
+			return '';
 		}
 
-		$r .= ' <span class="mw-changeslist-separator">. .</span> ';
-
-		# Character difference (does not apply if only log items)
-		if ( $wgRCShowChangedSize && !$allLogs ) {
-			$last = 0;
-			$first = count( $block ) - 1;
-			# Some events (like logs) have an "empty" size, so we need to skip those...
-			while ( $last < $first && $block[$last]->mAttribs['rc_new_len'] === null ) {
-				$last++;
-			}
-			while ( $first > $last && $block[$first]->mAttribs['rc_old_len'] === null ) {
-				$first--;
-			}
-			# Get net change
-			$chardiff = $this->formatCharacterDifference( $block[$first], $block[$last] );
-
-			if ( $chardiff == '' ) {
-				$r .= ' ';
-			} else {
-				$r .= ' ' . $chardiff . ' <span class="mw-changeslist-separator">. .</span> ';
-			}
-		}
-
-		$r .= $users;
-		$r .= $this->numberofWatchingusers( $block0->numberofWatchingusers );
-		$r .= '</td></tr>';
-
-		# Sub-entries
-		foreach ( $block as $rcObj ) {
-			# Classes to apply -- TODO implement
-			$classes = array();
-			$type = $rcObj->mAttribs['rc_type'];
-
-			$trClass = $rcObj->watched && $rcObj->mAttribs['rc_timestamp'] >= $rcObj->watched
-				? ' class="mw-enhanced-watched"' : '';
-
-			$r .= '<tr' . $trClass . '><td></td><td class="mw-enhanced-rc">';
-			$r .= $this->recentChangesFlags( array(
-				'newpage' => $type == RC_NEW,
-				'minor' => $rcObj->mAttribs['rc_minor'],
-				'unpatrolled' => $rcObj->unpatrolled,
-				'bot' => $rcObj->mAttribs['rc_bot'],
-			) );
-			$r .= '&#160;</td><td class="mw-enhanced-rc-nested"><span class="mw-enhanced-rc-time">';
-
-			$params = $queryParams;
-
-			if ( $rcObj->mAttribs['rc_this_oldid'] != 0 ) {
-				$params['oldid'] = $rcObj->mAttribs['rc_this_oldid'];
-			}
-
-			# Log timestamp
-			if ( $type == RC_LOG ) {
-				$link = $rcObj->timestamp;
-			# Revision link
-			} elseif ( !ChangesList::userCan( $rcObj, Revision::DELETED_TEXT, $this->getUser() ) ) {
-				$link = '<span class="history-deleted">' . $rcObj->timestamp . '</span> ';
-			} else {
-
-				$link = Linker::linkKnown(
-					$rcObj->getTitle(),
-					$rcObj->timestamp,
-					array(),
-					$params
-				);
-				if ( $this->isDeleted( $rcObj, Revision::DELETED_TEXT ) ) {
-					$link = '<span class="history-deleted">' . $link . '</span> ';
-				}
-			}
-			$r .= $link . '</span>';
-
-			if ( !$type == RC_LOG || $type == RC_NEW ) {
-				$r .= ' ' . $this->msg( 'parentheses' )->rawParams(
-					$rcObj->curlink .
-						$this->message['pipe-separator'] .
-						$rcObj->lastlink
-				)->escaped();
-			}
-			$r .= ' <span class="mw-changeslist-separator">. .</span> ';
-
-			# Character diff
-			if ( $wgRCShowChangedSize ) {
-				$cd = $this->formatCharacterDifference( $rcObj );
-				if ( $cd !== '' ) {
-					$r .= $cd . ' <span class="mw-changeslist-separator">. .</span> ';
-				}
-			}
-
-			if ( $rcObj->mAttribs['rc_type'] == RC_LOG ) {
-				$r .= $this->insertLogEntry( $rcObj );
-			} else {
-				# User links
-				$r .= $rcObj->userlink;
-				$r .= $rcObj->usertalklink;
-				$r .= $this->insertComment( $rcObj );
-			}
-
-			# Rollback
-			$this->insertRollback( $r, $rcObj );
-			# Tags
-			$this->insertTags( $r, $rcObj, $classes );
-
-			$r .= "</td></tr>\n";
-		}
-		$r .= "</table>\n";
-
-		$this->rcCacheIndex++;
-
-		wfProfileOut( __METHOD__ );
-
-		return $r;
-	}
-
-	/**
-	 * Generate HTML for an arrow or placeholder graphic
-	 * @param string $dir One of '', 'd', 'l', 'r'
-	 * @param string $alt
-	 * @param string $title
-	 * @return string HTML "<img>" tag
-	 */
-	protected function arrow( $dir, $alt = '', $title = '' ) {
-		global $wgStylePath;
-		$encUrl = htmlspecialchars( $wgStylePath . '/common/images/Arr_' . $dir . '.png' );
-		$encAlt = htmlspecialchars( $alt );
-		$encTitle = htmlspecialchars( $title );
-
-		return "<img src=\"$encUrl\" width=\"12\" height=\"12\" alt=\"$encAlt\" title=\"$encTitle\" />";
-	}
-
-	/**
-	 * Generate HTML for a right- or left-facing arrow,
-	 * depending on language direction.
-	 * @return string HTML "<img>" tag
-	 */
-	protected function sideArrow() {
-		$dir = $this->getLanguage()->isRTL() ? 'l' : 'r';
-
-		return $this->arrow( $dir, '+', $this->msg( 'rc-enhanced-expand' )->text() );
-	}
-
-	/**
-	 * Generate HTML for a down-facing arrow
-	 * depending on language direction.
-	 * @return string HTML "<img>" tag
-	 */
-	protected function downArrow() {
-		return $this->arrow( 'd', '-', $this->msg( 'rc-enhanced-hide' )->text() );
-	}
-
-	/**
-	 * Generate HTML for a spacer image
-	 * @return string HTML "<img>" tag
-	 */
-	protected function spacerArrow() {
-		return $this->arrow( '', codepointToUtf8( 0xa0 ) ); // non-breaking space
+		$logtext = implode( $this->message['pipe-separator'], $links );
+		$logtext = $this->msg( 'parentheses' )->rawParams( $logtext )->escaped();
+		return ' ' . $logtext;
 	}
 
 	/**
@@ -516,9 +557,8 @@ class EnhancedChangesList extends ChangesList {
 	 * @return string A HTML formatted line (generated using $r)
 	 */
 	protected function recentChangesBlockLine( $rcObj ) {
-		global $wgRCShowChangedSize;
+		$data = array();
 
-		wfProfileIn( __METHOD__ );
 		$query['curid'] = $rcObj->mAttribs['rc_cur_id'];
 
 		$type = $rcObj->mAttribs['rc_type'];
@@ -533,36 +573,33 @@ class EnhancedChangesList extends ChangesList {
 		}
 		$classes[] = $rcObj->watched && $rcObj->mAttribs['rc_timestamp'] >= $rcObj->watched
 			? 'mw-changeslist-line-watched' : 'mw-changeslist-line-not-watched';
-		$r = Html::openElement( 'table', array( 'class' => $classes ) ) .
-			Html::openElement( 'tr' );
 
-		$r .= '<td class="mw-enhanced-rc"><span class="mw-enhancedchanges-arrow-space"></span>';
 		# Flag and Timestamp
-		if ( $type == RC_MOVE || $type == RC_MOVE_OVER_REDIRECT ) {
-			$r .= $this->recentChangesFlags( array() ); // no flags, but need the placeholders
-		} else {
-			$r .= $this->recentChangesFlags( array(
-				'newpage' => $type == RC_NEW,
-				'minor' => $rcObj->mAttribs['rc_minor'],
-				'unpatrolled' => $rcObj->unpatrolled,
-				'bot' => $rcObj->mAttribs['rc_bot'],
-			) );
-		}
-		$r .= '&#160;' . $rcObj->timestamp . '&#160;</td><td>';
+		$data['recentChangesFlags'] = array(
+			'newpage' => $type == RC_NEW,
+			'minor' => $rcObj->mAttribs['rc_minor'],
+			'unpatrolled' => $rcObj->unpatrolled,
+			'bot' => $rcObj->mAttribs['rc_bot'],
+		);
+		// timestamp is not really a link here, but is called timestampLink
+		// for consistency with EnhancedChangesListModifyLineData
+		$data['timestampLink'] = $rcObj->timestamp;
+
 		# Article or log link
 		if ( $logType ) {
 			$logPage = new LogPage( $logType );
 			$logTitle = SpecialPage::getTitleFor( 'Log', $logType );
 			$logName = $logPage->getName()->escaped();
-			$r .= $this->msg( 'parentheses' )
+			$data['logLink'] = $this->msg( 'parentheses' )
 				->rawParams( Linker::linkKnown( $logTitle, $logName ) )->escaped();
 		} else {
-			$this->insertArticleLink( $r, $rcObj, $rcObj->unpatrolled, $rcObj->watched );
+			$data['articleLink'] = $this->getArticleLink( $rcObj, $rcObj->unpatrolled, $rcObj->watched );
 		}
+
 		# Diff and hist links
 		if ( $type != RC_LOG ) {
 			$query['action'] = 'history';
-			$r .= ' ' . $this->msg( 'parentheses' )
+			$data['historyLink'] = ' ' . $this->msg( 'parentheses' )
 				->rawParams( $rcObj->difflink . $this->message['pipe-separator'] . Linker::linkKnown(
 					$rcObj->getTitle(),
 					$this->message['hist'],
@@ -570,33 +607,61 @@ class EnhancedChangesList extends ChangesList {
 					$query
 				) )->escaped();
 		}
-		$r .= ' <span class="mw-changeslist-separator">. .</span> ';
+		$data['separatorAfterLinks'] = ' <span class="mw-changeslist-separator">. .</span> ';
+
 		# Character diff
-		if ( $wgRCShowChangedSize ) {
+		if ( $this->getConfig()->get( 'RCShowChangedSize' ) ) {
 			$cd = $this->formatCharacterDifference( $rcObj );
 			if ( $cd !== '' ) {
-				$r .= $cd . ' <span class="mw-changeslist-separator">. .</span> ';
+				$data['characterDiff'] = $cd;
+				$data['separatorAftercharacterDiff'] = ' <span class="mw-changeslist-separator">. .</span> ';
 			}
 		}
 
 		if ( $type == RC_LOG ) {
-			$r .= $this->insertLogEntry( $rcObj );
+			$data['logEntry'] = $this->insertLogEntry( $rcObj );
 		} else {
-			$r .= ' ' . $rcObj->userlink . $rcObj->usertalklink;
-			$r .= $this->insertComment( $rcObj );
-			$this->insertRollback( $r, $rcObj );
+			$data['userLink'] = $rcObj->userlink;
+			$data['userTalkLink'] = $rcObj->usertalklink;
+			$data['comment'] = $this->insertComment( $rcObj );
+			$data['rollback'] = $this->getRollback( $rcObj );
 		}
 
 		# Tags
-		$this->insertTags( $r, $rcObj, $classes );
+		$data['tags'] = $this->getTags( $rcObj, $classes );
+
 		# Show how many people are watching this if enabled
-		$r .= $this->numberofWatchingusers( $rcObj->numberofWatchingusers );
+		$data['watchingUsers'] = $this->numberofWatchingusers( $rcObj->numberofWatchingusers );
 
-		$r .= "</td></tr></table>\n";
+		// give the hook a chance to modify the data
+		$success = Hooks::run( 'EnhancedChangesListModifyBlockLineData',
+			array( $this, &$data, $rcObj ) );
+		if ( !$success ) {
+			// skip entry if hook aborted it
+			return '';
+		}
 
-		wfProfileOut( __METHOD__ );
+		$line = Html::openElement( 'table', array( 'class' => $classes ) ) .
+			Html::openElement( 'tr' );
+		$line .= '<td class="mw-enhanced-rc"><span class="mw-enhancedchanges-arrow-space"></span>';
 
-		return $r;
+		if ( isset( $data['recentChangesFlags'] ) ) {
+			$line .= $this->recentChangesFlags( $data['recentChangesFlags'] );
+			unset( $data['recentChangesFlags'] );
+		}
+
+		if ( isset( $data['timestampLink'] ) ) {
+			$line .= '&#160;' . $data['timestampLink'];
+			unset( $data['timestampLink'] );
+		}
+		$line .= '&#160;</td><td>';
+
+		// everything else: makes it easier for extensions to add or remove data
+		$line .= implode( '', $data );
+
+		$line .= "</td></tr></table>\n";
+
+		return $line;
 	}
 
 	/**
@@ -610,8 +675,6 @@ class EnhancedChangesList extends ChangesList {
 			return '';
 		}
 
-		wfProfileIn( __METHOD__ );
-
 		$blockOut = '';
 		foreach ( $this->rc_cache as $block ) {
 			if ( count( $block ) < 2 ) {
@@ -620,8 +683,6 @@ class EnhancedChangesList extends ChangesList {
 				$blockOut .= $this->recentChangesBlockGroup( $block );
 			}
 		}
-
-		wfProfileOut( __METHOD__ );
 
 		return '<div>' . $blockOut . '</div>';
 	}

@@ -117,6 +117,7 @@ SQL;
 
 	/**
 	 * @since 1.19
+	 * @return bool|mixed
 	 */
 	function defaultValue() {
 		if ( $this->has_default ) {
@@ -216,14 +217,14 @@ class PostgresTransactionState {
  * @since 1.19
  */
 class SavepointPostgres {
-	/** @var DatabaseBase Establish a savepoint within a transaction */
+	/** @var DatabasePostgres Establish a savepoint within a transaction */
 	protected $dbw;
 	protected $id;
 	protected $didbegin;
 
 	/**
 	 * @param DatabaseBase $dbw
-	 * @param $id
+	 * @param int $id
 	 */
 	public function __construct( $dbw, $id ) {
 		$this->dbw = $dbw;
@@ -485,6 +486,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( function_exists( 'mb_convert_encoding' ) ) {
 			$sql = mb_convert_encoding( $sql, 'UTF-8' );
 		}
+		while ( $res = pg_get_result( $this->mConn ) ) {
+			pg_free_result( $res );
+		}
 		$this->mTransactionState->check();
 		if ( pg_send_query( $this->mConn, $sql ) === false ) {
 			throw new DBUnexpectedError( $this, "Unable to post new query to PostgreSQL\n" );
@@ -521,7 +525,6 @@ class DatabasePostgres extends DatabaseBase {
 	}
 
 	function reportQueryError( $error, $errno, $sql, $fname, $tempIgnore = false ) {
-		/* Transaction stays in the ERROR state until rolledback */
 		if ( $tempIgnore ) {
 			/* Check for constraint violation */
 			if ( $errno === '23505' ) {
@@ -530,8 +533,12 @@ class DatabasePostgres extends DatabaseBase {
 				return;
 			}
 		}
-		/* Don't ignore serious errors */
-		$this->rollback( __METHOD__ );
+		/* Transaction stays in the ERROR state until rolled back */
+		if ( $this->mTrxLevel ) {
+			$ignore = $this->ignoreErrors( true );
+			$this->rollback( __METHOD__ );
+			$this->ignoreErrors( $ignore );
+		}
 		parent::reportQueryError( $error, $errno, $sql, $fname, false );
 	}
 
@@ -547,9 +554,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( $res instanceof ResultWrapper ) {
 			$res = $res->result;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$ok = pg_free_result( $res );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( !$ok ) {
 			throw new DBUnexpectedError( $this, "Unable to free Postgres result\n" );
 		}
@@ -564,9 +571,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( $res instanceof ResultWrapper ) {
 			$res = $res->result;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$row = pg_fetch_object( $res );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		# @todo FIXME: HACK HACK HACK HACK debug
 
 		# @todo hashar: not sure if the following test really trigger if the object
@@ -585,9 +592,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( $res instanceof ResultWrapper ) {
 			$res = $res->result;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$row = pg_fetch_array( $res );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( pg_last_error( $this->mConn ) ) {
 			throw new DBUnexpectedError(
 				$this,
@@ -602,9 +609,9 @@ class DatabasePostgres extends DatabaseBase {
 		if ( $res instanceof ResultWrapper ) {
 			$res = $res->result;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$n = pg_num_rows( $res );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( pg_last_error( $this->mConn ) ) {
 			throw new DBUnexpectedError(
 				$this,
@@ -710,7 +717,7 @@ class DatabasePostgres extends DatabaseBase {
 			$row = $this->fetchRow( $res );
 			$count = array();
 			if ( preg_match( '/rows=(\d+)/', $row[0], $count ) ) {
-				$rows = $count[1];
+				$rows = (int)$count[1];
 			}
 		}
 
@@ -826,14 +833,15 @@ __INDEXATTR__;
 	 * In Postgres when using FOR UPDATE, only the main table and tables that are inner joined
 	 * can be locked. That means tables in an outer join cannot be FOR UPDATE locked. Trying to do
 	 * so causes a DB error. This wrapper checks which tables can be locked and adjusts it accordingly.
-	 * 
+	 *
 	 * MySQL uses "ORDER BY NULL" as an optimization hint, but that syntax is illegal in PostgreSQL.
+	 * @see DatabaseBase::selectSQLText
 	 */
 	function selectSQLText( $table, $vars, $conds = '', $fname = __METHOD__,
 		$options = array(), $join_conds = array()
 	) {
 		if ( is_array( $options ) ) {
-			$forUpdateKey = array_search( 'FOR UPDATE', $options );
+			$forUpdateKey = array_search( 'FOR UPDATE', $options, true );
 			if ( $forUpdateKey !== false && $join_conds ) {
 				unset( $options[$forUpdateKey] );
 
@@ -1153,7 +1161,7 @@ __INDEXATTR__;
 		return wfTimestamp( TS_POSTGRES, $ts );
 	}
 
-	/*
+	/**
 	 * Posted by cc[plus]php[at]c2se[dot]com on 25-Mar-2009 09:12
 	 * to http://www.php.net/manual/en/ref.pgsql.php
 	 *
@@ -1200,6 +1208,9 @@ __INDEXATTR__;
 
 	/**
 	 * Return aggregated value function call
+	 * @param array $valuedata
+	 * @param string $valuename
+	 * @return array
 	 */
 	public function aggregateValue( $valuedata, $valuename = 'value' ) {
 		return $valuedata;
@@ -1234,7 +1245,7 @@ __INDEXATTR__;
 	 * @see getSearchPath()
 	 * @see setSearchPath()
 	 * @since 1.19
-	 * @return array list of actual schemas for the current sesson
+	 * @return array List of actual schemas for the current sesson
 	 */
 	function getSchemas() {
 		$res = $this->query( "SELECT current_schemas(false)", __METHOD__ );
@@ -1269,7 +1280,7 @@ __INDEXATTR__;
 	 * Values may contain magic keywords like "$user"
 	 * @since 1.19
 	 *
-	 * @param $search_path array list of schemas to be searched by default
+	 * @param array $search_path List of schemas to be searched by default
 	 */
 	function setSearchPath( $search_path ) {
 		$this->query( "SET search_path = " . implode( ", ", $search_path ) );
@@ -1321,7 +1332,7 @@ __INDEXATTR__;
 	 * Return schema name fore core MediaWiki tables
 	 *
 	 * @since 1.19
-	 * @return string core schema name
+	 * @return string Core schema name
 	 */
 	function getCoreSchema() {
 		return $this->mCoreSchema;
@@ -1489,18 +1500,22 @@ SQL;
 	 * @return Blob
 	 */
 	function encodeBlob( $b ) {
-		return new Blob( pg_escape_bytea( $this->mConn, $b ) );
+		return new PostgresBlob( pg_escape_bytea( $b ) );
 	}
 
 	function decodeBlob( $b ) {
-		if ( $b instanceof Blob ) {
+		if ( $b instanceof PostgresBlob ) {
 			$b = $b->fetch();
+		} elseif ( $b instanceof Blob ) {
+			return $b->fetch();
 		}
 
 		return pg_unescape_bytea( $b );
 	}
 
-	function strencode( $s ) { # Should not be called by us
+	function strencode( $s ) {
+		// Should not be called by us
+
 		return pg_escape_string( $this->mConn, $s );
 	}
 
@@ -1514,7 +1529,12 @@ SQL;
 		} elseif ( is_bool( $s ) ) {
 			return intval( $s );
 		} elseif ( $s instanceof Blob ) {
-			return "'" . $s->fetch( $s ) . "'";
+			if ( $s instanceof PostgresBlob ) {
+				$s = $s->fetch();
+			} else {
+				$s = pg_escape_bytea( $this->mConn, $s->fetch() );
+			}
+			return "'$s'";
 		}
 
 		return "'" . pg_escape_string( $this->mConn, $s ) . "'";
@@ -1545,7 +1565,7 @@ SQL;
 	/**
 	 * Various select options
 	 *
-	 * @param array $options an associative array of options to be turned into
+	 * @param array $options An associative array of options to be turned into
 	 *   an SQL query, valid keys are listed in the function.
 	 * @return array
 	 */
@@ -1571,7 +1591,8 @@ SQL;
 		//}
 
 		if ( isset( $options['FOR UPDATE'] ) ) {
-			$postLimitTail .= ' FOR UPDATE OF ' . implode( ', ', $options['FOR UPDATE'] );
+			$postLimitTail .= ' FOR UPDATE OF ' .
+				implode( ', ', array_map( array( &$this, 'tableName' ), $options['FOR UPDATE'] ) );
 		} elseif ( isset( $noKeyOptions['FOR UPDATE'] ) ) {
 			$postLimitTail .= ' FOR UPDATE';
 		}
@@ -1685,3 +1706,6 @@ SQL;
 		return wfBaseConvert( substr( sha1( $lockName ), 0, 15 ), 16, 10 );
 	}
 } // end DatabasePostgres class
+
+class PostgresBlob extends Blob {
+}

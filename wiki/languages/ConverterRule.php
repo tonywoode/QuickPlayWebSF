@@ -155,18 +155,20 @@ class ConverterRule {
 			$to = trim( $v[1] );
 			$v = trim( $v[0] );
 			$u = explode( '=>', $v, 2 );
-			// if $to is empty, strtr() could return a wrong result
-			if ( count( $u ) == 1 && $to && in_array( $v, $variants ) ) {
+			// if $to is empty (which is also used as $from in bidtable),
+			// strtr() could return a wrong result.
+			if ( count( $u ) == 1 && $to !== '' && in_array( $v, $variants ) ) {
 				$bidtable[$v] = $to;
 			} elseif ( count( $u ) == 2 ) {
 				$from = trim( $u[0] );
 				$v = trim( $u[1] );
+				// if $from is empty, strtr() could return a wrong result.
 				if ( array_key_exists( $v, $unidtable )
 					&& !is_array( $unidtable[$v] )
-					&& $to
+					&& $from !== ''
 					&& in_array( $v, $variants ) ) {
 					$unidtable[$v] = array( $from => $to );
-				} elseif ( $to && in_array( $v, $variants ) ) {
+				} elseif ( $from !== '' && in_array( $v, $variants ) ) {
 					$unidtable[$v][$from] = $to;
 				}
 			}
@@ -206,7 +208,7 @@ class ConverterRule {
 	 * Parse rules conversion.
 	 * @private
 	 *
-	 * @param $variant
+	 * @param string $variant
 	 *
 	 * @return string
 	 */
@@ -220,17 +222,17 @@ class ConverterRule {
 			// display current variant in bidirectional array
 			$disp = $this->getTextInBidtable( $variant );
 			// or display current variant in fallbacks
-			if ( !$disp ) {
+			if ( $disp === false ) {
 				$disp = $this->getTextInBidtable(
 					$this->mConverter->getVariantFallbacks( $variant ) );
 			}
 			// or display current variant in unidirectional array
-			if ( !$disp && array_key_exists( $variant, $unidtable ) ) {
+			if ( $disp === false && array_key_exists( $variant, $unidtable ) ) {
 				$disp = array_values( $unidtable[$variant] );
 				$disp = $disp[0];
 			}
 			// or display frist text under disable manual convert
-			if ( !$disp && $this->mConverter->mManualLevel[$variant] == 'disable' ) {
+			if ( $disp === false && $this->mConverter->mManualLevel[$variant] == 'disable' ) {
 				if ( count( $bidtable ) > 0 ) {
 					$disp = array_values( $bidtable );
 					$disp = $disp[0];
@@ -251,8 +253,8 @@ class ConverterRule {
 	 * will be ignored and the original title is shown).
 	 *
 	 * @since 1.22
-	 * @param $variant The variant code to display page title in
-	 * @return String|false The converted title or false if just page name
+	 * @param string $variant The variant code to display page title in
+	 * @return string|bool The converted title or false if just page name
 	 */
 	function getRuleConvertedTitle( $variant ) {
 		if ( $variant === $this->mConverter->mMainLanguageCode ) {
@@ -325,7 +327,7 @@ class ConverterRule {
 				&& isset( $unidtable[$v] )
 			) {
 				if ( isset( $this->mConvTable[$v] ) ) {
-					$this->mConvTable[$v] = array_merge( $this->mConvTable[$v], $unidtable[$v] );
+					$this->mConvTable[$v] = $unidtable[$v] + $this->mConvTable[$v];
 				} else {
 					$this->mConvTable[$v] = $unidtable[$v];
 				}
@@ -383,9 +385,11 @@ class ConverterRule {
 
 		if ( !$this->mBidtable && !$this->mUnidtable ) {
 			if ( isset( $flags['+'] ) || isset( $flags['-'] ) ) {
-				// fill all variants if text in -{A/H/-|text} without rules
-				foreach ( $this->mConverter->mVariants as $v ) {
-					$this->mBidtable[$v] = $rules;
+				// fill all variants if text in -{A/H/-|text}- is non-empty but without rules
+				if ( $rules !== '' ) {
+					foreach ( $this->mConverter->mVariants as $v ) {
+						$this->mBidtable[$v] = $rules;
+					}
 				}
 			} elseif ( !isset( $flags['N'] ) && !isset( $flags['T'] ) ) {
 				$this->mFlags = $flags = array( 'R' => true );
@@ -445,10 +449,11 @@ class ConverterRule {
 	}
 
 	/**
-	 * @todo FIXME: code this function :)
+	 * Checks if there are conversion rules.
+	 * @return bool
 	 */
 	public function hasRules() {
-		// TODO:
+		return $this->mRules !== '';
 	}
 
 	/**

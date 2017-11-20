@@ -1,8 +1,7 @@
 <?php
 /** Assamese (অসমীয়া)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -34,24 +33,24 @@ $namespaceAliases = array(
 	'বার্তা' => NS_TALK,
 	'सदस्य' => NS_USER,
 	'सदस्य_वार्ता' => NS_USER_TALK,
-	'সদস্য বার্তা' => NS_USER_TALK,
+	'সদস্য_বার্তা' => NS_USER_TALK,
 	'$1_वार्ता' => NS_PROJECT_TALK,
-	'$1 বার্তা' => NS_PROJECT_TALK,
+	'$1_বার্তা' => NS_PROJECT_TALK,
 	'चित्र' => NS_FILE,
 	'चित्र_वार्ता' => NS_FILE_TALK,
 	'চিত্র' => NS_FILE,
-	'চিত্র বার্তা' => NS_FILE_TALK,
+	'চিত্র_বার্তা' => NS_FILE_TALK,
 	'মেডিয়াৱিকি' => NS_MEDIAWIKI,
 	'মেডিয়াৱিকি_বাৰ্তা' => NS_MEDIAWIKI_TALK,
-	'MediaWiki বার্তা' => NS_MEDIAWIKI_TALK,
+	'MediaWiki_বার্তা' => NS_MEDIAWIKI_TALK,
 	'साँचा' => NS_TEMPLATE,
 	'साँचा_वार्ता' => NS_TEMPLATE_TALK,
-	'সাঁচ বার্তা' => NS_TEMPLATE_TALK,
-	'সহায় বার্তা' => NS_HELP_TALK,
+	'সাঁচ_বার্তা' => NS_TEMPLATE_TALK,
+	'সহায়_বার্তা' => NS_HELP_TALK,
 	'श्रेणी' => NS_CATEGORY,
 	'श्रेणी_वार्ता' => NS_CATEGORY_TALK,
 	'শ্রেণী' => NS_CATEGORY,
-	'শ্রেণী বার্তা' => NS_CATEGORY_TALK,
+	'শ্রেণী_বার্তা' => NS_CATEGORY_TALK,
 );
 
 $specialPageAliases = array(
@@ -99,6 +98,7 @@ $specialPageAliases = array(
 	'MIMEsearch'                => array( 'MIMEMIMEmmmgM_অনুসন্ধান' ),
 	'Movepage'                  => array( 'পৃষ্ঠা_স্থানান্তৰ' ),
 	'Mycontributions'           => array( 'মোৰ_বৰঙনি' ),
+	'MyLanguage'                => array( 'মোৰ_ভাষা' ),
 	'Mypage'                    => array( 'মোৰ_পৃষ্ঠা' ),
 	'Mytalk'                    => array( 'মোৰ_কথোপকথন' ),
 	'Myuploads'                 => array( 'মোৰ_আপল’ডসমূহ' ),
@@ -106,7 +106,6 @@ $specialPageAliases = array(
 	'Newpages'                  => array( 'পৰৱৰ্তী_পৃষ্ঠা' ),
 	'PasswordReset'             => array( 'গুপ্তশব্দ_ঘূৰাই_আনক' ),
 	'PermanentLink'             => array( 'স্থায়ী_সংযোগ' ),
-	'Popularpages'              => array( 'জনপ্ৰিয়_পৃষ্ঠাসমূহ' ),
 	'Preferences'               => array( 'পচন্দ' ),
 	'Protectedpages'            => array( 'সুৰক্ষিত_পৃষ্ঠাসমূহ' ),
 	'Protectedtitles'           => array( 'সুৰক্ষিত_শিৰোনামসমূহ' ),

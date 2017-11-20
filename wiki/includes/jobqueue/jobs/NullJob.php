@@ -18,7 +18,7 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @ingroup Cache
+ * @ingroup JobQueue
  */
 
 /**
@@ -47,9 +47,9 @@
 class NullJob extends Job {
 	/**
 	 * @param Title $title
-	 * @param array $params job parameters (lives, usleep)
+	 * @param array $params Job parameters (lives, usleep)
 	 */
-	function __construct( $title, $params ) {
+	function __construct( Title $title, array $params ) {
 		parent::__construct( 'null', $title, $params );
 		if ( !isset( $this->params['lives'] ) ) {
 			$this->params['lives'] = 1;

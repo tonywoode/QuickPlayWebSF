@@ -88,8 +88,8 @@ interface LogEntry {
 	public function getDeleted();
 
 	/**
-	 * @param $field Integer: one of LogPage::DELETED_* bitfield constants
-	 * @return Boolean
+	 * @param int $field One of LogPage::DELETED_* bitfield constants
+	 * @return bool
 	 */
 	public function isDeleted( $field );
 }
@@ -114,6 +114,28 @@ abstract class LogEntryBase implements LogEntry {
 	 */
 	public function isLegacy() {
 		return false;
+	}
+
+	/**
+	 * Create a blob from a parameter array
+	 *
+	 * @param array $params
+	 * @return string
+	 * @since 1.26
+	 */
+	public static function makeParamBlob( $params ) {
+		return serialize( (array)$params );
+	}
+
+	/**
+	 * Extract a parameter array from a blob
+	 *
+	 * @param string $blob
+	 * @return array
+	 * @since 1.26
+	 */
+	public static function extractParams( $blob ) {
+		return unserialize( $blob );
 	}
 }
 
@@ -224,14 +246,14 @@ class DatabaseLogEntry extends LogEntryBase {
 	public function getParameters() {
 		if ( !isset( $this->params ) ) {
 			$blob = $this->getRawParameters();
-			wfSuppressWarnings();
-			$params = unserialize( $blob );
-			wfRestoreWarnings();
+			MediaWiki\suppressWarnings();
+			$params = LogEntryBase::extractParams( $blob );
+			MediaWiki\restoreWarnings();
 			if ( $params !== false ) {
 				$this->params = $params;
 				$this->legacy = false;
 			} else {
-				$this->params = $blob === '' ? array() : explode( "\n", $blob );
+				$this->params = LogPage::extractParams( $blob );
 				$this->legacy = true;
 			}
 		}
@@ -370,6 +392,9 @@ class ManualLogEntry extends LogEntryBase {
 	/** @var int ID of the log entry */
 	protected $id;
 
+	/** @var bool Whether this is a legacy log entry */
+	protected $legacy = false;
+
 	/**
 	 * Constructor.
 	 *
@@ -385,13 +410,14 @@ class ManualLogEntry extends LogEntryBase {
 
 	/**
 	 * Set extra log parameters.
-	 * You can pass params to the log action message
-	 * by prefixing the keys with a number and colon.
-	 * The numbering should start with number 4, the
-	 * first three parameters are hardcoded for every
-	 * message. Example:
+	 *
+	 * You can pass params to the log action message by prefixing the keys with
+	 * a number and optional type, using colons to separate the fields. The
+	 * numbering should start with number 4, the first three parameters are
+	 * hardcoded for every message. Example:
 	 * $entry->setParameters(
-	 *   '4:color' => 'blue',
+	 *   '4::color' => 'blue',
+	 *   '5:number:count' => 3000,
 	 *   'animal' => 'dog'
 	 * );
 	 *
@@ -407,7 +433,7 @@ class ManualLogEntry extends LogEntryBase {
 	 * Declare arbitrary tag/value relations to this log entry.
 	 * These can be used to filter log entries later on.
 	 *
-	 * @param array $relations Map of (tag => (list of values))
+	 * @param array $relations Map of (tag => (list of values|value))
 	 * @since 1.22
 	 */
 	public function setRelations( array $relations ) {
@@ -459,11 +485,21 @@ class ManualLogEntry extends LogEntryBase {
 	}
 
 	/**
+	 * Set the 'legacy' flag
+	 *
+	 * @since 1.25
+	 * @param bool $legacy
+	 */
+	public function setLegacy( $legacy ) {
+		$this->legacy = $legacy;
+	}
+
+	/**
 	 * TODO: document
 	 *
 	 * @since 1.19
 	 *
-	 * @param integer $deleted
+	 * @param int $deleted
 	 */
 	public function setDeleted( $deleted ) {
 		$this->deleted = $deleted;
@@ -502,8 +538,12 @@ class ManualLogEntry extends LogEntryBase {
 			'log_title' => $this->getTarget()->getDBkey(),
 			'log_page' => $this->getTarget()->getArticleID(),
 			'log_comment' => $comment,
-			'log_params' => serialize( (array)$this->getParameters() ),
+			'log_params' => LogEntryBase::makeParamBlob( $this->getParameters() ),
 		);
+		if ( isset( $this->deleted ) ) {
+			$data['log_deleted'] = $this->deleted;
+		}
+
 		$dbw->insert( 'logging', $data, __METHOD__ );
 		$this->id = !is_null( $id ) ? $id : $dbw->insertId();
 
@@ -512,6 +552,11 @@ class ManualLogEntry extends LogEntryBase {
 			if ( !strlen( $tag ) ) {
 				throw new MWException( "Got empty log search tag." );
 			}
+
+			if ( !is_array( $values ) ) {
+				$values = array( $values );
+			}
+
 			foreach ( $values as $value ) {
 				$rows[] = array(
 					'ls_field' => $tag,
@@ -561,7 +606,7 @@ class ManualLogEntry extends LogEntryBase {
 			$this->getSubtype(),
 			$this->getTarget(),
 			$this->getComment(),
-			serialize( (array)$this->getParameters() ),
+			LogEntryBase::makeParamBlob( $this->getParameters() ),
 			$newId,
 			$formatter->getIRCActionComment() // Used for IRC feeds
 		);
@@ -569,8 +614,8 @@ class ManualLogEntry extends LogEntryBase {
 
 	/**
 	 * Publishes the log entry.
-	 * @param int $newId id of the log entry.
-	 * @param string $to rcandudp (default), rc, udp
+	 * @param int $newId Id of the log entry.
+	 * @param string $to One of: rcandudp (default), rc, udp
 	 */
 	public function publish( $newId, $to = 'rcandudp' ) {
 		$log = new LogPage( $this->getType() );
@@ -625,6 +670,14 @@ class ManualLogEntry extends LogEntryBase {
 
 	public function getComment() {
 		return $this->comment;
+	}
+
+	/**
+	 * @since 1.25
+	 * @return bool
+	 */
+	public function isLegacy() {
+		return $this->legacy;
 	}
 
 	public function getDeleted() {

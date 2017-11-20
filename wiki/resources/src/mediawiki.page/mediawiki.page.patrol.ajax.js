@@ -1,4 +1,4 @@
-/**
+/*!
  * Animate patrol links to use asynchronous API requests to
  * patrol pages, rather than navigating to a different URI.
  *
@@ -17,7 +17,7 @@
 			var $spinner, href, rcid, apiRequest;
 
 			// Start preloading the notification module (normally loaded by mw.notify())
-			mw.loader.load( ['mediawiki.notification'], null, true );
+			mw.loader.load( 'mediawiki.notification' );
 
 			// Hide the link and create a spinner to show it inside the brackets.
 			$spinner = $.createSpinner( {
@@ -30,9 +30,8 @@
 			rcid = mw.util.getParamValue( 'rcid', href );
 			apiRequest = new mw.Api();
 
-			apiRequest.post( {
+			apiRequest.postWithToken( 'patrol', {
 				action: 'patrol',
-				token: mw.user.tokens.get( 'patrolToken' ),
 				rcid: rcid
 			} )
 			.done( function ( data ) {
@@ -44,7 +43,7 @@
 					mw.notify( mw.msg( 'markedaspatrollednotify', title.toText() ) );
 				} else {
 					// This should never happen as errors should trigger fail
-					mw.notify( mw.msg( 'markedaspatrollederrornotify' ) );
+					mw.notify( mw.msg( 'markedaspatrollederrornotify' ), { type: 'error' } );
 				}
 			} )
 			.fail( function ( error ) {
@@ -54,9 +53,9 @@
 				$patrolLinks.show();
 				if ( error === 'noautopatrol' ) {
 					// Can't patrol own
-					mw.notify( mw.msg( 'markedaspatrollederror-noautopatrol' ) );
+					mw.notify( mw.msg( 'markedaspatrollederror-noautopatrol' ), { type: 'warn' } );
 				} else {
-					mw.notify( mw.msg( 'markedaspatrollederrornotify' ) );
+					mw.notify( mw.msg( 'markedaspatrollederrornotify' ), { type: 'error' } );
 				}
 			} );
 

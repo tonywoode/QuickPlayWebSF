@@ -75,9 +75,9 @@ class HTMLCheckMatrix extends HTMLFormField implements HTMLNestedFilterable {
 	 * mParams['rows'] is an array with row labels as keys and row tags as values.
 	 * mParams['columns'] is an array with column labels as keys and column tags as values.
 	 *
-	 * @param array $value of the options that should be checked
+	 * @param array $value Array of the options that should be checked
 	 *
-	 * @return String
+	 * @return string
 	 */
 	function getInputHTML( $value ) {
 		$html = '';
@@ -85,7 +85,13 @@ class HTMLCheckMatrix extends HTMLFormField implements HTMLNestedFilterable {
 		$rows = $this->mParams['rows'];
 		$columns = $this->mParams['columns'];
 
-		$attribs = $this->getAttributes( array( 'disabled', 'tabindex' ) );
+		$mappings = array();
+
+		if ( $this->mParent instanceof OOUIHTMLForm ) {
+			$mappings['tabindex'] = 'tabIndex';
+		}
+
+		$attribs = $this->getAttributes( array( 'disabled', 'tabindex' ), $mappings );
 
 		// Build the column headers
 		$headerContents = Html::rawElement( 'td', array(), '&#160;' );
@@ -125,10 +131,13 @@ class HTMLCheckMatrix extends HTMLFormField implements HTMLNestedFilterable {
 					$checked = true;
 					$thisAttribs['disabled'] = 1;
 				}
+
+				$checkbox = $this->getOneCheckbox( $checked, $attribs + $thisAttribs );
+
 				$rowContents .= Html::rawElement(
 					'td',
 					array(),
-					Xml::check( "{$this->mName}[]", $checked, $attribs + $thisAttribs )
+					$checkbox
 				);
 			}
 			$tableContents .= Html::rawElement( 'tr', array(), "\n$rowContents\n" );
@@ -140,6 +149,25 @@ class HTMLCheckMatrix extends HTMLFormField implements HTMLNestedFilterable {
 				Html::rawElement( 'tbody', array(), "\n$tableContents\n" ) ) . "\n";
 
 		return $html;
+	}
+
+	protected function getOneCheckbox( $checked, $attribs ) {
+		if ( $this->mParent instanceof OOUIHTMLForm ) {
+			return new OOUI\CheckboxInputWidget( array(
+				'name' => "{$this->mName}[]",
+				'selected' => $checked,
+				'value' => $attribs['value'],
+			) + $attribs );
+		} else {
+			$checkbox = Xml::check( "{$this->mName}[]", $checked, $attribs );
+			if ( $this->mParent->getConfig()->get( 'UseMediaWikiUIEverywhere' ) ) {
+				$checkbox = Html::openElement( 'div', array( 'class' => 'mw-ui-checkbox' ) ) .
+					$checkbox .
+					Html::element( 'label', array( 'for' => $attribs['id'] ) ) .
+					Html::closeElement( 'div' );
+			}
+			return $checkbox;
+		}
 	}
 
 	protected function isTagForcedOff( $tag ) {
@@ -159,9 +187,9 @@ class HTMLCheckMatrix extends HTMLFormField implements HTMLNestedFilterable {
 	 * line above the options in the case of a checkbox matrix, i.e. it's always
 	 * a "vertical-label".
 	 *
-	 * @param string $value the value to set the input to
+	 * @param string $value The value to set the input to
 	 *
-	 * @return String complete HTML table row
+	 * @return string Complete HTML table row
 	 */
 	function getTableRow( $value ) {
 		list( $errors, $errorClass ) = $this->getErrorsAndErrorClass( $value );
@@ -169,6 +197,13 @@ class HTMLCheckMatrix extends HTMLFormField implements HTMLNestedFilterable {
 		$fieldType = get_class( $this );
 		$helptext = $this->getHelpTextHtmlTable( $this->getHelpText() );
 		$cellAttributes = array( 'colspan' => 2 );
+
+		$hideClass = '';
+		$hideAttributes = array();
+		if ( $this->mHideIf ) {
+			$hideAttributes['data-hide-if'] = FormatJson::encode( $this->mHideIf );
+			$hideClass = 'mw-htmlform-hide-if';
+		}
 
 		$label = $this->getLabelHtml( $cellAttributes );
 
@@ -178,18 +213,21 @@ class HTMLCheckMatrix extends HTMLFormField implements HTMLNestedFilterable {
 			$inputHtml . "\n$errors"
 		);
 
-		$html = Html::rawElement( 'tr', array( 'class' => 'mw-htmlform-vertical-label' ), $label );
+		$html = Html::rawElement( 'tr',
+			array( 'class' => "mw-htmlform-vertical-label $hideClass" ) + $hideAttributes,
+			$label );
 		$html .= Html::rawElement( 'tr',
-			array( 'class' => "mw-htmlform-field-$fieldType {$this->mClass} $errorClass" ),
+			array( 'class' => "mw-htmlform-field-$fieldType {$this->mClass} $errorClass $hideClass" ) +
+				$hideAttributes,
 			$field );
 
 		return $html . $helptext;
 	}
 
 	/**
-	 * @param $request WebRequest
+	 * @param WebRequest $request
 	 *
-	 * @return Array
+	 * @return array
 	 */
 	function loadDataFromRequest( $request ) {
 		if ( $this->mParent->getMethod() == 'post' ) {

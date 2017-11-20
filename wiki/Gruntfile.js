@@ -3,45 +3,49 @@ module.exports = function ( grunt ) {
 	grunt.loadNpmTasks( 'grunt-contrib-copy' );
 	grunt.loadNpmTasks( 'grunt-contrib-jshint' );
 	grunt.loadNpmTasks( 'grunt-contrib-watch' );
-	grunt.loadNpmTasks( 'grunt-jscs-checker' );
+	grunt.loadNpmTasks( 'grunt-banana-checker' );
+	grunt.loadNpmTasks( 'grunt-jscs' );
+	grunt.loadNpmTasks( 'grunt-jsonlint' );
 	grunt.loadNpmTasks( 'grunt-karma' );
 
 	var wgServer = process.env.MW_SERVER,
 		wgScriptPath = process.env.MW_SCRIPT_PATH,
 		karmaProxy = {};
 
-	karmaProxy[wgScriptPath] = wgServer + wgScriptPath;
+	karmaProxy[ wgScriptPath ] = wgServer + wgScriptPath;
 
 	grunt.initConfig( {
-		pkg: grunt.file.readJSON( 'package.json' ),
 		jshint: {
 			options: {
-				jshintrc: '.jshintrc'
+				jshintrc: true
 			},
-			all: [ '*.js', '{includes,languages,resources,skins,tests}/**/*.js' ]
+			all: '.'
 		},
 		jscs: {
-			// Known issues:
-			// - https://github.com/mdevils/node-jscs/issues/277
-			// - https://github.com/mdevils/node-jscs/issues/278
+			all: '.'
+		},
+		jsonlint: {
 			all: [
-				'<%= jshint.all %>',
-				// Auto-generated file with JSON (double quotes)
-				'!tests/qunit/data/mediawiki.jqueryMsg.data.js'
-
-			// Exclude all files ignored by jshint
-			].concat( grunt.file.read( '.jshintignore' ).split( '\n' ).reduce( function ( patterns, pattern ) {
-				// Filter out empty lines
-				if ( pattern.length && pattern[0] !== '#' ) {
-					patterns.push( '!' + pattern );
-				}
-				return patterns;
-			}, [] ) )
+				'.jscsrc',
+				'**/*.json',
+				'!{docs/js,extensions,node_modules,skins,vendor}/**'
+			]
+		},
+		banana: {
+			options: {
+				disallowBlankTranslations: false,
+				disallowDuplicateTranslations: false,
+				disallowUnusedTranslations: false
+			},
+			core: 'languages/i18n/',
+			api: 'includes/api/i18n/',
+			installer: 'includes/installer/i18n/'
 		},
 		watch: {
 			files: [
-				'.{jshintrc,jscs.json,jshintignore,csslintrc}',
-				'<%= jshint.all %>'
+				'.js*',
+				'**/*',
+				'!{docs,extensions,node_modules,skins,vendor}/**'
 			],
 			tasks: 'test'
 		},
@@ -88,14 +92,14 @@ module.exports = function ( grunt ) {
 		}
 		if ( !process.env.MW_SCRIPT_PATH ) {
 			grunt.log.error( 'Environment variable MW_SCRIPT_PATH must be set.\n' +
-				'Set this like $wgScriptPath, e.g. "/w"');
+				'Set this like $wgScriptPath, e.g. "/w"' );
 		}
 		return !!( process.env.MW_SERVER && process.env.MW_SCRIPT_PATH );
 	} );
 
-	grunt.registerTask( 'lint', ['jshint', 'jscs'] );
+	grunt.registerTask( 'lint', [ 'jshint', 'jscs', 'jsonlint', 'banana' ] );
 	grunt.registerTask( 'qunit', [ 'assert-mw-env', 'karma:main' ] );
 
-	grunt.registerTask( 'test', ['lint'] );
+	grunt.registerTask( 'test', [ 'lint' ] );
 	grunt.registerTask( 'default', 'test' );
 };

@@ -15,14 +15,12 @@
 		slice = Array.prototype.slice,
 		parserDefaults = {
 			magic: {
-				'SITENAME': mw.config.get( 'wgSiteName' )
+				SITENAME: mw.config.get( 'wgSiteName' )
 			},
-			// This is a whitelist based on, but simpler than, Sanitizer.php.
+			// Whitelist for allowed HTML elements in wikitext.
 			// Self-closing tags are not currently supported.
-			allowedHtmlElements: [
-				'b',
-				'i'
-			],
+			// Can be populated via setPrivateData().
+			allowedHtmlElements: [],
 			// Key tag name, value allowed attributes for that tag.
 			// See Sanitizer::setupAttributeWhitelist
 			allowedHtmlCommonAttributes: [
@@ -62,6 +60,9 @@
 	 * Wrapper around jQuery append that converts all non-objects to TextNode so append will not
 	 * convert what it detects as an htmlString to an element.
 	 *
+	 * If our own htmlEmitter jQuery object is given, its children will be unwrapped and appended to
+	 * new parent.
+	 *
 	 * Object elements of children (jQuery, HTMLElement, TextNode, etc.) will be left as is.
 	 *
 	 * @private
@@ -73,12 +74,15 @@
 		var i, len;
 
 		if ( !$.isArray( children ) ) {
-			children = [children];
+			children = [ children ];
 		}
 
 		for ( i = 0, len = children.length; i < len; i++ ) {
-			if ( typeof children[i] !== 'object' ) {
-				children[i] = document.createTextNode( children[i] );
+			if ( typeof children[ i ] !== 'object' ) {
+				children[ i ] = document.createTextNode( children[ i ] );
+			}
+			if ( children[ i ] instanceof jQuery && children[ i ].hasClass( 'mediaWiki_htmlEmitter' ) ) {
+				children[ i ] = children[ i ].contents();
 			}
 		}
 
@@ -102,11 +106,26 @@
 	}
 
 	/**
+	 * Turn input into a string.
+	 *
+	 * @private
+	 * @param {string|jQuery} input
+	 * @return {string} Textual value of input
+	 */
+	function textify( input ) {
+		if ( input instanceof jQuery ) {
+			input = input.text();
+		}
+		return String( input );
+	}
+
+	/**
 	 * Given parser options, return a function that parses a key and replacements, returning jQuery object
 	 *
 	 * Try to parse a key and optional replacements, returning a jQuery object that may be a tree of jQuery nodes.
 	 * If there was an error parsing, return the key and the error message (wrapped in jQuery). This should put the error right into
 	 * the interface, without causing the page to halt script execution, and it hopefully should be clearer how to fix it.
+	 *
 	 * @private
 	 * @param {Object} options Parser options
 	 * @return {Function}
@@ -117,12 +136,13 @@
 		var parser = new mw.jqueryMsg.parser( options );
 
 		return function ( args ) {
-			var key = args[0],
-				argsArray = $.isArray( args[1] ) ? args[1] : slice.call( args, 1 );
+			var fallback,
+				key = args[ 0 ],
+				argsArray = $.isArray( args[ 1 ] ) ? args[ 1 ] : slice.call( args, 1 );
 			try {
 				return parser.parse( key, argsArray );
 			} catch ( e ) {
-				var fallback = parser.settings.messages.get( key );
+				fallback = parser.settings.messages.get( key );
 				mw.log.warn( 'mediawiki.jqueryMsg: ' + key + ': ' + e.message );
 				return $( '<span>' ).text( fallback );
 			}
@@ -132,10 +152,26 @@
 	mw.jqueryMsg = {};
 
 	/**
+	 * Initialize parser defaults.
+	 *
+	 * ResourceLoaderJqueryMsgModule calls this to provide default values from
+	 * Sanitizer.php for allowed HTML elements. To override this data for individual
+	 * parsers, pass the relevant options to mw.jqueryMsg.parser.
+	 *
+	 * @private
+	 * @param {Object} data
+	 */
+	mw.jqueryMsg.setParserDefaults = function ( data ) {
+		if ( data.allowedHtmlElements ) {
+			parserDefaults.allowedHtmlElements = data.allowedHtmlElements;
+		}
+	};
+
+	/**
 	 * Returns a function suitable for use as a global, to construct strings from the message key (and optional replacements).
 	 * e.g.
 	 *
-	 *       window.gM = mediaWiki.parser.getMessageFunction( options );
+	 *       window.gM = mediaWiki.jqueryMsg.getMessageFunction( options );
 	 *       $( 'p#headline' ).html( gM( 'hello-user', username ) );
 	 *
 	 * Like the old gM() function this returns only strings, so it destroys any bindings. If you want to preserve bindings use the
@@ -153,8 +189,7 @@
 	 * @return {string} return.return Rendered HTML.
 	 */
 	mw.jqueryMsg.getMessageFunction = function ( options ) {
-		var failableParserFn = getFailableParserFn( options ),
-			format;
+		var failableParserFn, format;
 
 		if ( options && options.format !== undefined ) {
 			format = options.format;
@@ -163,6 +198,9 @@
 		}
 
 		return function () {
+			if ( !failableParserFn ) {
+				failableParserFn = getFailableParserFn( options );
+			}
 			var failableResult = failableParserFn( arguments );
 			if ( format === 'text' || format === 'escaped' ) {
 				return failableResult.text();
@@ -177,7 +215,7 @@
 	 * the current selector. Bindings to passed-in jquery elements are preserved. Functions become click handlers for [$1 linktext] links.
 	 * e.g.
 	 *
-	 *        $.fn.msg = mediaWiki.parser.getJqueryPlugin( options );
+	 *        $.fn.msg = mediaWiki.jqueryMsg.getPlugin( options );
 	 *        var userlink = $( '<a>' ).click( function () { alert( "hello!!" ) } );
 	 *        $( 'p#headline' ).msg( 'hello-user', userlink );
 	 *
@@ -195,15 +233,14 @@
 	 * @return {jQuery} return.return
 	 */
 	mw.jqueryMsg.getPlugin = function ( options ) {
-		var failableParserFn = getFailableParserFn( options );
+		var failableParserFn;
 
 		return function () {
+			if ( !failableParserFn ) {
+				failableParserFn = getFailableParserFn( options );
+			}
 			var $target = this.empty();
-			// TODO: Simply appendWithoutParsing( $target, failableParserFn( arguments ).contents() )
-			// or Simply appendWithoutParsing( $target, failableParserFn( arguments ) )
-			$.each( failableParserFn( arguments ).contents(), function ( i, node ) {
-				appendWithoutParsing( $target, node );
-			} );
+			appendWithoutParsing( $target, failableParserFn( arguments ) );
 			return $target;
 		};
 	};
@@ -225,32 +262,10 @@
 
 	mw.jqueryMsg.parser.prototype = {
 		/**
-		 * Cache mapping MediaWiki message keys and the value onlyCurlyBraceTransform, to the AST of the message.
-		 *
-		 * In most cases, the message is a string so this is identical.
-		 * (This is why we would like to move this functionality server-side).
-		 *
-		 * The two parts of the key are separated by colon.  For example:
-		 *
-		 *     "message-key:true": ast
-		 *
-		 * if they key is "message-key" and onlyCurlyBraceTransform is true.
-		 *
-		 * This cache is shared by all instances of mw.jqueryMsg.parser.
-		 *
-		 * NOTE: We promise, it's static - when you create this empty object
-		 * in the prototype, each new instance of the class gets a reference
-		 * to the same object.
-		 *
-		 * @static
-		 * @property {Object}
-		 */
-		astCache: {},
-
-		/**
 		 * Where the magic happens.
 		 * Parses a message from the key, and swaps in replacements as necessary, wraps in jQuery
 		 * If an error is thrown, returns original key, and logs the error
+		 *
 		 * @param {string} key Message key.
 		 * @param {Array} replacements Variable replacements for $1, $2... $n
 		 * @return {jQuery}
@@ -262,20 +277,16 @@
 		/**
 		 * Fetch the message string associated with a key, return parsed structure. Memoized.
 		 * Note that we pass '[' + key + ']' back for a missing message here.
+		 *
 		 * @param {string} key
 		 * @return {string|Array} string of '[key]' if message missing, simple string if possible, array of arrays if needs parsing
 		 */
 		getAst: function ( key ) {
-			var cacheKey = [key, this.settings.onlyCurlyBraceTransform].join( ':' ), wikiText;
-
-			if ( this.astCache[ cacheKey ] === undefined ) {
-				wikiText = this.settings.messages.get( key );
-				if ( typeof wikiText !== 'string' ) {
-					wikiText = '\\[' + key + '\\]';
-				}
-				this.astCache[ cacheKey ] = this.wikiTextToAst( wikiText );
+			var wikiText = this.settings.messages.get( key );
+			if ( typeof wikiText !== 'string' ) {
+				wikiText = '\\[' + key + '\\]';
 			}
-			return this.astCache[ cacheKey ];
+			return this.wikiTextToAst( wikiText );
 		},
 
 		/**
@@ -289,15 +300,17 @@
 		 * @return {Mixed} abstract syntax tree
 		 */
 		wikiTextToAst: function ( input ) {
-			var pos, settings = this.settings, concat = Array.prototype.concat,
+			var pos,
 				regularLiteral, regularLiteralWithoutBar, regularLiteralWithoutSpace, regularLiteralWithSquareBrackets,
 				doubleQuote, singleQuote, backslash, anyCharacter, asciiAlphabetLiteral,
 				escapedOrLiteralWithoutSpace, escapedOrLiteralWithoutBar, escapedOrRegularLiteral,
 				whitespace, dollar, digits, htmlDoubleQuoteAttributeValue, htmlSingleQuoteAttributeValue,
 				htmlAttributeEquals, openHtmlStartTag, optionalForwardSlash, openHtmlEndTag, closeHtmlTag,
-				openExtlink, closeExtlink, wikilinkPage, wikilinkContents, openWikilink, closeWikilink, templateName, pipe, colon,
+				openExtlink, closeExtlink, wikilinkContents, openWikilink, closeWikilink, templateName, pipe, colon,
 				templateContents, openTemplate, closeTemplate,
-				nonWhitespaceExpression, paramExpression, expression, curlyBraceTransformExpression, result;
+				nonWhitespaceExpression, paramExpression, expression, curlyBraceTransformExpression, result,
+				settings = this.settings,
+				concat = Array.prototype.concat;
 
 			// Indicates current position in input as we parse through it.
 			// Shared among all parsing functions below.
@@ -309,6 +322,7 @@
 
 			/**
 			 * Try parsers until one works, if none work return null
+			 *
 			 * @private
 			 * @param {Function[]} ps
 			 * @return {string|null}
@@ -317,9 +331,9 @@
 				return function () {
 					var i, result;
 					for ( i = 0; i < ps.length; i++ ) {
-						result = ps[i]();
+						result = ps[ i ]();
 						if ( result !== null ) {
-							 return result;
+							return result;
 						}
 					}
 					return null;
@@ -329,6 +343,7 @@
 			/**
 			 * Try several ps in a row, all must succeed or return null.
 			 * This is the only eager one.
+			 *
 			 * @private
 			 * @param {Function[]} ps
 			 * @return {string|null}
@@ -338,7 +353,7 @@
 					originalPos = pos,
 					result = [];
 				for ( i = 0; i < ps.length; i++ ) {
-					res = ps[i]();
+					res = ps[ i ]();
 					if ( res === null ) {
 						pos = originalPos;
 						return null;
@@ -351,6 +366,7 @@
 			/**
 			 * Run the same parser over and over until it fails.
 			 * Must succeed a minimum of n times or return null.
+			 *
 			 * @private
 			 * @param {number} n
 			 * @param {Function} p
@@ -393,6 +409,7 @@
 
 			/**
 			 * Just make parsers out of simpler JS builtin types
+			 *
 			 * @private
 			 * @param {string} s
 			 * @return {Function}
@@ -403,8 +420,8 @@
 				return function () {
 					var result = null;
 					if ( input.substr( pos, len ) === s ) {
-						 result = s;
-						 pos += len;
+						result = s;
+						pos += len;
 					}
 					return result;
 				};
@@ -421,12 +438,12 @@
 			 */
 			function makeRegexParser( regex ) {
 				return function () {
-					var matches = input.substr( pos ).match( regex );
+					var matches = input.slice( pos ).match( regex );
 					if ( matches === null ) {
 						return null;
 					}
-					pos += matches[0].length;
-					return matches[0];
+					pos += matches[ 0 ].length;
+					return matches[ 0 ];
 				};
 			}
 
@@ -466,7 +483,7 @@
 					backslash,
 					anyCharacter
 				] );
-				return result === null ? null : result[1];
+				return result === null ? null : result[ 1 ];
 			}
 			escapedOrLiteralWithoutSpace = choice( [
 				escapedLiteral,
@@ -489,13 +506,6 @@
 			// it is not a literal in the parameter
 			function literalWithoutBar() {
 				var result = nOrMore( 1, escapedOrLiteralWithoutBar )();
-				return result === null ? null : result.join( '' );
-			}
-
-			// Used for wikilink page names.  Like literalWithoutBar, but
-			// without allowing escapes.
-			function unescapedLiteralWithoutBar() {
-				var result = nOrMore( 1, regularLiteralWithoutBar )();
 				return result === null ? null : result.join( '' );
 			}
 
@@ -525,47 +535,36 @@
 				if ( result === null ) {
 					return null;
 				}
-				return [ 'REPLACE', parseInt( result[1], 10 ) - 1 ];
+				return [ 'REPLACE', parseInt( result[ 1 ], 10 ) - 1 ];
 			}
 			openExtlink = makeStringParser( '[' );
 			closeExtlink = makeStringParser( ']' );
 			// this extlink MUST have inner contents, e.g. [foo] not allowed; [foo bar] [foo <i>bar</i>], etc. are allowed
 			function extlink() {
-				var result, parsedResult;
+				var result, parsedResult, target;
 				result = null;
 				parsedResult = sequence( [
 					openExtlink,
-					nonWhitespaceExpression,
+					nOrMore( 1, nonWhitespaceExpression ),
 					whitespace,
 					nOrMore( 1, expression ),
 					closeExtlink
 				] );
 				if ( parsedResult !== null ) {
-					result = [ 'EXTLINK', parsedResult[1] ];
-					// TODO (mattflaschen, 2013-03-22): Clean this up if possible.
-					// It's avoiding CONCAT for single nodes, so they at least doesn't get the htmlEmitter span.
-					if ( parsedResult[3].length === 1 ) {
-						result.push( parsedResult[3][0] );
-					} else {
-						result.push( ['CONCAT'].concat( parsedResult[3] ) );
-					}
+					// When the entire link target is a single parameter, we can't use CONCAT, as we allow
+					// passing fancy parameters (like a whole jQuery object or a function) to use for the
+					// link. Check only if it's a single match, since we can either do CONCAT or not for
+					// singles with the same effect.
+					target = parsedResult[ 1 ].length === 1 ?
+						parsedResult[ 1 ][ 0 ] :
+						[ 'CONCAT' ].concat( parsedResult[ 1 ] );
+					result = [
+						'EXTLINK',
+						target,
+						[ 'CONCAT' ].concat( parsedResult[ 3 ] )
+					];
 				}
 				return result;
-			}
-			// this is the same as the above extlink, except that the url is being passed on as a parameter
-			function extLinkParam() {
-				var result = sequence( [
-					openExtlink,
-					dollar,
-					digits,
-					whitespace,
-					expression,
-					closeExtlink
-				] );
-				if ( result === null ) {
-					return null;
-				}
-				return [ 'EXTLINKPARAM', parseInt( result[2], 10 ) - 1, result[4] ];
 			}
 			openWikilink = makeStringParser( '[[' );
 			closeWikilink = makeStringParser( ']]' );
@@ -577,26 +576,33 @@
 					templateContents,
 					closeTemplate
 				] );
-				return result === null ? null : result[1];
+				return result === null ? null : result[ 1 ];
 			}
-
-			wikilinkPage = choice( [
-				unescapedLiteralWithoutBar,
-				template
-			] );
 
 			function pipedWikilink() {
 				var result = sequence( [
-					wikilinkPage,
+					nOrMore( 1, paramExpression ),
 					pipe,
-					expression
+					nOrMore( 1, expression )
 				] );
-				return result === null ? null : [ result[0], result[2] ];
+				return result === null ? null : [
+					[ 'CONCAT' ].concat( result[ 0 ] ),
+					[ 'CONCAT' ].concat( result[ 2 ] )
+				];
+			}
+
+			function unpipedWikilink() {
+				var result = sequence( [
+					nOrMore( 1, paramExpression )
+				] );
+				return result === null ? null : [
+					[ 'CONCAT' ].concat( result[ 0 ] )
+				];
 			}
 
 			wikilinkContents = choice( [
 				pipedWikilink,
-				wikilinkPage // unpiped link
+				unpipedWikilink
 			] );
 
 			function wikilink() {
@@ -609,7 +615,7 @@
 					closeWikilink
 				] );
 				if ( parsedResult !== null ) {
-					parsedLinkContents = parsedResult[1];
+					parsedLinkContents = parsedResult[ 1 ];
 					result = [ 'WIKILINK' ].concat( parsedLinkContents );
 				}
 				return result;
@@ -622,7 +628,7 @@
 					htmlDoubleQuoteAttributeValue,
 					doubleQuote
 				] );
-				return parsedResult === null ? null : parsedResult[1];
+				return parsedResult === null ? null : parsedResult[ 1 ];
 			}
 
 			function singleQuotedHtmlAttributeValue() {
@@ -631,7 +637,7 @@
 					htmlSingleQuoteAttributeValue,
 					singleQuote
 				] );
-				return parsedResult === null ? null : parsedResult[1];
+				return parsedResult === null ? null : parsedResult[ 1 ];
 			}
 
 			function htmlAttribute() {
@@ -644,7 +650,7 @@
 						singleQuotedHtmlAttributeValue
 					] )
 				] );
-				return parsedResult === null ? null : [parsedResult[1], parsedResult[3]];
+				return parsedResult === null ? null : [ parsedResult[ 1 ], parsedResult[ 3 ] ];
 			}
 
 			/**
@@ -666,9 +672,9 @@
 				}
 
 				for ( i = 0, len = attributes.length; i < len; i += 2 ) {
-					attributeName = attributes[i];
+					attributeName = attributes[ i ];
 					if ( $.inArray( attributeName, settings.allowedHtmlCommonAttributes ) === -1 &&
-					     $.inArray( attributeName, settings.allowedHtmlAttributesByElement[startTagName] || [] ) === -1 ) {
+						$.inArray( attributeName, settings.allowedHtmlAttributesByElement[ startTagName ] || [] ) === -1 ) {
 						return false;
 					}
 				}
@@ -679,16 +685,16 @@
 			function htmlAttributes() {
 				var parsedResult = nOrMore( 0, htmlAttribute )();
 				// Un-nest attributes array due to structure of jQueryMsg operations (see emit).
-				return concat.apply( ['HTMLATTRIBUTES'], parsedResult );
+				return concat.apply( [ 'HTMLATTRIBUTES' ], parsedResult );
 			}
 
 			// Subset of allowed HTML markup.
 			// Most elements and many attributes allowed on the server are not supported yet.
 			function html() {
-				var result = null, parsedOpenTagResult, parsedHtmlContents,
-					parsedCloseTagResult, wrappedAttributes, attributes,
-					startTagName, endTagName, startOpenTagPos, startCloseTagPos,
-					endOpenTagPos, endCloseTagPos;
+				var parsedOpenTagResult, parsedHtmlContents, parsedCloseTagResult,
+					wrappedAttributes, attributes, startTagName, endTagName, startOpenTagPos,
+					startCloseTagPos, endOpenTagPos, endCloseTagPos,
+					result = null;
 
 				// Break into three sequence calls.  That should allow accurate reconstruction of the original HTML, and requiring an exact tag name match.
 				// 1. open through closeHtmlTag
@@ -710,7 +716,7 @@
 				}
 
 				endOpenTagPos = pos;
-				startTagName = parsedOpenTagResult[1];
+				startTagName = parsedOpenTagResult[ 1 ];
 
 				parsedHtmlContents = nOrMore( 0, expression )();
 
@@ -723,13 +729,13 @@
 
 				if ( parsedCloseTagResult === null ) {
 					// Closing tag failed.  Return the start tag and contents.
-					return [ 'CONCAT', input.substring( startOpenTagPos, endOpenTagPos ) ]
+					return [ 'CONCAT', input.slice( startOpenTagPos, endOpenTagPos ) ]
 						.concat( parsedHtmlContents );
 				}
 
 				endCloseTagPos = pos;
-				endTagName = parsedCloseTagResult[1];
-				wrappedAttributes = parsedOpenTagResult[2];
+				endTagName = parsedCloseTagResult[ 1 ];
+				wrappedAttributes = parsedOpenTagResult[ 2 ];
 				attributes = wrappedAttributes.slice( 1 );
 				if ( isAllowedHtml( startTagName, endTagName, attributes ) ) {
 					result = [ 'HTMLELEMENT', startTagName, wrappedAttributes ]
@@ -747,8 +753,8 @@
 					// parsed HTML link.
 					//
 					// Concatenate everything from the tag, flattening the contents.
-					result = [ 'CONCAT', input.substring( startOpenTagPos, endOpenTagPos ) ]
-						.concat( parsedHtmlContents, input.substring( startCloseTagPos, endCloseTagPos ) );
+					result = [ 'CONCAT', input.slice( startOpenTagPos, endOpenTagPos ) ]
+						.concat( parsedHtmlContents, input.slice( startCloseTagPos, endCloseTagPos ) );
 				}
 
 				return result;
@@ -769,9 +775,9 @@
 				if ( result === null ) {
 					return null;
 				}
-				expr = result[1];
+				expr = result[ 1 ];
 				// use a CONCAT operator if there are multiple nodes, otherwise return the first node, raw.
-				return expr.length > 1 ? [ 'CONCAT' ].concat( expr ) : expr[0];
+				return expr.length > 1 ? [ 'CONCAT' ].concat( expr ) : expr[ 0 ];
 			}
 
 			function templateWithReplacement() {
@@ -780,7 +786,7 @@
 					colon,
 					replacement
 				] );
-				return result === null ? null : [ result[0], result[2] ];
+				return result === null ? null : [ result[ 0 ], result[ 2 ] ];
 			}
 			function templateWithOutReplacement() {
 				var result = sequence( [
@@ -788,14 +794,14 @@
 					colon,
 					paramExpression
 				] );
-				return result === null ? null : [ result[0], result[2] ];
+				return result === null ? null : [ result[ 0 ], result[ 2 ] ];
 			}
 			function templateWithOutFirstParameter() {
 				var result = sequence( [
 					templateName,
 					colon
 				] );
-				return result === null ? null : [ result[0], '' ];
+				return result === null ? null : [ result[ 0 ], '' ];
 			}
 			colon = makeStringParser( ':' );
 			templateContents = choice( [
@@ -806,7 +812,7 @@
 						choice( [ templateWithReplacement, templateWithOutReplacement, templateWithOutFirstParameter ] ),
 						nOrMore( 0, templateParam )
 					] );
-					return res === null ? null : res[0].concat( res[1] );
+					return res === null ? null : res[ 0 ].concat( res[ 1 ] );
 				},
 				function () {
 					var res = sequence( [
@@ -816,7 +822,7 @@
 					if ( res === null ) {
 						return null;
 					}
-					return [ res[0] ].concat( res[1] );
+					return [ res[ 0 ] ].concat( res[ 1 ] );
 				}
 			] );
 			openTemplate = makeStringParser( '{{' );
@@ -824,7 +830,6 @@
 			nonWhitespaceExpression = choice( [
 				template,
 				wikilink,
-				extLinkParam,
 				extlink,
 				replacement,
 				literalWithoutSpace
@@ -832,7 +837,6 @@
 			paramExpression = choice( [
 				template,
 				wikilink,
-				extLinkParam,
 				extlink,
 				replacement,
 				literalWithoutBar
@@ -841,7 +845,6 @@
 			expression = choice( [
 				template,
 				wikilink,
-				extLinkParam,
 				extlink,
 				replacement,
 				html,
@@ -872,7 +875,6 @@
 			// I am deferring the work of turning it into prototypes & objects. It's quite fast enough
 			// finally let's do some actual work...
 
-			// If you add another possible rootExpression, you must update the astCache key scheme.
 			result = start( this.settings.onlyCurlyBraceTransform ? curlyBraceTransformExpression : expression );
 
 			/*
@@ -903,6 +905,7 @@
 		/**
 		 * (We put this method definition here, and not in prototype, to make sure it's not overwritten by any magic.)
 		 * Walk entire node structure, applying replacements and template functions when appropriate
+		 *
 		 * @param {Mixed} node Abstract syntax tree (top node or subnode)
 		 * @param {Array} replacements for $1, $2, ... $n
 		 * @return {Mixed} single-string node or array of nodes suitable for jQuery appending
@@ -921,8 +924,8 @@
 					subnodes = $.map( node.slice( 1 ), function ( n ) {
 						return jmsg.emit( n, replacements );
 					} );
-					operation = node[0].toLowerCase();
-					if ( typeof jmsg[operation] === 'function' ) {
+					operation = node[ 0 ].toLowerCase();
+					if ( typeof jmsg[ operation ] === 'function' ) {
 						ret = jmsg[ operation ]( subnodes, replacements );
 					} else {
 						throw new Error( 'Unknown operation "' + operation + '"' );
@@ -952,21 +955,16 @@
 		 * Parsing has been applied depth-first we can assume that all nodes here are single nodes
 		 * Must return a single node to parents -- a jQuery with synthetic span
 		 * However, unwrap any other synthetic spans in our children and pass them upwards
+		 *
 		 * @param {Mixed[]} nodes Some single nodes, some arrays of nodes
 		 * @return {jQuery}
 		 */
 		concat: function ( nodes ) {
 			var $span = $( '<span>' ).addClass( 'mediaWiki_htmlEmitter' );
 			$.each( nodes, function ( i, node ) {
-				if ( node instanceof jQuery && node.hasClass( 'mediaWiki_htmlEmitter' ) ) {
-					$.each( node.contents(), function ( j, childNode ) {
-						appendWithoutParsing( $span, childNode );
-					} );
-				} else {
-					// Let jQuery append nodes, arrays of nodes and jQuery objects
-					// other things (strings, numbers, ..) are appended as text nodes (not as HTML strings)
-					appendWithoutParsing( $span, node );
-				}
+				// Let jQuery append nodes, arrays of nodes and jQuery objects
+				// other things (strings, numbers, ..) are appended as text nodes (not as HTML strings)
+				appendWithoutParsing( $span, node );
 			} );
 			return $span;
 		},
@@ -984,10 +982,10 @@
 		 * @return {String} replacement
 		 */
 		replace: function ( nodes, replacements ) {
-			var index = parseInt( nodes[0], 10 );
+			var index = parseInt( nodes[ 0 ], 10 );
 
 			if ( index < replacements.length ) {
-				return replacements[index];
+				return replacements[ index ];
 			} else {
 				// index not found, fallback to displaying variable
 				return '$' + ( index + 1 );
@@ -1006,31 +1004,32 @@
 		 * from the server, since the replacement is done at save time.
 		 * It may, though, if the wikitext appears in extension-controlled content.
 		 *
-		 * @param nodes
+		 * @param {String[]} nodes
 		 */
 		wikilink: function ( nodes ) {
-			var page, anchor, url;
+			var page, anchor, url, $el;
 
-			page = nodes[0];
+			page = textify( nodes[ 0 ] );
+			// Strip leading ':', which is used to suppress special behavior in wikitext links,
+			// e.g. [[:Category:Foo]] or [[:File:Foo.jpg]]
+			if ( page.charAt( 0 ) === ':' ) {
+				page = page.slice( 1 );
+			}
 			url = mw.util.getUrl( page );
 
-			// [[Some Page]] or [[Namespace:Some Page]]
 			if ( nodes.length === 1 ) {
+				// [[Some Page]] or [[Namespace:Some Page]]
 				anchor = page;
+			} else {
+				// [[Some Page|anchor text]] or [[Namespace:Some Page|anchor]]
+				anchor = nodes[ 1 ];
 			}
 
-			/*
-			 * [[Some Page|anchor text]] or
-			 * [[Namespace:Some Page|anchor]
-			 */
-			else {
-				anchor = nodes[1];
-			}
-
-			return $( '<a>' ).attr( {
+			$el = $( '<a>' ).attr( {
 				title: page,
 				href: url
-			} ).text( anchor );
+			} );
+			return appendWithoutParsing( $el, anchor );
 		},
 
 		/**
@@ -1043,7 +1042,7 @@
 		htmlattributes: function ( nodes ) {
 			var i, len, mapping = {};
 			for ( i = 0, len = nodes.length; i < len; i += 2 ) {
-				mapping[nodes[i]] = decodePrimaryHtmlEntities( nodes[i + 1] );
+				mapping[ nodes[ i ] ] = decodePrimaryHtmlEntities( nodes[ i + 1 ] );
 			}
 			return mapping;
 		},
@@ -1065,11 +1064,12 @@
 		},
 
 		/**
-		 * Transform parsed structure into external link
-		 * If the href is a jQuery object, treat it as "enclosing" the link text.
+		 * Transform parsed structure into external link.
 		 *
-		 * - ... function, treat it as the click handler.
-		 * - ... string, treat it as a URI.
+		 * The "href" can be:
+		 * - a jQuery object, treat it as "enclosing" the link text.
+		 * - a function, treat it as the click handler.
+		 * - a string, or our htmlEmitter jQuery object, treat it as a URI after stringifying.
 		 *
 		 * TODO: throw an error if nodes.length > 2 ?
 		 *
@@ -1078,56 +1078,70 @@
 		 */
 		extlink: function ( nodes ) {
 			var $el,
-				arg = nodes[0],
-				contents = nodes[1];
-			if ( arg instanceof jQuery ) {
+				arg = nodes[ 0 ],
+				contents = nodes[ 1 ];
+			if ( arg instanceof jQuery && !arg.hasClass( 'mediaWiki_htmlEmitter' ) ) {
 				$el = arg;
 			} else {
 				$el = $( '<a>' );
 				if ( typeof arg === 'function' ) {
-					$el.click( arg ).attr( 'href', '#' );
+					$el.attr( 'href', '#' )
+					.click( function ( e ) {
+						e.preventDefault();
+					} )
+					.click( arg );
 				} else {
-					$el.attr( 'href', arg.toString() );
+					$el.attr( 'href', textify( arg ) );
 				}
 			}
 			return appendWithoutParsing( $el, contents );
 		},
 
 		/**
-		 * This is basically use a combination of replace + external link (link with parameter
-		 * as url), but we don't want to run the regular replace here-on: inserting a
-		 * url as href-attribute of a link will automatically escape it already, so
-		 * we don't want replace to (manually) escape it as well.
-		 *
-		 * TODO: throw error if nodes.length > 1 ?
-		 *
-		 * @param {Array} nodes List of one element, integer, n >= 0
-		 * @param {Array} replacements List of at least n strings
-		 * @return {string} replacement
-		 */
-		extlinkparam: function ( nodes, replacements ) {
-			var replacement,
-				index = parseInt( nodes[0], 10 );
-			if ( index < replacements.length ) {
-				replacement = replacements[index];
-			} else {
-				replacement = '$' + ( index + 1 );
-			}
-			return this.extlink( [ replacement, nodes[1] ] );
-		},
-
-		/**
 		 * Transform parsed structure into pluralization
 		 * n.b. The first node may be a non-integer (for instance, a string representing an Arabic number).
 		 * So convert it back with the current language's convertNumber.
+		 *
 		 * @param {Array} nodes List of nodes, [ {string|number}, {string}, {string} ... ]
 		 * @return {string} selected pluralized form according to current language
 		 */
 		plural: function ( nodes ) {
-			var forms, count;
-			count = parseFloat( this.language.convertNumber( nodes[0], true ) );
+			var forms, firstChild, firstChildText, explicitPluralFormNumber, formIndex, form, count,
+				explicitPluralForms = {};
+
+			count = parseFloat( this.language.convertNumber( nodes[ 0 ], true ) );
 			forms = nodes.slice( 1 );
-			return forms.length ? this.language.convertPlural( count, forms ) : '';
+			for ( formIndex = 0; formIndex < forms.length; formIndex++ ) {
+				form = forms[ formIndex ];
+
+				if ( form instanceof jQuery && form.hasClass( 'mediaWiki_htmlEmitter' ) ) {
+					// This is a nested node, may be an explicit plural form like 5=[$2 linktext]
+					firstChild = form.contents().get( 0 );
+					if ( firstChild && firstChild.nodeType === Node.TEXT_NODE ) {
+						firstChildText = firstChild.textContent;
+						if ( /^\d+=/.test( firstChildText ) ) {
+							explicitPluralFormNumber = parseInt( firstChildText.split( /=/ )[ 0 ], 10 );
+							// Use the digit part as key and rest of first text node and
+							// rest of child nodes as value.
+							firstChild.textContent = firstChildText.slice( firstChildText.indexOf( '=' ) + 1 );
+							explicitPluralForms[ explicitPluralFormNumber ] = form;
+							forms[ formIndex ] = undefined;
+						}
+					}
+				} else if ( /^\d+=/.test( form ) ) {
+					// Simple explicit plural forms like 12=a dozen
+					explicitPluralFormNumber = parseInt( form.split( /=/ )[ 0 ], 10 );
+					explicitPluralForms[ explicitPluralFormNumber ] = form.slice( form.indexOf( '=' ) + 1 );
+					forms[ formIndex ] = undefined;
+				}
+			}
+
+			// Remove explicit plural forms from the forms. They were set undefined in the above loop.
+			forms = $.map( forms, function ( form ) {
+				return form;
+			} );
+
+			return this.language.convertPlural( count, forms, explicitPluralForms );
 		},
 
 		/**
@@ -1145,7 +1159,7 @@
 		 */
 		gender: function ( nodes ) {
 			var gender,
-				maybeUser = nodes[0],
+				maybeUser = nodes[ 0 ],
 				forms = nodes.slice( 1 );
 
 			if ( maybeUser === '' ) {
@@ -1166,35 +1180,39 @@
 		/**
 		 * Transform parsed structure into grammar conversion.
 		 * Invoked by putting `{{grammar:form|word}}` in a message
+		 *
 		 * @param {Array} nodes List of nodes [{Grammar case eg: genitive}, {string word}]
 		 * @return {string} selected grammatical form according to current language
 		 */
 		grammar: function ( nodes ) {
-			var form = nodes[0],
-				word = nodes[1];
+			var form = nodes[ 0 ],
+				word = nodes[ 1 ];
 			return word && form && this.language.convertGrammar( word, form );
 		},
 
 		/**
 		 * Tranform parsed structure into a int: (interface language) message include
 		 * Invoked by putting `{{int:othermessage}}` into a message
+		 *
 		 * @param {Array} nodes List of nodes
 		 * @return {string} Other message
 		 */
 		'int': function ( nodes ) {
-			return mw.jqueryMsg.getMessageFunction()( nodes[0].toLowerCase() );
+			var msg = nodes[ 0 ];
+			return mw.jqueryMsg.getMessageFunction()( msg.charAt( 0 ).toLowerCase() + msg.slice( 1 ) );
 		},
 
 		/**
 		 * Takes an unformatted number (arab, no group separators and . as decimal separator)
 		 * and outputs it in the localized digit script and formatted with decimal
 		 * separator, according to the current language.
+		 *
 		 * @param {Array} nodes List of nodes
 		 * @return {number|string} Formatted number
 		 */
 		formatnum: function ( nodes ) {
-			var isInteger = ( nodes[1] && nodes[1] === 'R' ) ? true : false,
-				number = nodes[0];
+			var isInteger = ( nodes[ 1 ] && nodes[ 1 ] === 'R' ) ? true : false,
+				number = nodes[ 0 ];
 
 			return this.language.convertNumber( number, isInteger );
 		}
@@ -1229,9 +1247,9 @@
 		}
 
 		messageFunction = mw.jqueryMsg.getMessageFunction( {
-			'messages': this.map,
+			messages: this.map,
 			// For format 'escaped', escaping part is handled by mediawiki.js
-			'format': this.format
+			format: this.format
 		} );
 		return messageFunction( this.key, this.parameters );
 	};

@@ -1,8 +1,7 @@
 <?php
 /** Albanian (shqip)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -97,7 +96,6 @@ $specialPageAliases = array(
 	'Myuploads'                 => array( 'NgarkimeteMia' ),
 	'Newimages'                 => array( 'SkedaTëReja' ),
 	'Newpages'                  => array( 'FaqeteReja' ),
-	'Popularpages'              => array( 'FaqetëFamshme' ),
 	'Preferences'               => array( 'Preferencat' ),
 	'Protectedpages'            => array( 'FaqeteMbrojtura' ),
 	'Protectedtitles'           => array( 'TitujteMbrojtur' ),
@@ -157,7 +155,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'NUMRIIPËRDORUESVE', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'NUMRIIPËRDORUESVEAKTIVË', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'NUMRIREDAKTIMEVE', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'NUMRIISHIKIMEVE', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'EMRIFAQES', 'PAGENAME' ),
 	'namespace'                 => array( '1', 'HAPËSIRA', 'NAMESPACE' ),
 	'fullpagename'              => array( '1', 'EMRIIPLOTËIFAQES', 'FULLPAGENAME' ),
@@ -197,7 +194,6 @@ $magicWords = array(
 	'fullurl'                   => array( '0', 'URLEPLOTË', 'FULLURL:' ),
 	'language'                  => array( '0', '#GJUHA:', '#LANGUAGE:' ),
 	'numberofadmins'            => array( '1', 'NUMRIIADMINISTRUESVE', 'NUMBEROFADMINS' ),
-	'special'                   => array( '0', 'speciale', 'special' ),
 	'hiddencat'                 => array( '1', '__KATEGORIEFSHEHUR__', '__HIDDENCAT__' ),
 	'pagesize'                  => array( '1', 'MADHËSIAEFAQES', 'PAGESIZE' ),
 );

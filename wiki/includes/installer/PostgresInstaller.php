@@ -83,10 +83,7 @@ class PostgresInstaller extends DatabaseInstaller {
 
 	function submitConnectForm() {
 		// Get variables from the request
-		$newValues = $this->setVarsFromRequest( array(
-			'wgDBserver', 'wgDBport','wgDBname', 'wgDBmwschema',
-			'_InstallUser', '_InstallPassword'
-		) );
+		$newValues = $this->setVarsFromRequest( array( 'wgDBserver', 'wgDBport', 'wgDBname', 'wgDBmwschema' ) );
 
 		// Validate them
 		$status = Status::newGood();
@@ -97,12 +94,6 @@ class PostgresInstaller extends DatabaseInstaller {
 		}
 		if ( !preg_match( '/^[a-zA-Z0-9_]*$/', $newValues['wgDBmwschema'] ) ) {
 			$status->fatal( 'config-invalid-schema', $newValues['wgDBmwschema'] );
-		}
-		if ( !strlen( $newValues['_InstallUser'] ) ) {
-			$status->fatal( 'config-db-username-empty' );
-		}
-		if ( !strlen( $newValues['_InstallPassword'] ) ) {
-			$status->fatal( 'config-db-password-empty', $newValues['_InstallUser'] );
 		}
 
 		// Submit user box
@@ -158,7 +149,7 @@ class PostgresInstaller extends DatabaseInstaller {
 	protected function openConnectionWithParams( $user, $password, $dbName, $schema ) {
 		$status = Status::newGood();
 		try {
-			$db = Database::factory( 'postgres', array(
+			$db = DatabaseBase::factory( 'postgres', array(
 				'host' => $this->getVar( 'wgDBserver' ),
 				'user' => $user,
 				'password' => $password,
@@ -219,8 +210,7 @@ class PostgresInstaller extends DatabaseInstaller {
 	 *    - create-tables: A connection with a role suitable for creating tables.
 	 *
 	 * @throws MWException
-	 * @return Status object. On success, a connection object will be in the
-	 *   value member.
+	 * @return Status On success, a connection object will be in the value member.
 	 */
 	protected function openPgConnection( $type ) {
 		switch ( $type ) {
@@ -263,11 +253,13 @@ class PostgresInstaller extends DatabaseInstaller {
 		$status = Status::newGood();
 		foreach ( $dbs as $db ) {
 			try {
-				$conn = $this->openConnectionWithParams(
-					$user,
-					$password,
-					$db,
-					$this->getVar( 'wgDBmwschema' ) );
+				$p = array(
+					'host' => $this->getVar( 'wgDBserver' ),
+					'user' => $user,
+					'password' => $password,
+					'dbname' => $db
+				);
+				$conn = DatabaseBase::factory( 'postgres', $p );
 			} catch ( DBConnectionError $error ) {
 				$conn = false;
 				$status->fatal( 'config-pg-test-error', $db,
@@ -416,7 +408,7 @@ class PostgresInstaller extends DatabaseInstaller {
 
 	/**
 	 * Recursive helper for canCreateObjectsForWebUser().
-	 * @param $conn DatabaseBase object
+	 * @param DatabaseBase $conn
 	 * @param int $targetMember Role ID of the member to look for
 	 * @param int $group Role ID of the group to look for
 	 * @param int $maxDepth Maximum recursive search depth

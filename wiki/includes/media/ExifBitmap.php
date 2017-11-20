@@ -30,6 +30,7 @@
 class ExifBitmapHandler extends BitmapHandler {
 	const BROKEN_FILE = '-1'; // error extracting metadata
 	const OLD_BROKEN_FILE = '0'; // outdated error extracting metadata.
+	const SRGB_ICC_PROFILE_NAME = 'IEC 61966-2.1 Default RGB colour space - sRGB';
 
 	function convertMetadataVersion( $metadata, $version = 1 ) {
 		// basically flattens arrays.
@@ -80,7 +81,7 @@ class ExifBitmapHandler extends BitmapHandler {
 	}
 
 	/**
-	 * @param $image
+	 * @param File $image
 	 * @param array $metadata
 	 * @return bool|int
 	 */
@@ -100,9 +101,9 @@ class ExifBitmapHandler extends BitmapHandler {
 		if ( $metadata === self::BROKEN_FILE ) {
 			return self::METADATA_GOOD;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$exif = unserialize( $metadata );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( !isset( $exif['MEDIAWIKI_EXIF_VERSION'] )
 			|| $exif['MEDIAWIKI_EXIF_VERSION'] != Exif::version()
 		) {
@@ -125,15 +126,16 @@ class ExifBitmapHandler extends BitmapHandler {
 
 	/**
 	 * @param File $image
+	 * @param bool|IContextSource $context Context to use (optional)
 	 * @return array|bool
 	 */
-	function formatMetadata( $image ) {
+	function formatMetadata( $image, $context = false ) {
 		$meta = $this->getCommonMetaArray( $image );
 		if ( count( $meta ) === 0 ) {
 			return false;
 		}
 
-		return $this->formatMetadataHelper( $meta );
+		return $this->formatMetadataHelper( $meta, $context );
 	}
 
 	public function getCommonMetaArray( File $file ) {
@@ -173,7 +175,7 @@ class ExifBitmapHandler extends BitmapHandler {
 
 		// Don't just call $image->getMetadata(); FSFile::getPropsFromPath() calls us with a bogus object.
 		// This may mean we read EXIF data twice on initial upload.
-		if ( BitmapHandler::autoRotateEnabled() ) {
+		if ( $this->autoRotateEnabled() ) {
 			$meta = $this->getMetadata( $image, $path );
 			$rotation = $this->getRotationForExif( $meta );
 		} else {
@@ -198,11 +200,11 @@ class ExifBitmapHandler extends BitmapHandler {
 	 * the width and height we normally work with is logical, and will match
 	 * any produced output views.
 	 *
-	 * @param $file File
+	 * @param File $file
 	 * @return int 0, 90, 180 or 270
 	 */
 	public function getRotation( $file ) {
-		if ( !BitmapHandler::autoRotateEnabled() ) {
+		if ( !$this->autoRotateEnabled() ) {
 			return 0;
 		}
 
@@ -223,9 +225,9 @@ class ExifBitmapHandler extends BitmapHandler {
 		if ( !$data ) {
 			return 0;
 		}
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$data = unserialize( $data );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( isset( $data['Orientation'] ) ) {
 			# See http://sylvana.net/jpegcrop/exif_orientation.html
 			switch ( $data['Orientation'] ) {
@@ -241,5 +243,74 @@ class ExifBitmapHandler extends BitmapHandler {
 		}
 
 		return 0;
+	}
+
+	protected function transformImageMagick( $image, $params ) {
+		global $wgUseTinyRGBForJPGThumbnails;
+
+		$ret = parent::transformImageMagick( $image, $params );
+
+		if ( $ret ) {
+			return $ret;
+		}
+
+		if ( $params['mimeType'] === 'image/jpeg' && $wgUseTinyRGBForJPGThumbnails ) {
+			// T100976 If the profile embedded in the JPG is sRGB, swap it for the smaller
+			// (and free) TinyRGB
+
+			$this->swapICCProfile(
+				$params['dstPath'],
+				self::SRGB_ICC_PROFILE_NAME,
+				realpath( __DIR__ ) . '/tinyrgb.icc'
+			);
+		}
+
+		return false;
+	}
+
+	/**
+	 * Swaps an embedded ICC profile for another, if found. Depends on exiftool, no-op if not installed.
+	 * @param string $filepath File to be manipulated (will be overwritten)
+	 * @param string $oldProfileString Exact name of color profile to look for (the one that will be replaced)
+	 * @param string $profileFilepath ICC profile file to apply to the file
+	 * @since 1.26
+	 * @return bool
+	 */
+	public function swapICCProfile( $filepath, $oldProfileString, $profileFilepath ) {
+		global $wgExiftool;
+
+		if ( !$wgExiftool || !is_executable( $wgExiftool ) ) {
+			return false;
+		}
+
+		$cmd = wfEscapeShellArg( $wgExiftool,
+			'-DeviceModelDesc',
+			'-S',
+			'-T',
+			$filepath
+		);
+
+		$output = wfShellExecWithStderr( $cmd, $retval );
+
+		if ( $retval !== 0 || strcasecmp( trim( $output ), $oldProfileString ) !== 0 ) {
+			// We can't establish that this file has the expected ICC profile, don't process it
+			return false;
+		}
+
+		$cmd = wfEscapeShellArg( $wgExiftool,
+			'-overwrite_original',
+			'-icc_profile<=' . $profileFilepath,
+			$filepath
+		);
+
+		$output = wfShellExecWithStderr( $cmd, $retval );
+
+		if ( $retval !== 0 ) {
+			$this->logErrorForExternalProcess( $retval, $output, $cmd );
+
+			return false;
+		}
+
+		return true;
 	}
 }

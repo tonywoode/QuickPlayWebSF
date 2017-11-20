@@ -2,7 +2,6 @@
 /**
  * Scan the logging table and purge affected files within a timeframe.
  *
- * @section LICENSE
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -167,7 +166,6 @@ class PurgeChangedFiles extends Maintenance {
 
 				// Purge current version and any versions in oldimage table
 				$file->purgeCache();
-				$file->purgeHistory();
 
 				if ( $logType === 'delete' ) {
 					// If there is an orphaned storage file... delete it
@@ -177,7 +175,6 @@ class PurgeChangedFiles extends Maintenance {
 							// Sanity check to avoid data loss
 							$repo->getBackend()->delete( array( 'src' => $file->getPath() ) );
 							$this->verbose( "Deleted orphan file: {$file->getPath()}.\n" );
-
 						} else {
 							$this->error( "File was not deleted: {$file->getPath()}.\n" );
 						}
@@ -185,7 +182,6 @@ class PurgeChangedFiles extends Maintenance {
 
 					// Purge items from fileachive table (rows are likely here)
 					$this->purgeFromArchiveTable( $repo, $file );
-
 				} elseif ( $logType === 'move' ) {
 					// Purge the target file as well
 
@@ -194,7 +190,6 @@ class PurgeChangedFiles extends Maintenance {
 						$target = $params['4::target'];
 						$targetFile = $repo->newFile( Title::makeTitle( NS_FILE, $target ) );
 						$targetFile->purgeCache();
-						$targetFile->purgeHistory();
 						$this->verbose( "Purged file {$target}; move target @{$row->log_timestamp}.\n" );
 					}
 				}
@@ -232,7 +227,6 @@ class PurgeChangedFiles extends Maintenance {
 					// Sanity check to avoid data loss
 					$repo->getBackend()->delete( array( 'src' => $ofile->getPath() ) );
 					$this->output( "Deleted orphan file: {$ofile->getPath()}.\n" );
-
 				} else {
 					$this->error( "File was not deleted: {$ofile->getPath()}.\n" );
 				}
@@ -244,6 +238,7 @@ class PurgeChangedFiles extends Maintenance {
 	protected function getDeletedPath( LocalRepo $repo, LocalFile $file ) {
 		$hash = $repo->getFileSha1( $file->getPath() );
 		$key = "{$hash}.{$file->getExtension()}";
+
 		return $repo->getDeletedHashPath( $key ) . $key;
 	}
 
@@ -257,7 +252,6 @@ class PurgeChangedFiles extends Maintenance {
 			$this->output( $msg );
 		}
 	}
-
 }
 
 $maintClass = "PurgeChangedFiles";

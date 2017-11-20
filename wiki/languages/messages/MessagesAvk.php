@@ -1,8 +1,7 @@
 <?php
 /** Kotava (Kotava)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -15,11 +14,11 @@ $namespaceNames = array(
 	NS_TALK             => 'Prilara',
 	NS_USER             => 'Favesik',
 	NS_USER_TALK        => 'Favesikprilara',
-	NS_PROJECT_TALK     => '$1 prilara',
+	NS_PROJECT_TALK     => '$1_prilara',
 	NS_FILE             => 'Ewava',
 	NS_FILE_TALK        => 'Ewavaprilara',
 	NS_MEDIAWIKI        => 'MediaWiki',
-	NS_MEDIAWIKI_TALK   => 'MediaWiki prilara',
+	NS_MEDIAWIKI_TALK   => 'MediaWiki_prilara',
 	NS_TEMPLATE         => 'Teza',
 	NS_TEMPLATE_TALK    => 'Tezaprilara',
 	NS_HELP             => 'Pomara',
@@ -63,7 +62,6 @@ $specialPageAliases = array(
 	'Mytalk'                    => array( 'JinafaPrilara' ),
 	'Newimages'                 => array( 'WarzafEwaveem' ),
 	'Newpages'                  => array( 'WarzafBueem' ),
-	'Popularpages'              => array( 'LorupenBueem' ),
 	'Preferences'               => array( 'Lodamaceem' ),
 	'Protectedpages'            => array( 'NendanBueem' ),
 	'Protectedtitles'           => array( 'NendanVergumvelteem' ),

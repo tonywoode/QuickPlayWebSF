@@ -1,8 +1,7 @@
 <?php
 /** Sundanese (Basa Sunda)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -30,7 +29,7 @@ $namespaceNames = array(
 	NS_FILE             => 'Gambar',
 	NS_FILE_TALK        => 'Obrolan_gambar',
 	NS_MEDIAWIKI        => 'MédiaWiki',
-	NS_MEDIAWIKI_TALK   => 'Obrolan MédiaWiki',
+	NS_MEDIAWIKI_TALK   => 'Obrolan_MédiaWiki',
 	NS_TEMPLATE         => 'Citakan',
 	NS_TEMPLATE_TALK    => 'Obrolan_citakan',
 	NS_HELP             => 'Pitulung',
@@ -89,7 +88,6 @@ $specialPageAliases = array(
 	'Mytalk'                    => array( 'ObrolanKuring' ),
 	'Newimages'                 => array( 'GambarAnyar' ),
 	'Newpages'                  => array( 'KacaAnyar' ),
-	'Popularpages'              => array( 'KacaPayu' ),
 	'Preferences'               => array( 'Preferensi' ),
 	'Prefixindex'               => array( 'IndeksAwalan' ),
 	'Protectedpages'            => array( 'KacaDikonci' ),

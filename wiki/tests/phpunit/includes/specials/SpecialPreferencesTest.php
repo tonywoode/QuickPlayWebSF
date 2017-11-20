@@ -4,10 +4,11 @@
  *
  * Copyright © 2013, Antoine Musso
  * Copyright © 2013, Wikimedia Foundation Inc.
- *
  */
 
 /**
+ * @group Database
+ *
  * @covers SpecialPreferences
  */
 class SpecialPreferencesTest extends MediaWikiTestCase {
@@ -51,7 +52,7 @@ class SpecialPreferencesTest extends MediaWikiTestCase {
 		# Do the call, should not spurt a fatal error.
 		$special = new SpecialPreferences();
 		$special->setContext( $context );
-		$special->execute( array() );
+		$this->assertNull( $special->execute( array() ) );
 	}
 
 }

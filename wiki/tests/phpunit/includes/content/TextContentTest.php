@@ -15,6 +15,10 @@ class TextContentTest extends MediaWikiLangTestCase {
 		$user = new User();
 		$user->setName( '127.0.0.1' );
 
+		$this->context = new RequestContext( new FauxRequest() );
+		$this->context->setTitle( Title::newFromText( 'Test' ) );
+		$this->context->setUser( $user );
+
 		$this->setMwGlobals( array(
 			'wgUser' => $user,
 			'wgTextModelsToParse' => array(
@@ -23,12 +27,16 @@ class TextContentTest extends MediaWikiLangTestCase {
 				CONTENT_MODEL_JAVASCRIPT,
 			),
 			'wgUseTidy' => false,
-			'wgAlwaysUseTidy' => false,
+			'wgCapitalLinks' => true,
+			'wgHooks' => array(), // bypass hook ContentGetParserOutput that force custom rendering
 		) );
 
-		$this->context = new RequestContext( new FauxRequest() );
-		$this->context->setTitle( Title::newFromText( 'Test' ) );
-		$this->context->setUser( $user );
+		MWTidy::destroySingleton();
+	}
+
+	protected function tearDown() {
+		MWTidy::destroySingleton();
+		parent::tearDown();
 	}
 
 	public function newContent( $text ) {
@@ -53,7 +61,9 @@ class TextContentTest extends MediaWikiLangTestCase {
 	 * @dataProvider dataGetParserOutput
 	 * @covers TextContent::getParserOutput
 	 */
-	public function testGetParserOutput( $title, $model, $text, $expectedHtml, $expectedFields = null ) {
+	public function testGetParserOutput( $title, $model, $text, $expectedHtml,
+		$expectedFields = null
+	) {
 		$title = Title::newFromText( $title );
 		$content = ContentHandler::makeContent( $text, $title, $model );
 
@@ -105,7 +115,11 @@ class TextContentTest extends MediaWikiLangTestCase {
 		$options = ParserOptions::newFromUserAndLang( $this->context->getUser(), $wgContLang );
 
 		$content = $this->newContent( $text );
-		$content = $content->preSaveTransform( $this->context->getTitle(), $this->context->getUser(), $options );
+		$content = $content->preSaveTransform(
+			$this->context->getTitle(),
+			$this->context->getUser(),
+			$options
+		);
 
 		$this->assertEquals( $expected, $content->getNativeData() );
 	}
@@ -223,8 +237,13 @@ class TextContentTest extends MediaWikiLangTestCase {
 
 		$v = $content->isCountable( $hasLinks, $this->context->getTitle() );
 
-		$this->assertEquals( $expected, $v, 'isCountable() returned unexpected value ' . var_export( $v, true )
-			. ' instead of ' . var_export( $expected, true ) . " in mode `$mode` for text \"$text\"" );
+		$this->assertEquals(
+			$expected,
+			$v,
+			'isCountable() returned unexpected value ' . var_export( $v, true )
+				. ' instead of ' . var_export( $expected, true )
+				. " in mode `$mode` for text \"$text\""
+		);
 	}
 
 	public static function dataGetTextForSummary() {

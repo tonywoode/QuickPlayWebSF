@@ -4,7 +4,7 @@
  * @author Adam Shorland
  * @covers TitleArrayFromResult
  */
-class TitleArrayFromResultTest extends MediaWikiTestCase {
+class TitleArrayFromResultTest extends PHPUnit_Framework_TestCase {
 
 	private function getMockResultWrapper( $row = null, $numRows = 1 ) {
 		$resultWrapper = $this->getMockBuilder( 'ResultWrapper' )
@@ -64,7 +64,7 @@ class TitleArrayFromResultTest extends MediaWikiTestCase {
 		$this->assertEquals( $title, $object->current->mTextform );
 	}
 
-	public function provideNumberOfRows() {
+	public static function provideNumberOfRows() {
 		return array(
 			array( 0 ),
 			array( 1 ),
@@ -77,7 +77,10 @@ class TitleArrayFromResultTest extends MediaWikiTestCase {
 	 * @covers TitleArrayFromResult::count
 	 */
 	public function testCountWithVaryingValues( $numRows ) {
-		$object = $this->getTitleArrayFromResult( $this->getMockResultWrapper( $this->getRowWithTitle(), $numRows ) );
+		$object = $this->getTitleArrayFromResult( $this->getMockResultWrapper(
+			$this->getRowWithTitle(),
+			$numRows
+		) );
 		$this->assertEquals( $numRows, $object->count() );
 	}
 

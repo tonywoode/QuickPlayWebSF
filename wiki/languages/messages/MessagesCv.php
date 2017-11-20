@@ -1,8 +1,7 @@
 <?php
 /** Chuvash (Чӑвашла)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -14,7 +13,7 @@ $fallback = 'ru';
 $namespaceNames = array(
 	NS_MEDIA            => 'Медиа',
 	NS_SPECIAL          => 'Ятарлă',
-	NS_TALK             => 'Сӳтсе явасси',
+	NS_TALK             => 'Сӳтсе_явасси',
 	NS_USER             => 'Хутшăнакан',
 	NS_USER_TALK        => 'Хутшăнаканăн_канашлу_страници',
 	NS_PROJECT_TALK     => '$1_сӳтсе_явмалли',

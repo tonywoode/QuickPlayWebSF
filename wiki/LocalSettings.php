@@ -8,7 +8,7 @@ ini_set( 'display_errors', 1 );
 # See includes/DefaultSettings.php for all configurable settings
 # and their default values, but don't forget to make changes in _this_
 # file, not there.
-
+wfLoadSkin( 'Gamepress' );
 # If you customize your file layout, set $IP to the directory that contains
 # the other MediaWiki files. It will be used as a base to locate files.
 if( defined( 'MW_INSTALL_PATH' ) ) {
@@ -68,6 +68,7 @@ $wgEnotifUserTalk = true; # UPO
 $wgEnotifWatchlist = true; # UPO
 $wgEmailAuthentication = true;
 
+## note when upgrading mediawiki I had to change wgDBServer from "locahost" to "127.0.0.1:8889"
 $wgDBserver         = "";
 $wgDBname           = "";
 $wgDBuser           = "";
@@ -87,6 +88,7 @@ $wgMemCachedServers = array();
 $wgEnableUploads		= true;
 $wgUseImageResize		= true;
 $wgUseImageMagick = true;
+## for osx/local i've setup an ln to /usr/local/bin/convert. osx SIP doesn't allow the below ln to be made
 $wgImageMagickConvertCommand = "/usr/bin/convert";
 $wgAllowExternalImages = true;
 
@@ -112,8 +114,9 @@ $wgProxyKey = "";
 
 ## Default skin: you can change the default skin. Use the internal symbolic
 ## names, ie 'standard', 'nostalgia', 'cologneblue', 'monobook':
-$wgDefaultSkin = 'monobook';
 
+##$wgDefaultSkin = 'monobook';
+$wgDefaultSkin = 'Gamepress';
 ## For attaching licensing metadata to pages, and displaying an
 ## appropriate copyright notice / icon. GNU Free Documentation
 ## License and Creative Commons licenses are supported so far.
@@ -137,3 +140,6 @@ $wgCacheEpoch = max( $wgCacheEpoch, $configdate );
 $wgGroupPermissions['*']['createaccount'] = false;
 $wgGroupPermissions['*']['edit'] = false;
 ?>
+
+wfLoadSkin( 'Gamepress' );
+

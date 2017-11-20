@@ -38,9 +38,13 @@ class BlockTest extends MediaWikiLangTestCase {
 			$oldBlock->delete();
 		}
 
-		$this->block = new Block( 'UTBlockee', $user->getID(), 0,
-			'Parce que', 0, false, time() + 100500
+		$blockOptions = array(
+			'address' => 'UTBlockee',
+			'user' => $user->getID(),
+			'reason' => 'Parce que',
+			'expiry' => time() + 100500,
 		);
+		$this->block = new Block( $blockOptions );
 		$this->madeAt = wfTimestamp( TS_MW );
 
 		$this->block->insert();
@@ -72,14 +76,20 @@ class BlockTest extends MediaWikiLangTestCase {
 	 * @covers Block::newFromTarget
 	 */
 	public function testINewFromTargetReturnsCorrectBlock() {
-		$this->assertTrue( $this->block->equals( Block::newFromTarget( 'UTBlockee' ) ), "newFromTarget() returns the same block as the one that was made" );
+		$this->assertTrue(
+			$this->block->equals( Block::newFromTarget( 'UTBlockee' ) ),
+			"newFromTarget() returns the same block as the one that was made"
+		);
 	}
 
 	/**
 	 * @covers Block::newFromID
 	 */
 	public function testINewFromIDReturnsCorrectBlock() {
-		$this->assertTrue( $this->block->equals( Block::newFromID( $this->blockId ) ), "newFromID() returns the same block as the one that was made" );
+		$this->assertTrue(
+			$this->block->equals( Block::newFromID( $this->blockId ) ),
+			"newFromID() returns the same block as the one that was made"
+		);
 	}
 
 	/**
@@ -88,7 +98,11 @@ class BlockTest extends MediaWikiLangTestCase {
 	public function testBug26425BlockTimestampDefaultsToTime() {
 		// delta to stop one-off errors when things happen to go over a second mark.
 		$delta = abs( $this->madeAt - $this->block->mTimestamp );
-		$this->assertLessThan( 2, $delta, "If no timestamp is specified, the block is recorded as time()" );
+		$this->assertLessThan(
+			2,
+			$delta,
+			"If no timestamp is specified, the block is recorded as time()"
+		);
 	}
 
 	/**
@@ -101,7 +115,11 @@ class BlockTest extends MediaWikiLangTestCase {
 	 */
 	public function testBug29116NewFromTargetWithEmptyIp( $vagueTarget ) {
 		$block = Block::newFromTarget( 'UTBlockee', $vagueTarget );
-		$this->assertTrue( $this->block->equals( $block ), "newFromTarget() returns the same block as the one that was made when given empty vagueTarget param " . var_export( $vagueTarget, true ) );
+		$this->assertTrue(
+			$this->block->equals( $block ),
+			"newFromTarget() returns the same block as the one that was made when "
+				. "given empty vagueTarget param " . var_export( $vagueTarget, true )
+		);
 	}
 
 	public static function provideBug29116Data() {
@@ -119,6 +137,7 @@ class BlockTest extends MediaWikiLangTestCase {
 		$username = 'BlockedUserToCreateAccountWith';
 		$u = User::newFromName( $username );
 		$u->setPassword( 'NotRandomPass' );
+		$u->setId( 14146 );
 		$u->addToDatabase();
 		unset( $u );
 
@@ -136,22 +155,19 @@ class BlockTest extends MediaWikiLangTestCase {
 		);
 
 		// Foreign perspective (blockee not on current wiki)...
-		$block = new Block(
-			/* $address */ $username,
-			/* $user */ 14146,
-			/* $by */ 0,
-			/* $reason */ 'crosswiki block...',
-			/* $timestamp */ wfTimestampNow(),
-			/* $auto */ false,
-			/* $expiry */ $this->db->getInfinity(),
-			/* anonOnly */ false,
-			/* $createAccount */ true,
-			/* $enableAutoblock */ true,
-			/* $hideName (ipb_deleted) */ true,
-			/* $blockEmail */ true,
-			/* $allowUsertalk */ false,
-			/* $byName */ 'MetaWikiUser'
+		$blockOptions = array(
+			'address' => $username,
+			'user' => 14146,
+			'reason' => 'crosswiki block...',
+			'timestamp' => wfTimestampNow(),
+			'expiry' => $this->db->getInfinity(),
+			'createAccount' => true,
+			'enableAutoblock' => true,
+			'hideName' => true,
+			'blockEmail' => true,
+			'byText' => 'MetaWikiUser',
 		);
+		$block = new Block( $blockOptions );
 		$block->insert();
 
 		// Reload block from DB
@@ -186,36 +202,38 @@ class BlockTest extends MediaWikiLangTestCase {
 			$oldBlock->delete();
 		}
 
-		// Foreign perspective (blockee not on current wiki)...
-		$block = new Block(
-			/* $address */ 'UserOnForeignWiki',
-			/* $user */ 14146,
-			/* $by */ 0,
-			/* $reason */ 'crosswiki block...',
-			/* $timestamp */ wfTimestampNow(),
-			/* $auto */ false,
-			/* $expiry */ $this->db->getInfinity(),
-			/* anonOnly */ false,
-			/* $createAccount */ true,
-			/* $enableAutoblock */ true,
-			/* $hideName (ipb_deleted) */ true,
-			/* $blockEmail */ true,
-			/* $allowUsertalk */ false,
-			/* $byName */ 'MetaWikiUser'
-		);
-
-		$res = $block->insert( $this->db );
-		$this->assertTrue( (bool)$res['id'], 'Block succeeded' );
-
 		// Local perspective (blockee on current wiki)...
 		$user = User::newFromName( 'UserOnForeignWiki' );
 		$user->addToDatabase();
 		// Set user ID to match the test value
 		$this->db->update( 'user', array( 'user_id' => 14146 ), array( 'user_id' => $user->getId() ) );
+
+		// Foreign perspective (blockee not on current wiki)...
+		$blockOptions = array(
+			'address' => 'UserOnForeignWiki',
+			'user' => 14146,
+			'reason' => 'crosswiki block...',
+			'timestamp' => wfTimestampNow(),
+			'expiry' => $this->db->getInfinity(),
+			'createAccount' => true,
+			'enableAutoblock' => true,
+			'hideName' => true,
+			'blockEmail' => true,
+			'byText' => 'MetaWikiUser',
+		);
+		$block = new Block( $blockOptions );
+
+		$res = $block->insert( $this->db );
+		$this->assertTrue( (bool)$res['id'], 'Block succeeded' );
+
 		$user = null; // clear
 
 		$block = Block::newFromID( $res['id'] );
-		$this->assertEquals( 'UserOnForeignWiki', $block->getTarget()->getName(), 'Correct blockee name' );
+		$this->assertEquals(
+			'UserOnForeignWiki',
+			$block->getTarget()->getName(),
+			'Correct blockee name'
+		);
 		$this->assertEquals( '14146', $block->getTarget()->getId(), 'Correct blockee id' );
 		$this->assertEquals( 'MetaWikiUser', $block->getBlocker(), 'Correct blocker name' );
 		$this->assertEquals( 'MetaWikiUser', $block->getByName(), 'Correct blocker name' );
@@ -346,5 +364,57 @@ class BlockTest extends MediaWikiLangTestCase {
 		$this->assertEquals( $exCount, count( $xffblocks ), 'Number of blocks for ' . $xff );
 		$block = Block::chooseBlock( $xffblocks, $list );
 		$this->assertEquals( $exResult, $block->mReason, 'Correct block type for XFF header ' . $xff );
+	}
+
+	public function testDeprecatedConstructor() {
+		$this->hideDeprecated( 'Block::__construct with multiple arguments' );
+		$username = 'UnthinkablySecretRandomUsername';
+		$reason = 'being irrational';
+
+		# Set up the target
+		$u = User::newFromName( $username );
+		if ( $u->getID() == 0 ) {
+			$u->setPassword( 'TotallyObvious' );
+			$u->addToDatabase();
+		}
+		unset( $u );
+
+		# Make sure the user isn't blocked
+		$this->assertNull(
+			Block::newFromTarget( $username ),
+			"$username should not be blocked"
+		);
+
+		# Perform the block
+		$block = new Block(
+			/* address */ $username,
+			/* user */ 0,
+			/* by */ 0,
+			/* reason */ $reason,
+			/* timestamp */ 0,
+			/* auto */ false,
+			/* expiry */ 0
+		);
+		$block->insert();
+
+		# Check target
+		$this->assertEquals(
+			$block->getTarget()->getName(),
+			$username,
+			"Target should be set properly"
+		);
+
+		# Check supplied parameter
+		$this->assertEquals(
+			$block->mReason,
+			$reason,
+			"Reason should be non-default"
+		);
+
+		# Check default parameter
+		$this->assertFalse(
+			(bool)$block->prevents( 'createaccount' ),
+			"Account creation should not be blocked by default"
+		);
 	}
 }

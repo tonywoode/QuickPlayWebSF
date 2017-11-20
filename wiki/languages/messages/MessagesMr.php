@@ -1,8 +1,7 @@
 <?php
 /** Marathi (मराठी)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -55,7 +54,7 @@ $namespaceNames = array(
 	NS_SPECIAL          => 'विशेष',
 	NS_TALK             => 'चर्चा',
 	NS_USER             => 'सदस्य',
-	NS_USER_TALK        => 'सदस्य चर्चा',
+	NS_USER_TALK        => 'सदस्य_चर्चा',
 	NS_PROJECT_TALK     => '$1_चर्चा',
 	NS_FILE             => 'चित्र',
 	NS_FILE_TALK        => 'चित्र_चर्चा',
@@ -124,11 +123,11 @@ $specialPageAliases = array(
 	'Mostrevisions'             => array( 'सर्वाधिकआवर्तने' ),
 	'Movepage'                  => array( 'पान_हलवा' ),
 	'Mycontributions'           => array( 'माझे_योगदान' ),
+	'MyLanguage'                => array( 'माझीभाषा' ),
 	'Mypage'                    => array( 'माझे_पान' ),
 	'Mytalk'                    => array( 'माझ्या_चर्चा' ),
 	'Newimages'                 => array( 'नवीन_संचिका', 'नवीन_चित्रे' ),
 	'Newpages'                  => array( 'नवीन_पाने' ),
-	'Popularpages'              => array( 'प्रसिद्ध_पाने' ),
 	'Preferences'               => array( 'पसंती' ),
 	'Prefixindex'               => array( 'उपसर्गसुची' ),
 	'Protectedpages'            => array( 'सुरक्षित_पाने' ),
@@ -202,7 +201,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'सदस्यसंख्या', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'सक्रीयसदस्यसंख्या', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'संपादनसंख्या', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'धडकसंख्या', 'प्रेक्षासंख्या', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'लेखनाव', 'PAGENAME' ),
 	'pagenamee'                 => array( '1', 'लेखानावव', 'PAGENAMEE' ),
 	'namespace'                 => array( '1', 'नामविश्व', 'NAMESPACE' ),

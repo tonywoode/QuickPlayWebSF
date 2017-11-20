@@ -49,8 +49,10 @@ class TraditionalImageGallery extends ImageGalleryBase {
 
 		if ( $this->mParser ) {
 			$this->mParser->getOutput()->addModules( $modules );
+			$this->mParser->getOutput()->addModuleStyles( 'mediawiki.page.gallery.styles' );
 		} else {
 			$this->getOutput()->addModules( $modules );
+			$this->getOutput()->addModuleStyles( 'mediawiki.page.gallery.styles' );
 		}
 		$output = Xml::openElement( 'ul', $attribs );
 		if ( $this->mCaption ) {
@@ -72,7 +74,7 @@ class TraditionalImageGallery extends ImageGalleryBase {
 				if ( $this->mParser instanceof Parser ) {
 					# Give extensions a chance to select the file revision for us
 					$options = array();
-					wfRunHooks( 'BeforeParserFetchFileAndTitle',
+					Hooks::run( 'BeforeParserFetchFileAndTitle',
 						array( $this->mParser, $nt, &$options, &$descQuery ) );
 					# Fetch and register the file (file title may be different via hooks)
 					list( $img, $nt ) = $this->mParser->fetchFileAndTitle( $nt, $options );
@@ -132,6 +134,8 @@ class TraditionalImageGallery extends ImageGalleryBase {
 				}
 
 				$this->adjustImageParameters( $thumb, $imageParameters );
+
+				Linker::processResponsiveImages( $img, $thumb, $transformOptions );
 
 				# Set both fixed width and min-height.
 				$thumbhtml = "\n\t\t\t"
@@ -203,7 +207,7 @@ class TraditionalImageGallery extends ImageGalleryBase {
 	protected function wrapGalleryText( $galleryText, $thumb ) {
 		# ATTENTION: The newline after <div class="gallerytext"> is needed to
 		# accommodate htmltidy which in version 4.8.6 generated crackpot html in
-		# its absence, see: http://bugzilla.wikimedia.org/show_bug.cgi?id=1765
+		# its absence, see: https://phabricator.wikimedia.org/T3765
 		# -Ævar
 
 		return "\n\t\t\t" . '<div class="gallerytext">' . "\n"
@@ -328,7 +332,7 @@ class TraditionalImageGallery extends ImageGalleryBase {
  * if called the old way, for extensions that may expect traditional
  * mode.
  *
- * @deprecated 1.22 Use ImageGalleryBase::factory instead.
+ * @deprecated since 1.22 Use ImageGalleryBase::factory instead.
  */
 class ImageGallery extends TraditionalImageGallery {
 	function __construct( $mode = 'traditional' ) {

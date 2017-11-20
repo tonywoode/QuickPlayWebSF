@@ -1,23 +1,23 @@
 /**
  * @class mw.plugin.notify
  */
-( function ( mw, $ ) {
+( function ( mw ) {
 	'use strict';
 
 	/**
 	 * @see mw.notification#notify
-	 * @param message
-	 * @param options
+	 * @see mw.notification#defaults
+	 * @param {HTMLElement|HTMLElement[]|jQuery|mw.Message|string} message
+	 * @param {Object} options See mw.notification#defaults for details.
 	 * @return {jQuery.Promise}
 	 */
 	mw.notify = function ( message, options ) {
-		var d = $.Deferred();
 		// Don't bother loading the whole notification system if we never use it.
-		mw.loader.using( 'mediawiki.notification', function () {
-			// Call notify with the notification the user requested of us.
-			d.resolve( mw.notification.notify( message, options ) );
-		}, d.reject );
-		return d.promise();
+		return mw.loader.using( 'mediawiki.notification' )
+			.then( function () {
+				// Call notify with the notification the user requested of us.
+				return mw.notification.notify( message, options );
+			} );
 	};
 
 	/**
@@ -25,4 +25,4 @@
 	 * @mixins mw.plugin.notify
 	 */
 
-}( mediaWiki, jQuery ) );
+}( mediaWiki ) );

@@ -39,7 +39,7 @@ $.fn.autoEllipsis = function ( options ) {
 			text, trimmableText, w, pw,
 			l, r, i, side, m,
 			// container element - used for measuring against
-			$container = $(this);
+			$container = $( this );
 
 		if ( options.restoreText ) {
 			if ( !$container.data( 'autoEllipsis.originalText' ) ) {
@@ -69,16 +69,16 @@ $.fn.autoEllipsis = function ( options ) {
 		// Try cache
 		if ( options.matchText ) {
 			if ( !( text in matchTextCache ) ) {
-				matchTextCache[text] = {};
+				matchTextCache[ text ] = {};
 			}
-			if ( !( options.matchText in matchTextCache[text] ) ) {
-				matchTextCache[text][options.matchText] = {};
+			if ( !( options.matchText in matchTextCache[ text ] ) ) {
+				matchTextCache[ text ][ options.matchText ] = {};
 			}
-			if ( !( w in matchTextCache[text][options.matchText] ) ) {
-				matchTextCache[text][options.matchText][w] = {};
+			if ( !( w in matchTextCache[ text ][ options.matchText ] ) ) {
+				matchTextCache[ text ][ options.matchText ][ w ] = {};
 			}
-			if ( options.position in matchTextCache[text][options.matchText][w] ) {
-				$container.html( matchTextCache[text][options.matchText][w][options.position] );
+			if ( options.position in matchTextCache[ text ][ options.matchText ][ w ] ) {
+				$container.html( matchTextCache[ text ][ options.matchText ][ w ][ options.position ] );
 				if ( options.tooltip ) {
 					$container.attr( 'title', text );
 				}
@@ -86,13 +86,13 @@ $.fn.autoEllipsis = function ( options ) {
 			}
 		} else {
 			if ( !( text in cache ) ) {
-				cache[text] = {};
+				cache[ text ] = {};
 			}
-			if ( !( w in cache[text] ) ) {
-				cache[text][w] = {};
+			if ( !( w in cache[ text ] ) ) {
+				cache[ text ][ w ] = {};
 			}
-			if ( options.position in cache[text][w] ) {
-				$container.html( cache[text][w][options.position] );
+			if ( options.position in cache[ text ][ w ] ) {
+				$container.html( cache[ text ][ w ][ options.position ] );
 				if ( options.tooltip ) {
 					$container.attr( 'title', text );
 				}
@@ -108,7 +108,7 @@ $.fn.autoEllipsis = function ( options ) {
 					r = trimmableText.length;
 					do {
 						m = Math.ceil( ( l + r ) / 2 );
-						$trimmableText.text( trimmableText.substr( 0, m ) + '...' );
+						$trimmableText.text( trimmableText.slice( 0, m ) + '...' );
 						if ( $trimmableText.width() + pw > w ) {
 							// Text is too long
 							r = m - 1;
@@ -116,23 +116,23 @@ $.fn.autoEllipsis = function ( options ) {
 							l = m;
 						}
 					} while ( l < r );
-					$trimmableText.text( trimmableText.substr( 0, l ) + '...' );
+					$trimmableText.text( trimmableText.slice( 0, l ) + '...' );
 					break;
 				case 'center':
 					// TODO: Use binary search like for 'right'
-					i = [Math.round( trimmableText.length / 2 ), Math.round( trimmableText.length / 2 )];
+					i = [ Math.round( trimmableText.length / 2 ), Math.round( trimmableText.length / 2 ) ];
 					// Begin with making the end shorter
 					side = 1;
-					while ( $trimmableText.outerWidth() + pw > w && i[0] > 0 ) {
-						$trimmableText.text( trimmableText.substr( 0, i[0] ) + '...' + trimmableText.substr( i[1] ) );
+					while ( $trimmableText.outerWidth() + pw > w && i[ 0 ] > 0 ) {
+						$trimmableText.text( trimmableText.slice( 0, i[ 0 ] ) + '...' + trimmableText.slice( i[ 1 ] ) );
 						// Alternate between trimming the end and begining
 						if ( side === 0 ) {
 							// Make the begining shorter
-							i[0]--;
+							i[ 0 ]--;
 							side = 1;
 						} else {
 							// Make the end shorter
-							i[1]++;
+							i[ 1 ]++;
 							side = 0;
 						}
 					}
@@ -141,7 +141,7 @@ $.fn.autoEllipsis = function ( options ) {
 					// TODO: Use binary search like for 'right'
 					r = 0;
 					while ( $trimmableText.outerWidth() + pw > w && r < trimmableText.length ) {
-						$trimmableText.text( '...' + trimmableText.substr( r ) );
+						$trimmableText.text( '...' + trimmableText.slice( r ) );
 						r++;
 					}
 					break;
@@ -152,9 +152,9 @@ $.fn.autoEllipsis = function ( options ) {
 		}
 		if ( options.matchText ) {
 			$container.highlightText( options.matchText );
-			matchTextCache[text][options.matchText][w][options.position] = $container.html();
+			matchTextCache[ text ][ options.matchText ][ w ][ options.position ] = $container.html();
 		} else {
-			cache[text][w][options.position] = $container.html();
+			cache[ text ][ w ][ options.position ] = $container.html();
 		}
 
 	} );

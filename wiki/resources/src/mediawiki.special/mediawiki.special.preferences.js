@@ -1,19 +1,23 @@
-/**
+/*!
  * JavaScript for Special:Preferences
  */
 jQuery( function ( $ ) {
 	var $preftoc, $preferences, $fieldsets, $legends,
 		hash, labelFunc,
 		$tzSelect, $tzTextbox, $localtimeHolder, servertime,
-		$checkBoxes;
+		$checkBoxes, allowCloseWindow,
+		notif;
 
 	labelFunc = function () {
 		return this.id.replace( /^mw-prefsection/g, 'preftab' );
 	};
 
 	$( '#prefsubmit' ).attr( 'id', 'prefcontrol' );
-	$preftoc = $( '<ul id="preftoc"></ul>' )
-		.attr( 'role', 'tablist' );
+	$preftoc = $( '<ul>' )
+		.attr( {
+			id: 'preftoc',
+			role: 'tablist'
+		} );
 	$preferences = $( '#preferences' )
 		.addClass( 'jsprefs' )
 		.before( $preftoc );
@@ -41,14 +45,15 @@ jQuery( function ( $ ) {
 			} else {
 				$( this ).css( 'height', 'auto' );
 			}
-	} ).insertBefore( $preftoc );
+		} ).insertBefore( $preftoc );
 
 	/**
 	 * It uses document.getElementById for security reasons (HTML injections in $()).
 	 *
-	 * @param String name: the name of a tab without the prefix ("mw-prefsection-")
-	 * @param String mode: [optional] A hash will be set according to the current
-	 * open section. Set mode 'noHash' to surpress this.
+	 * @ignore
+	 * @param {String} name the name of a tab without the prefix ("mw-prefsection-")
+	 * @param {String} [mode] A hash will be set according to the current
+	 *  open section. Set mode 'noHash' to surpress this.
 	 */
 	function switchPrefTab( name, mode ) {
 		var $tab, scrollTop;
@@ -56,7 +61,7 @@ jQuery( function ( $ ) {
 		// therefore save and restore scrollTop to prevent jumping.
 		scrollTop = $( window ).scrollTop();
 		if ( mode !== 'noHash' ) {
-			window.location.hash = '#mw-prefsection-' + name;
+			location.hash = '#mw-prefsection-' + name;
 		}
 		$( window ).scrollTop( scrollTop );
 
@@ -77,6 +82,26 @@ jQuery( function ( $ ) {
 
 			$preferences.children( 'fieldset' ).hide().attr( 'aria-hidden', 'true' );
 			$( document.getElementById( 'mw-prefsection-' + name ) ).show().attr( 'aria-hidden', 'false' );
+		}
+	}
+
+	// Check for messageboxes (.successbox, .warningbox, .errorbox) to replace with notifications
+	if ( $( '.mw-preferences-messagebox' ).length ) {
+		// If there is a #mw-preferences-success box and javascript is enabled, use a slick notification instead!
+		if ( $( '#mw-preferences-success' ).length ) {
+			notif = mediaWiki.notification.notify( mediaWiki.message( 'savedprefs' ), { autoHide: false } );
+			// 'change' event not reliable!
+			$( '#preftoc, .prefsection' ).one( 'change keydown mousedown', function () {
+				if ( notif ) {
+					notif.close();
+					notif = null;
+				}
+			} );
+
+			// Remove now-unnecessary success=1 querystring to prevent reappearance of notification on reload
+			if ( history.replaceState ) {
+				history.replaceState( {}, document.title, location.href.replace( /&?success=1/, '' ) );
+			}
 		}
 	}
 
@@ -126,7 +151,7 @@ jQuery( function ( $ ) {
 
 	// If we've reloaded the page or followed an open-in-new-window,
 	// make the selected tab visible.
-	hash = window.location.hash;
+	hash = location.hash;
 	if ( hash.match( /^#mw-prefsection-[\w\-]+/ ) ) {
 		switchPrefTab( hash.replace( '#mw-prefsection-', '' ) );
 	}
@@ -141,7 +166,7 @@ jQuery( function ( $ ) {
 		( document.documentMode === undefined || document.documentMode >= 8 )
 	) {
 		$( window ).on( 'hashchange', function () {
-			var hash = window.location.hash;
+			var hash = location.hash;
 			if ( hash.match( /^#mw-prefsection-[\w\-]+/ ) ) {
 				switchPrefTab( hash.replace( '#mw-prefsection-', '' ) );
 			} else if ( hash === '' ) {
@@ -159,10 +184,8 @@ jQuery( function ( $ ) {
 		} );
 	}
 
-	/**
-	* Timezone functions.
-	* Guesses Timezone from browser and updates fields onchange
-	*/
+	// Timezone functions.
+	// Guesses Timezone from browser and updates fields onchange.
 
 	$tzSelect = $( '#mw-input-wptimecorrection' );
 	$tzTextbox = $( '#mw-input-wptimecorrection-other' );
@@ -181,15 +204,15 @@ jQuery( function ( $ ) {
 		var minutes,
 			arr = hour.split( ':' );
 
-		arr[0] = parseInt( arr[0], 10 );
+		arr[ 0 ] = parseInt( arr[ 0 ], 10 );
 
 		if ( arr.length === 1 ) {
 			// Specification is of the form [-]XX
-			minutes = arr[0] * 60;
+			minutes = arr[ 0 ] * 60;
 		} else {
 			// Specification is of the form [-]XX:XX
-			minutes = Math.abs( arr[0] ) * 60 + parseInt( arr[1], 10 );
-			if ( arr[0] < 0 ) {
+			minutes = Math.abs( arr[ 0 ] ) * 60 + parseInt( arr[ 1 ], 10 );
+			if ( arr[ 0 ] < 0 ) {
 				minutes *= -1;
 			}
 		}
@@ -201,7 +224,7 @@ jQuery( function ( $ ) {
 		}
 	}
 
-	function updateTimezoneSelection () {
+	function updateTimezoneSelection() {
 		var minuteDiff, localTime,
 			type = $tzSelect.val();
 
@@ -216,7 +239,7 @@ jQuery( function ( $ ) {
 			minuteDiff = hoursToMinutes( $tzTextbox.val() );
 		} else {
 			// Grab data from the $tzSelect value
-			minuteDiff = parseInt( type.split( '|' )[1], 10 ) || 0;
+			minuteDiff = parseInt( type.split( '|' )[ 1 ], 10 ) || 0;
 			$tzTextbox.val( minutesToHours( minuteDiff ) );
 		}
 
@@ -224,12 +247,8 @@ jQuery( function ( $ ) {
 		localTime = servertime + minuteDiff;
 
 		// Bring time within the [0,1440) range.
-		while ( localTime < 0 ) {
-			localTime += 1440;
-		}
-		while ( localTime >= 1440 ) {
-			localTime -= 1440;
-		}
+		localTime = ( ( localTime % 1440 ) + 1440 ) % 1440;
+
 		$localtimeHolder.text( mediaWiki.language.convertNumber( minutesToHours( localTime ) ) );
 	}
 
@@ -264,4 +283,18 @@ jQuery( function ( $ ) {
 	$( '#mw-input-wpsearcheverything' ).change( function () {
 		$checkBoxes.prop( 'disabled', $( this ).prop( 'checked' ) );
 	} );
+
+	// Set up a message to notify users if they try to leave the page without
+	// saving.
+	$( '#mw-prefs-form' ).data( 'origdata', $( '#mw-prefs-form' ).serialize() );
+	allowCloseWindow = mediaWiki.confirmCloseWindow( {
+		test: function () {
+			return $( '#mw-prefs-form' ).serialize() !== $( '#mw-prefs-form' ).data( 'origdata' );
+		},
+
+		message: mediaWiki.msg( 'prefswarning-warning', mediaWiki.msg( 'saveprefs' ) ),
+		namespace: 'prefswarning'
+	} );
+	$( '#mw-prefs-form' ).submit( $.proxy( allowCloseWindow, 'release' ) );
+	$( '#mw-prefs-restoreprefs' ).click( $.proxy( allowCloseWindow, 'release' ) );
 } );

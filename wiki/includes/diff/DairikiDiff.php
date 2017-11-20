@@ -189,7 +189,7 @@ class DiffOpChange extends DiffOp {
  * More ideas are taken from:
  *     http://www.ics.uci.edu/~eppstein/161/960229.html
  *
- * Some ideas are (and a bit of code) are from from analyze.c, from GNU
+ * Some ideas (and a bit of code) are from analyze.c, from GNU
  * diffutils-2.7, which can be found at:
  *     ftp://gnudist.gnu.org/pub/gnu/diffutils/diffutils-2.7.tar.gz
  *
@@ -222,7 +222,6 @@ class DiffEngine {
 	 * @return DiffOp[]
 	 */
 	public function diff( $from_lines, $to_lines ) {
-		wfProfileIn( __METHOD__ );
 
 		// Diff and store locally
 		$this->diffLocal( $from_lines, $to_lines );
@@ -238,8 +237,8 @@ class DiffEngine {
 		$edits = array();
 		$xi = $yi = 0;
 		while ( $xi < $n_from || $yi < $n_to ) {
-			assert( '$yi < $n_to || $this->xchanged[$xi]' );
-			assert( '$xi < $n_from || $this->ychanged[$yi]' );
+			assert( $yi < $n_to || $this->xchanged[$xi] );
+			assert( $xi < $n_from || $this->ychanged[$yi] );
 
 			// Skip matching "snake".
 			$copy = array();
@@ -272,7 +271,6 @@ class DiffEngine {
 				$edits[] = new DiffOpAdd( $add );
 			}
 		}
-		wfProfileOut( __METHOD__ );
 
 		return $edits;
 	}
@@ -283,7 +281,6 @@ class DiffEngine {
 	 */
 	private function diffLocal( $from_lines, $to_lines ) {
 		global $wgExternalDiffEngine;
-		wfProfileIn( __METHOD__ );
 
 		if ( $wgExternalDiffEngine == 'wikidiff3' ) {
 			// wikidiff3
@@ -299,9 +296,9 @@ class DiffEngine {
 			$this->xchanged = $this->ychanged = array();
 			$this->xv = $this->yv = array();
 			$this->xind = $this->yind = array();
-			unset( $this->seq );
-			unset( $this->in_seq );
-			unset( $this->lcs );
+			$this->seq = array();
+			$this->in_seq = array();
+			$this->lcs = 0;
 
 			// Skip leading common lines.
 			for ( $skip = 0; $skip < $n_from && $skip < $n_to; $skip++ ) {
@@ -346,7 +343,6 @@ class DiffEngine {
 			// Find the LCS.
 			$this->compareSeq( 0, count( $this->xv ), 0, count( $this->yv ) );
 		}
-		wfProfileOut( __METHOD__ );
 	}
 
 	/**
@@ -424,7 +420,9 @@ class DiffEngine {
 			}
 
 			$x1 = $xoff + (int)( ( $numer + ( $xlim - $xoff ) * $chunk ) / $nchunks );
+			// @codingStandardsIgnoreFile Ignore Squiz.WhiteSpace.SemicolonSpacing.Incorrect
 			for ( ; $x < $x1; $x++ ) {
+				// @codingStandardsIgnoreEnd
 				$line = $flip ? $this->yv[$x] : $this->xv[$x];
 				if ( empty( $ymatches[$line] ) ) {
 					continue;
@@ -436,7 +434,7 @@ class DiffEngine {
 				while ( list( , $y ) = each( $matches ) ) {
 					if ( empty( $this->in_seq[$y] ) ) {
 						$k = $this->lcsPos( $y );
-						assert( '$k > 0' );
+						assert( $k > 0 );
 						$ymids[$k] = $ymids[$k - 1];
 						break;
 					}
@@ -444,7 +442,7 @@ class DiffEngine {
 
 				while ( list( , $y ) = each( $matches ) ) {
 					if ( $y > $this->seq[$k - 1] ) {
-						assert( '$y < $this->seq[$k]' );
+						assert( $y < $this->seq[$k] );
 						// Optimization: this is a common case:
 						//	next match is just replacing previous match.
 						$this->in_seq[$this->seq[$k]] = false;
@@ -452,7 +450,7 @@ class DiffEngine {
 						$this->in_seq[$y] = 1;
 					} elseif ( empty( $this->in_seq[$y] ) ) {
 						$k = $this->lcsPos( $y );
-						assert( '$k > 0' );
+						assert( $k > 0 );
 						$ymids[$k] = $ymids[$k - 1];
 					}
 				}
@@ -495,7 +493,7 @@ class DiffEngine {
 			}
 		}
 
-		assert( '$ypos != $this->seq[$end]' );
+		assert( $ypos != $this->seq[$end] );
 
 		$this->in_seq[$this->seq[$end]] = false;
 		$this->seq[$end] = $ypos;
@@ -580,11 +578,10 @@ class DiffEngine {
 	 * This is extracted verbatim from analyze.c (GNU diffutils-2.7).
 	 */
 	private function shiftBoundaries( $lines, &$changed, $other_changed ) {
-		wfProfileIn( __METHOD__ );
 		$i = 0;
 		$j = 0;
 
-		assert( 'count($lines) == count($changed)' );
+		assert( count( $lines ) == count( $changed ) );
 		$len = count( $lines );
 		$other_len = count( $other_changed );
 
@@ -605,7 +602,7 @@ class DiffEngine {
 			}
 
 			while ( $i < $len && !$changed[$i] ) {
-				assert( '$j < $other_len && ! $other_changed[$j]' );
+				assert( $j < $other_len && ! $other_changed[$j] );
 				$i++;
 				$j++;
 				while ( $j < $other_len && $other_changed[$j] ) {
@@ -642,11 +639,11 @@ class DiffEngine {
 					while ( $start > 0 && $changed[$start - 1] ) {
 						$start--;
 					}
-					assert( '$j > 0' );
+					assert( $j > 0 );
 					while ( $other_changed[--$j] ) {
 						continue;
 					}
-					assert( '$j >= 0 && !$other_changed[$j]' );
+					assert( $j >= 0 && !$other_changed[$j] );
 				}
 
 				/*
@@ -670,7 +667,7 @@ class DiffEngine {
 						$i++;
 					}
 
-					assert( '$j < $other_len && ! $other_changed[$j]' );
+					assert( $j < $other_len && ! $other_changed[$j] );
 					$j++;
 					if ( $j < $other_len && $other_changed[$j] ) {
 						$corresponding = $i;
@@ -688,14 +685,13 @@ class DiffEngine {
 			while ( $corresponding < $i ) {
 				$changed[--$start] = 1;
 				$changed[--$i] = 0;
-				assert( '$j > 0' );
+				assert( $j > 0 );
 				while ( $other_changed[--$j] ) {
 					continue;
 				}
-				assert( '$j >= 0 && !$other_changed[$j]' );
+				assert( $j >= 0 && !$other_changed[$j] );
 			}
 		}
-		wfProfileOut( __METHOD__ );
 	}
 }
 
@@ -856,10 +852,9 @@ class MappedDiff extends Diff {
 	 */
 	public function __construct( $from_lines, $to_lines,
 		$mapped_from_lines, $mapped_to_lines ) {
-		wfProfileIn( __METHOD__ );
 
-		assert( 'count( $from_lines ) == count( $mapped_from_lines )' );
-		assert( 'count( $to_lines ) == count( $mapped_to_lines )' );
+		assert( count( $from_lines ) == count( $mapped_from_lines ) );
+		assert( count( $to_lines ) == count( $mapped_to_lines ) );
 
 		parent::__construct( $mapped_from_lines, $mapped_to_lines );
 
@@ -878,7 +873,6 @@ class MappedDiff extends Diff {
 				$yi += count( $closing );
 			}
 		}
-		wfProfileOut( __METHOD__ );
 	}
 }
 
@@ -951,7 +945,7 @@ class HWLDFWordAccumulator {
 				$this->flushLine( $tag );
 				$word = substr( $word, 1 );
 			}
-			assert( '!strstr( $word, "\n" )' );
+			assert( !strstr( $word, "\n" ) );
 			$this->group .= $word;
 		}
 	}
@@ -979,14 +973,12 @@ class WordLevelDiff extends MappedDiff {
 	 * @param string[] $closing_lines
 	 */
 	public function __construct( $orig_lines, $closing_lines ) {
-		wfProfileIn( __METHOD__ );
 
 		list( $orig_words, $orig_stripped ) = $this->split( $orig_lines );
 		list( $closing_words, $closing_stripped ) = $this->split( $closing_lines );
 
 		parent::__construct( $orig_words, $closing_words,
 			$orig_stripped, $closing_stripped );
-		wfProfileOut( __METHOD__ );
 	}
 
 	/**
@@ -995,7 +987,6 @@ class WordLevelDiff extends MappedDiff {
 	 * @return array[]
 	 */
 	private function split( $lines ) {
-		wfProfileIn( __METHOD__ );
 
 		$words = array();
 		$stripped = array();
@@ -1026,7 +1017,6 @@ class WordLevelDiff extends MappedDiff {
 				}
 			}
 		}
-		wfProfileOut( __METHOD__ );
 
 		return array( $words, $stripped );
 	}
@@ -1035,7 +1025,6 @@ class WordLevelDiff extends MappedDiff {
 	 * @return string[]
 	 */
 	public function orig() {
-		wfProfileIn( __METHOD__ );
 		$orig = new HWLDFWordAccumulator;
 
 		foreach ( $this->edits as $edit ) {
@@ -1046,7 +1035,6 @@ class WordLevelDiff extends MappedDiff {
 			}
 		}
 		$lines = $orig->getLines();
-		wfProfileOut( __METHOD__ );
 
 		return $lines;
 	}
@@ -1055,7 +1043,6 @@ class WordLevelDiff extends MappedDiff {
 	 * @return string[]
 	 */
 	public function closing() {
-		wfProfileIn( __METHOD__ );
 		$closing = new HWLDFWordAccumulator;
 
 		foreach ( $this->edits as $edit ) {
@@ -1066,7 +1053,6 @@ class WordLevelDiff extends MappedDiff {
 			}
 		}
 		$lines = $closing->getLines();
-		wfProfileOut( __METHOD__ );
 
 		return $lines;
 	}

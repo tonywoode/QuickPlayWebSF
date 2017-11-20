@@ -41,10 +41,20 @@ class DoubleRedirectJob extends Job {
 	private static $user;
 
 	/**
+	 * @param Title $title
+	 * @param array $params
+	 */
+	function __construct( Title $title, array $params ) {
+		parent::__construct( 'fixDoubleRedirect', $title, $params );
+		$this->reason = $params['reason'];
+		$this->redirTitle = Title::newFromText( $params['redirTitle'] );
+	}
+
+	/**
 	 * Insert jobs into the job queue to fix redirects to the given title
-	 * @param string $reason the reason for the fix, see message
+	 * @param string $reason The reason for the fix, see message
 	 *   "double-redirect-fixed-<reason>"
-	 * @param $redirTitle Title: the title which has changed, redirects
+	 * @param Title $redirTitle The title which has changed, redirects
 	 *   pointing to this title are fixed
 	 * @param bool $destTitle Not used
 	 */
@@ -79,17 +89,6 @@ class DoubleRedirectJob extends Job {
 			}
 		}
 		JobQueueGroup::singleton()->push( $jobs );
-	}
-
-	/**
-	 * @param Title $title
-	 * @param array|bool $params
-	 * @param int $id
-	 */
-	function __construct( $title, $params = false ) {
-		parent::__construct( 'fixDoubleRedirect', $title, $params );
-		$this->reason = $params['reason'];
-		$this->redirTitle = Title::newFromText( $params['redirTitle'] );
 	}
 
 	/**
@@ -177,9 +176,9 @@ class DoubleRedirectJob extends Job {
 	/**
 	 * Get the final destination of a redirect
 	 *
-	 * @param $title Title
+	 * @param Title $title
 	 *
-	 * @return bool if the specified title is not a redirect, or if it is a circular redirect
+	 * @return bool If the specified title is not a redirect, or if it is a circular redirect
 	 */
 	public static function getFinalDestination( $title ) {
 		$dbw = wfGetDB( DB_MASTER );

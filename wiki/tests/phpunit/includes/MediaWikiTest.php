@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group Broken
- */
 class MediaWikiTest extends MediaWikiTestCase {
 	protected function setUp() {
 		parent::setUp();

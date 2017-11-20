@@ -39,6 +39,13 @@ class XmlTypeCheck {
 	public $filterMatch = false;
 
 	/**
+	 * Will contain the type of filter hit if the optional element filter returned
+	 * a match at some point.
+	 * @var mixed
+	 */
+	public $filterMatchType = false;
+
+	/**
 	 * Name of the document's root element, including any namespace
 	 * as an expanded URL.
 	 */
@@ -75,7 +82,7 @@ class XmlTypeCheck {
 	 *        SAX element handler event. This gives you access to the element
 	 *        namespace, name, attributes, and text contents.
 	 *        Filter should return 'true' to toggle on $this->filterMatch
-	 * @param boolean $isFile (optional) indicates if the first parameter is a
+	 * @param bool $isFile (optional) indicates if the first parameter is a
 	 *        filename (default, true) or if it is a string (false)
 	 * @param array $options list of additional parsing options:
 	 *        processing_instruction_handler: Callback for xml_set_processing_instruction_handler
@@ -173,7 +180,7 @@ class XmlTypeCheck {
 		// First, move through anything that isn't an element, and
 		// handle any processing instructions with the callback
 		do {
-			if( !$this->readNext( $reader ) ) {
+			if ( !$this->readNext( $reader ) ) {
 				// Hit the end of the document before any elements
 				$this->wellFormed = false;
 				return;
@@ -294,17 +301,20 @@ class XmlTypeCheck {
 		list( $name, $attribs ) = array_pop( $this->elementDataContext );
 		$data = array_pop( $this->elementData );
 		$this->stackDepth--;
+		$callbackReturn = false;
 
-		if ( is_callable( $this->filterCallback )
-			&& call_user_func(
+		if ( is_callable( $this->filterCallback ) ) {
+			$callbackReturn = call_user_func(
 				$this->filterCallback,
 				$name,
 				$attribs,
 				$data
-			)
-		) {
-			// Filter hit
+			);
+		}
+		if ( $callbackReturn ) {
+			// Filter hit!
 			$this->filterMatch = true;
+			$this->filterMatchType = $callbackReturn;
 		}
 	}
 
@@ -321,15 +331,18 @@ class XmlTypeCheck {
 	 * @param $data
 	 */
 	private function processingInstructionHandler( $target, $data ) {
+		$callbackReturn = false;
 		if ( $this->parserOptions['processing_instruction_handler'] ) {
-			if ( call_user_func(
+			$callbackReturn = call_user_func(
 				$this->parserOptions['processing_instruction_handler'],
 				$target,
 				$data
-			) ) {
-				// Filter hit!
-				$this->filterMatch = true;
-			}
+			);
+		}
+		if ( $callbackReturn ) {
+			// Filter hit!
+			$this->filterMatch = true;
+			$this->filterMatchType = $callbackReturn;
 		}
 	}
 }

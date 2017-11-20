@@ -52,7 +52,7 @@ abstract class DBLockManager extends QuorumLockManager {
 	/**
 	 * Construct a new instance from configuration.
 	 *
-	 * @param array $config Paramaters include:
+	 * @param array $config Parameters include:
 	 *   - dbServers   : Associative array of DB names to server configuration.
 	 *                   Configuration is an associative array that includes:
 	 *                     - host        : DB server name
@@ -96,8 +96,8 @@ abstract class DBLockManager extends QuorumLockManager {
 				// Tracks peers that couldn't be queried recently to avoid lengthy
 				// connection timeouts. This is useless if each bucket has one peer.
 				try {
-					$this->statusCache = ObjectCache::newAccelerator( array() );
-				} catch ( MWException $e ) {
+					$this->statusCache = ObjectCache::newAccelerator();
+				} catch ( Exception $e ) {
 					trigger_error( __CLASS__ .
 						" using multiple DB peers without apc, xcache, or wincache." );
 				}
@@ -108,7 +108,7 @@ abstract class DBLockManager extends QuorumLockManager {
 		$this->session = wfRandomString( 31 );
 	}
 
-	// @TODO: change this code to work in one batch
+	// @todo change this code to work in one batch
 	protected function getLocksOnServer( $lockSrv, array $pathsByType ) {
 		$status = Status::newGood();
 		foreach ( $pathsByType as $type => $paths ) {
@@ -195,7 +195,7 @@ abstract class DBLockManager extends QuorumLockManager {
 	 * Checks if the DB has not recently had connection/query errors.
 	 * This just avoids wasting time on doomed connection attempts.
 	 *
-	 * @param $lockDb string
+	 * @param string $lockDb
 	 * @return bool
 	 */
 	protected function cacheCheckFailures( $lockDb ) {

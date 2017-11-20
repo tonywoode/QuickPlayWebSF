@@ -27,6 +27,8 @@
  * @ingroup SpecialPage
  */
 class LinkSearchPage extends QueryPage {
+	/** @var array|bool */
+	private $mungedQuery = false;
 
 	/**
 	 * @var PageLinkRenderer
@@ -51,7 +53,7 @@ class LinkSearchPage extends QueryPage {
 	 * Initialize or override the PageLinkRenderer LinkSearchPage collaborates with.
 	 * Useful mainly for testing.
 	 *
-	 * @todo: query logic and rendering logic should be split and also injected
+	 * @todo query logic and rendering logic should be split and also injected
 	 *
 	 * @param PageLinkRenderer $linkRenderer
 	 */
@@ -66,8 +68,9 @@ class LinkSearchPage extends QueryPage {
 	 * This allows for dependency injection even though we don't control object creation.
 	 */
 	private function initServices() {
+		global $wgLanguageCode;
 		if ( !$this->linkRenderer ) {
-			$lang = $this->getContext()->getLanguage();
+			$lang = Language::factory( $wgLanguageCode );
 			$titleFormatter = new MediaWikiTitleCodec( $lang, GenderCache::singleton() );
 			$this->linkRenderer = new MediaWikiPageLinkRenderer( $titleFormatter );
 		}
@@ -77,9 +80,7 @@ class LinkSearchPage extends QueryPage {
 		return false;
 	}
 
-	function execute( $par ) {
-		global $wgUrlProtocols, $wgMiserMode, $wgScript;
-
+	public function execute( $par ) {
 		$this->initServices();
 
 		$this->setHeaders();
@@ -90,10 +91,10 @@ class LinkSearchPage extends QueryPage {
 
 		$request = $this->getRequest();
 		$target = $request->getVal( 'target', $par );
-		$namespace = $request->getIntorNull( 'namespace', null );
+		$namespace = $request->getIntOrNull( 'namespace' );
 
 		$protocols_list = array();
-		foreach ( $wgUrlProtocols as $prot ) {
+		foreach ( $this->getConfig()->get( 'UrlProtocols' ) as $prot ) {
 			if ( $prot !== '//' ) {
 				$protocols_list[] = $prot;
 			}
@@ -120,39 +121,41 @@ class LinkSearchPage extends QueryPage {
 			'<nowiki>' . $this->getLanguage()->commaList( $protocols_list ) . '</nowiki>',
 			count( $protocols_list )
 		);
-		$s = Html::openElement(
-			'form',
-			array( 'id' => 'mw-linksearch-form', 'method' => 'get', 'action' => $wgScript )
-		) . "\n" .
-			Html::hidden( 'title', $this->getPageTitle()->getPrefixedDBkey() ) . "\n" .
-			Html::openElement( 'fieldset' ) . "\n" .
-			Html::element( 'legend', array(), $this->msg( 'linksearch' )->text() ) . "\n" .
-			Xml::inputLabel(
-				$this->msg( 'linksearch-pat' )->text(),
-				'target',
-				'target',
-				50,
-				$target
-			) . "\n";
-
-		if ( !$wgMiserMode ) {
-			$s .= Html::namespaceSelector(
-				array(
-					'selected' => $namespace,
-					'all' => '',
-					'label' => $this->msg( 'linksearch-ns' )->text()
-				), array(
+		$fields = array(
+			'target' => array(
+				'type' => 'text',
+				'name' => 'target',
+				'id' => 'target',
+				'size' => 50,
+				'label-message' => 'linksearch-pat',
+				'default' => $target,
+				'dir' => 'ltr',
+			)
+		);
+		if ( !$this->getConfig()->get( 'MiserMode' ) ) {
+			$fields += array(
+				'namespace' => array(
+					'type' => 'namespaceselect',
 					'name' => 'namespace',
+					'label-message' => 'linksearch-ns',
+					'default' => $namespace,
 					'id' => 'namespace',
-					'class' => 'namespaceselector',
-				)
+					'all' => '',
+					'cssclass' => 'namespaceselector',
+				),
 			);
 		}
-
-		$s .= Xml::submitButton( $this->msg( 'linksearch-ok' )->text() ) . "\n" .
-			Html::closeElement( 'fieldset' ) . "\n" .
-			Html::closeElement( 'form' ) . "\n";
-		$out->addHTML( $s );
+		$hiddenFields = array(
+			'title' => $this->getPageTitle()->getPrefixedDBkey(),
+		);
+		$htmlForm = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
+		$htmlForm->addHiddenFields( $hiddenFields );
+		$htmlForm->setSubmitTextMsg( 'linksearch-ok' );
+		$htmlForm->setWrapperLegendMsg( 'linksearch' );
+		$htmlForm->setAction( wfScript() );
+		$htmlForm->setMethod( 'get' );
+		$htmlForm->prepareForm()->displayForm( false );
+		$this->addHelpLink( 'Help:Linksearch' );
 
 		if ( $target != '' ) {
 			$this->setParams( array(
@@ -160,7 +163,7 @@ class LinkSearchPage extends QueryPage {
 				'namespace' => $namespace,
 				'protocol' => $protocol ) );
 			parent::execute( $par );
-			if ( $this->mMungedQuery === false ) {
+			if ( $this->mungedQuery === false ) {
 				$out->addWikiMsg( 'linksearch-error' );
 			}
 		}
@@ -177,8 +180,8 @@ class LinkSearchPage extends QueryPage {
 	/**
 	 * Return an appropriately formatted LIKE query and the clause
 	 *
-	 * @param String $query Search pattern to search for
-	 * @param String $prot Protocol, e.g. 'http://'
+	 * @param string $query Search pattern to search for
+	 * @param string $prot Protocol, e.g. 'http://'
 	 *
 	 * @return array
 	 */
@@ -206,28 +209,26 @@ class LinkSearchPage extends QueryPage {
 	}
 
 	function linkParameters() {
-		global $wgMiserMode;
 		$params = array();
 		$params['target'] = $this->mProt . $this->mQuery;
-		if ( isset( $this->mNs ) && !$wgMiserMode ) {
+		if ( $this->mNs !== null && !$this->getConfig()->get( 'MiserMode' ) ) {
 			$params['namespace'] = $this->mNs;
 		}
 
 		return $params;
 	}
 
-	function getQueryInfo() {
-		global $wgMiserMode;
+	public function getQueryInfo() {
 		$dbr = wfGetDB( DB_SLAVE );
 		// strip everything past first wildcard, so that
 		// index-based-only lookup would be done
-		list( $this->mMungedQuery, $clause ) = self::mungeQuery( $this->mQuery, $this->mProt );
-		if ( $this->mMungedQuery === false ) {
+		list( $this->mungedQuery, $clause ) = self::mungeQuery( $this->mQuery, $this->mProt );
+		if ( $this->mungedQuery === false ) {
 			// Invalid query; return no results
 			return array( 'tables' => 'page', 'fields' => 'page_id', 'conds' => '0=1' );
 		}
 
-		$stripped = LinkFilter::keepOneWildcard( $this->mMungedQuery );
+		$stripped = LinkFilter::keepOneWildcard( $this->mungedQuery );
 		$like = $dbr->buildLike( $stripped );
 		$retval = array(
 			'tables' => array( 'page', 'externallinks' ),
@@ -244,11 +245,30 @@ class LinkSearchPage extends QueryPage {
 			'options' => array( 'USE INDEX' => $clause )
 		);
 
-		if ( isset( $this->mNs ) && !$wgMiserMode ) {
+		if ( $this->mNs !== null && !$this->getConfig()->get( 'MiserMode' ) ) {
 			$retval['conds']['page_namespace'] = $this->mNs;
 		}
 
 		return $retval;
+	}
+
+	/**
+	 * Pre-fill the link cache
+	 *
+	 * @param IDatabase $db
+	 * @param ResultWrapper $res
+	 */
+	function preprocessResults( $db, $res ) {
+		if ( $res->numRows() > 0 ) {
+			$linkBatch = new LinkBatch();
+
+			foreach ( $res as $row ) {
+				$linkBatch->add( $row->namespace, $row->title );
+			}
+
+			$res->seek( 0 );
+			$linkBatch->execute();
+		}
 	}
 
 	/**
@@ -264,24 +284,6 @@ class LinkSearchPage extends QueryPage {
 		$urlLink = Linker::makeExternalLink( $url, $url );
 
 		return $this->msg( 'linksearch-line' )->rawParams( $urlLink, $pageLink )->escaped();
-	}
-
-	/**
-	 * Override to check query validity.
-	 *
-	 * @param mixed $offset Numerical offset or false for no offset
-	 * @param mixed $limit Numerical limit or false for no limit
-	 */
-	function doQuery( $offset = false, $limit = false ) {
-		list( $this->mMungedQuery, ) = LinkSearchPage::mungeQuery( $this->mQuery, $this->mProt );
-		if ( $this->mMungedQuery === false ) {
-			$this->getOutput()->addWikiMsg( 'linksearch-error' );
-		} else {
-			// For debugging
-			// Generates invalid xhtml with patterns that contain --
-			//$this->getOutput()->addHTML( "\n<!-- " . htmlspecialchars( $this->mMungedQuery ) . " -->\n" );
-			parent::doQuery( $offset, $limit );
-		}
 	}
 
 	/**

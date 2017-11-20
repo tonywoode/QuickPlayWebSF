@@ -19,6 +19,8 @@
  *
  * @file
  */
+use \Cdb\Exception as CdbException;
+use \Cdb\Reader as CdbReader;
 
 /**
  * The interwiki class
@@ -45,7 +47,7 @@ class Interwiki {
 	 */
 	protected $mWikiID;
 
-	/** @var bool whether the wiki is in this project */
+	/** @var bool Whether the wiki is in this project */
 	protected $mLocal;
 
 	/** @var bool Whether interwiki transclusions are allowed */
@@ -113,12 +115,23 @@ class Interwiki {
 	}
 
 	/**
+	 * Purge the cache for an interwiki prefix
+	 * @param string $prefix
+	 * @since 1.26
+	 */
+	public static function invalidateCache( $prefix ) {
+		$cache = ObjectCache::getMainWANInstance();
+		$key = wfMemcKey( 'interwiki', $prefix );
+		$cache->delete( $key );
+	}
+
+	/**
 	 * Fetch interwiki prefix data from local cache in constant database.
 	 *
 	 * @note More logic is explained in DefaultSettings.
 	 *
 	 * @param string $prefix Interwiki prefix
-	 * @return Interwiki object
+	 * @return Interwiki
 	 */
 	protected static function getInterwikiCached( $prefix ) {
 		$value = self::getInterwikiCacheEntry( $prefix );
@@ -189,16 +202,18 @@ class Interwiki {
 	 * @return Interwiki|bool Interwiki if $prefix is valid, otherwise false
 	 */
 	protected static function load( $prefix ) {
-		global $wgMemc, $wgInterwikiExpiry;
+		global $wgInterwikiExpiry;
 
 		$iwData = array();
-		if ( !wfRunHooks( 'InterwikiLoadPrefix', array( $prefix, &$iwData ) ) ) {
+		if ( !Hooks::run( 'InterwikiLoadPrefix', array( $prefix, &$iwData ) ) ) {
 			return Interwiki::loadFromArray( $iwData );
 		}
 
+		$cache = ObjectCache::getMainWANInstance();
+
 		if ( !$iwData ) {
 			$key = wfMemcKey( 'interwiki', $prefix );
-			$iwData = $wgMemc->get( $key );
+			$iwData = $cache->get( $key );
 			if ( $iwData === '!NONEXISTENT' ) {
 				// negative cache hit
 				return false;
@@ -230,13 +245,13 @@ class Interwiki {
 				'iw_local' => $iw->mLocal,
 				'iw_trans' => $iw->mTrans
 			);
-			$wgMemc->add( $key, $mc, $wgInterwikiExpiry );
+			$cache->set( $key, $mc, $wgInterwikiExpiry );
 
 			return $iw;
 		}
 
 		// negative cache hit
-		$wgMemc->add( $key, '!NONEXISTENT', $wgInterwikiExpiry );
+		$cache->set( $key, '!NONEXISTENT', $wgInterwikiExpiry );
 
 		return false;
 	}

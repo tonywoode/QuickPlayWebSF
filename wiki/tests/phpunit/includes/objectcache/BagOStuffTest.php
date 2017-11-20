@@ -1,18 +1,18 @@
 <?php
 /**
- * This class will test BagOStuff.
- *
- * @author     Matthias Mullie <mmullie@wikimedia.org>
+ * @author Matthias Mullie <mmullie@wikimedia.org>
+ * @group BagOStuff
  */
 class BagOStuffTest extends MediaWikiTestCase {
+	/** @var BagOStuff */
 	private $cache;
 
 	protected function setUp() {
 		parent::setUp();
 
 		// type defined through parameter
-		if ( $this->getCliArg( 'use-bagostuff=' ) ) {
-			$name = $this->getCliArg( 'use-bagostuff=' );
+		if ( $this->getCliArg( 'use-bagostuff' ) ) {
+			$name = $this->getCliArg( 'use-bagostuff' );
 
 			$this->cache = ObjectCache::newFromId( $name );
 		} else {
@@ -23,9 +23,10 @@ class BagOStuffTest extends MediaWikiTestCase {
 		$this->cache->delete( wfMemcKey( 'test' ) );
 	}
 
-	protected function tearDown() {
-	}
-
+	/**
+	 * @covers BagOStuff::merge
+	 * @covers BagOStuff::mergeViaLock
+	 */
 	public function testMerge() {
 		$key = wfMemcKey( 'test' );
 
@@ -67,7 +68,7 @@ class BagOStuffTest extends MediaWikiTestCase {
 		 * - pcntl_fork is supported by the system
 		 * - cache type will correctly support calls over forks
 		 */
-		$fork = (bool)$this->getCliArg( 'use-bagostuff=' );
+		$fork = (bool)$this->getCliArg( 'use-bagostuff' );
 		$fork &= function_exists( 'pcntl_fork' );
 		$fork &= !$this->cache instanceof HashBagOStuff;
 		$fork &= !$this->cache instanceof EmptyBagOStuff;
@@ -103,6 +104,9 @@ class BagOStuffTest extends MediaWikiTestCase {
 		}
 	}
 
+	/**
+	 * @covers BagOStuff::add
+	 */
 	public function testAdd() {
 		$key = wfMemcKey( 'test' );
 		$this->assertTrue( $this->cache->add( $key, 'test' ) );
@@ -128,20 +132,54 @@ class BagOStuffTest extends MediaWikiTestCase {
 		$this->assertEquals( $expectedValue, $actualValue, 'Value should be 1 after incrementing' );
 	}
 
+	/**
+	 * @covers BagOStuff::getMulti
+	 */
 	public function testGetMulti() {
 		$value1 = array( 'this' => 'is', 'a' => 'test' );
 		$value2 = array( 'this' => 'is', 'another' => 'test' );
+		$value3 = array( 'testing a key that may be encoded when sent to cache backend' );
 
 		$key1 = wfMemcKey( 'test1' );
 		$key2 = wfMemcKey( 'test2' );
+		$key3 = wfMemcKey( 'will-%-encode' ); // internally, MemcachedBagOStuffs will encode to will-%25-encode
 
 		$this->cache->add( $key1, $value1 );
 		$this->cache->add( $key2, $value2 );
+		$this->cache->add( $key3, $value3 );
 
-		$this->assertEquals( $this->cache->getMulti( array( $key1, $key2 ) ), array( $key1 => $value1, $key2 => $value2 ) );
+		$this->assertEquals(
+			array( $key1 => $value1, $key2 => $value2, $key3 => $value3 ),
+			$this->cache->getMulti( array( $key1, $key2, $key3 ) )
+		);
 
 		// cleanup
 		$this->cache->delete( $key1 );
 		$this->cache->delete( $key2 );
+		$this->cache->delete( $key3 );
+	}
+
+	/**
+	 * @covers BagOStuff::getScopedLock
+	 */
+	public function testGetScopedLock() {
+		$key = wfMemcKey( 'test' );
+		$value1 = $this->cache->getScopedLock( $key, 0 );
+		$value2 = $this->cache->getScopedLock( $key, 0 );
+
+		$this->assertType( 'ScopedCallback', $value1, 'First call returned lock' );
+		$this->assertNull( $value2, 'Duplicate call returned no lock' );
+
+		unset( $value1 );
+
+		$value3 = $this->cache->getScopedLock( $key, 0 );
+		$this->assertType( 'ScopedCallback', $value3, 'Lock returned callback after release' );
+		unset( $value3 );
+
+		$value1 = $this->cache->getScopedLock( $key, 0, 5, 'reentry' );
+		$value2 = $this->cache->getScopedLock( $key, 0, 5, 'reentry' );
+
+		$this->assertType( 'ScopedCallback', $value1, 'First reentrant call returned lock' );
+		$this->assertType( 'ScopedCallback', $value1, 'Second reentrant call returned lock' );
 	}
 }

@@ -12,13 +12,13 @@
  *
  * @author Timo Tijhof, 2011-2012
  */
-( function ( $ ) {
+( function ( mw, $ ) {
 	'use strict';
 
 	var util,
 		hasOwn = Object.prototype.hasOwnProperty,
-		log = (window.console && window.console.log)
-			? function () { return window.console.log.apply(window.console, arguments); }
+		log = ( window.console && window.console.log )
+			? function () { return window.console.log.apply( window.console, arguments ); }
 			: function () {};
 
 	// Simplified version of a few jQuery methods, except that they don't
@@ -33,36 +33,6 @@
 				}
 			}
 			return keys;
-		},
-		extend: function () {
-			var options, name, src, copy,
-				target = arguments[0] || {},
-				i = 1,
-				length = arguments.length;
-
-			for ( ; i < length; i++ ) {
-				options = arguments[ i ];
-				// Only deal with non-null/undefined values
-				if ( options !== null && options !== undefined ) {
-					// Extend the base object
-					for ( name in options ) {
-						src = target[ name ];
-						copy = options[ name ];
-
-						// Prevent never-ending loop
-						if ( target === copy ) {
-							continue;
-						}
-
-						if ( copy !== undefined ) {
-							target[ name ] = copy;
-						}
-					}
-				}
-			}
-
-			// Return the modified object
-			return target;
 		},
 		each: function ( object, callback ) {
 			var name;
@@ -81,19 +51,21 @@
 
 	/**
 	 * CompletenessTest
-	 * @constructor
 	 *
+	 * @constructor
 	 * @example
 	 *  var myTester = new CompletenessTest( myLib );
-	 * @param masterVariable {Object} The root variable that contains all object
+	 * @param {Object} masterVariable The root variable that contains all object
 	 *  members. CompletenessTest will recursively traverse objects and keep track
 	 *  of all methods.
-	 * @param ignoreFn {Function} Optionally pass a function to filter out certain
+	 * @param {Function} [ignoreFn] Optionally pass a function to filter out certain
 	 *  methods. Example: You may want to filter out instances of jQuery or some
 	 *  other constructor. Otherwise "missingTests" will include all methods that
 	 *  were not called from that instance.
 	 */
 	function CompletenessTest( masterVariable, ignoreFn ) {
+		var warn,
+			that = this;
 
 		// Keep track in these objects. Keyed by strings with the
 		// method names (ie. 'my.foo', 'my.bar', etc.) values are boolean true.
@@ -101,19 +73,25 @@
 		this.methodCallTracker = {};
 		this.missingTests = {};
 
-		this.ignoreFn = undefined === ignoreFn ? function () { return false; } : ignoreFn;
+		this.ignoreFn = ignoreFn === undefined ? function () { return false; } : ignoreFn;
 
 		// Lazy limit in case something weird happends (like recurse (part of) ourself).
 		this.lazyLimit = 2000;
 		this.lazyCounter = 0;
 
-		var that = this;
-
 		// Bind begin and end to QUnit.
 		QUnit.begin( function () {
-			that.walkTheObject( null, masterVariable, masterVariable, [], CompletenessTest.ACTION_INJECT );
-			log( 'CompletenessTest/walkTheObject/ACTION_INJECT', that );
-		});
+			// Suppress warnings (e.g. deprecation notices for accessing the properties)
+			warn = mw.log.warn;
+			mw.log.warn = $.noop;
+
+			that.walkTheObject( masterVariable, null, masterVariable, [] );
+			log( 'CompletenessTest/walkTheObject', that );
+
+			// Restore warnings
+			mw.log.warn = warn;
+			warn = undefined;
+		} );
 
 		QUnit.done( function () {
 			that.populateMissingTests();
@@ -136,7 +114,7 @@
 					var elItem = document.createElement( 'li' );
 					elItem.textContent = key;
 					elList.appendChild( elItem );
-				});
+				} );
 
 				elFoot = document.createElement( 'p' );
 				elFoot.innerHTML = '<em>&mdash; CompletenessTest</em>';
@@ -154,8 +132,8 @@
 				elOutputWrapper.appendChild( elContainer );
 
 				util.each( style, function ( key, value ) {
-					elOutputWrapper.style[key] = value;
-				});
+					elOutputWrapper.style[ key ] = value;
+				} );
 				return elOutputWrapper;
 			}
 
@@ -193,14 +171,10 @@
 			if ( toolbar ) {
 				toolbar.insertBefore( testResults, toolbar.firstChild );
 			}
-		});
+		} );
 
 		return this;
 	}
-
-	/* Static members */
-	CompletenessTest.ACTION_INJECT = 500;
-	CompletenessTest.ACTION_CHECK = 501;
 
 	/* Public methods */
 	CompletenessTest.fn = CompletenessTest.prototype = {
@@ -212,83 +186,59 @@
 		 * Depending on the action it either injects our listener into the methods, or
 		 * reads from our tracker and records which methods have not been called by the test suite.
 		 *
-		 * @param currName {String|Null} Name of the given object member (Initially this is null).
-		 * @param currVar {mixed} The variable to check (initially an object,
+		 * @param {String|Null} currName Name of the given object member (Initially this is null).
+		 * @param {mixed} currVar The variable to check (initially an object,
 		 *  further down it could be anything).
-		 * @param masterVariable {Object} Throughout our interation, always keep track of the master/root.
+		 * @param {Object} masterVariable Throughout our interation, always keep track of the master/root.
 		 *  Initially this is the same as currVar.
-		 * @param parentPathArray {Array} Array of names that indicate our breadcrumb path starting at
+		 * @param {Array} parentPathArray Array of names that indicate our breadcrumb path starting at
 		 *  masterVariable. Not including currName.
-		 * @param action {Number} What is this function supposed to do (ACTION_INJECT or ACTION_CHECK)
 		 */
-		walkTheObject: function ( currName, currVar, masterVariable, parentPathArray, action ) {
+		walkTheObject: function ( currObj, currName, masterVariable, parentPathArray ) {
+			var key, currVal, type,
+				ct = this,
+				currPathArray = parentPathArray;
 
-			var key, value, tmpPathArray,
-				type = util.type( currVar ),
-				that = this;
+			if ( currName ) {
+				currPathArray.push( currName );
+				currVal = currObj[ currName ];
+			} else {
+				currName = '(root)';
+				currVal = currObj;
+			}
+
+			type = util.type( currVal );
 
 			// Hard ignores
-			if ( this.ignoreFn( currVar, that, parentPathArray ) ) {
+			if ( this.ignoreFn( currVal, this, currPathArray ) ) {
 				return null;
 			}
 
 			// Handle the lazy limit
 			this.lazyCounter++;
 			if ( this.lazyCounter > this.lazyLimit ) {
-				log( 'CompletenessTest.fn.walkTheObject> Limit reached: ' + this.lazyCounter, parentPathArray );
+				log( 'CompletenessTest.fn.walkTheObject> Limit reached: ' + this.lazyCounter, currPathArray );
 				return null;
 			}
 
 			// Functions
 			if ( type === 'function' ) {
-
-				if ( !currVar.prototype || util.isEmptyObject( currVar.prototype ) ) {
-
-					if ( action === CompletenessTest.ACTION_INJECT ) {
-
-						that.injectionTracker[ parentPathArray.join( '.' ) ] = true;
-						that.injectCheck( masterVariable, parentPathArray, function () {
-							that.methodCallTracker[ parentPathArray.join( '.' ) ] = true;
-						} );
-					}
-
-				// We don't support checking object constructors yet...
-				// ...we can check the prototypes fine, though.
-				} else {
-					if ( action === CompletenessTest.ACTION_INJECT ) {
-
-						for ( key in currVar.prototype ) {
-							if ( hasOwn.call( currVar.prototype, key ) ) {
-								value = currVar.prototype[key];
-								if ( key === 'constructor' ) {
-									continue;
-								}
-
-								// Clone and break reference to parentPathArray
-								tmpPathArray = util.extend( [], parentPathArray );
-								tmpPathArray.push( 'prototype' );
-								tmpPathArray.push( key );
-
-								that.walkTheObject( key, value, masterVariable, tmpPathArray, action );
-							}
-						}
-
-					}
+				// Don't put a spy in constructor functions as it messes with
+				// instanceof etc.
+				if ( !currVal.prototype || util.isEmptyObject( currVal.prototype ) ) {
+					this.injectionTracker[ currPathArray.join( '.' ) ] = true;
+					this.injectCheck( currObj, currName, function () {
+						ct.methodCallTracker[ currPathArray.join( '.' ) ] = true;
+					} );
 				}
-
 			}
 
 			// Recursively. After all, this is the *completeness* test
-			if ( type === 'function' || type === 'object' ) {
-				for ( key in currVar ) {
-					if ( hasOwn.call( currVar, key ) ) {
-						value = currVar[key];
-
-						// Clone and break reference to parentPathArray
-						tmpPathArray = util.extend( [], parentPathArray );
-						tmpPathArray.push( key );
-
-						that.walkTheObject( key, value, masterVariable, tmpPathArray, action );
+			// This also traverses static properties and the prototype of a constructor
+			if ( type === 'object' || type === 'function' ) {
+				for ( key in currVal ) {
+					if ( hasOwn.call( currVal, key ) ) {
+						this.walkTheObject( currVal, key, masterVariable, currPathArray.slice() );
 					}
 				}
 			}
@@ -298,7 +248,7 @@
 			var ct = this;
 			util.each( ct.injectionTracker, function ( key ) {
 				ct.hasTest( key );
-			});
+			} );
 		},
 
 		/**
@@ -308,12 +258,12 @@
 		 * was called during the test suite (as far as the tracker knows).
 		 * If not it adds it to missingTests.
 		 *
-		 * @param fnName {String}
+		 * @param {String} fnName
 		 * @return {Boolean}
 		 */
 		hasTest: function ( fnName ) {
 			if ( !( fnName in this.methodCallTracker ) ) {
-				this.missingTests[fnName] = true;
+				this.missingTests[ fnName ] = true;
 				return false;
 			}
 			return true;
@@ -325,35 +275,34 @@
 		 * Injects a function (such as a spy that updates methodCallTracker when
 		 * it's called) inside another function.
 		 *
-		 * @param masterVariable {Object}
-		 * @param objectPathArray {Array}
-		 * @param injectFn {Function}
+		 * @param {Object} masterVariable
+		 * @param {Array} objectPathArray
+		 * @param {Function} injectFn
 		 */
-		injectCheck: function ( masterVariable, objectPathArray, injectFn ) {
-			var i, len, prev, memberName, lastMember,
-				curr = masterVariable;
+		injectCheck: function ( obj, key, injectFn ) {
+			var spy,
+				val = obj[ key ];
 
-			// Get the object in question through the path from the master variable,
-			// We can't pass the value directly because we need to re-define the object
-			// member and keep references to the parent object, member name and member
-			// value at all times.
-			for ( i = 0, len = objectPathArray.length; i < len; i++ ) {
-				memberName = objectPathArray[i];
+			spy = function () {
+				injectFn();
+				return val.apply( this, arguments );
+			};
 
-				prev = curr;
-				curr = prev[memberName];
-				lastMember = memberName;
-			}
+			// Make the spy inherit from the original so that its static methods are also
+			// visible in the spy (e.g. when we inject a check into mw.log, mw.log.warn
+			// must remain accessible).
+			// XXX: https://github.com/jshint/jshint/issues/2656
+			/*jshint ignore:start */
+			/*jshint proto:true */
+			spy.__proto__ = val;
+			/*jshint ignore:end */
 
 			// Objects are by reference, members (unless objects) are not.
-			prev[lastMember] = function () {
-				injectFn();
-				return curr.apply( this, arguments );
-			};
+			obj[ key ] = spy;
 		}
 	};
 
 	/* Expose */
 	window.CompletenessTest = CompletenessTest;
 
-}( jQuery ) );
+}( mediaWiki, jQuery ) );

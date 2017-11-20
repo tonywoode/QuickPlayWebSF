@@ -1,8 +1,7 @@
 <?php
 /** Kalaallisut (kalaallisut)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -41,7 +40,7 @@ $namespaceAliases = array(
 	'Bruger' => NS_USER,
 	'Brugerdiskussion' => NS_USER_TALK,
 	'$1-diskussion' => NS_PROJECT_TALK,
-	'$1ip oqalliffia' => NS_PROJECT_TALK,
+	'$1ip_oqalliffia' => NS_PROJECT_TALK,
 	'Fil' => NS_FILE,
 	'Fildiskussion' => NS_FILE_TALK,
 	'Billede' => NS_FILE,

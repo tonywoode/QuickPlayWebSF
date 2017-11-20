@@ -178,7 +178,7 @@ abstract class FileOp {
 	 * Check if this operation changes files listed in $paths
 	 *
 	 * @param array $deps Prior path reads/writes; format of FileOp::newPredicates()
-	 * @return boolean
+	 * @return bool
 	 */
 	final public function dependsOn( array $deps ) {
 		foreach ( $this->storagePathsChanged() as $path ) {
@@ -577,9 +577,9 @@ class StoreFileOp extends FileOp {
 	}
 
 	protected function getSourceSha1Base36() {
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$hash = sha1_file( $this->params['src'] );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		if ( $hash !== false ) {
 			$hash = wfBaseConvert( $hash, 16, 36, 31 );
 		}

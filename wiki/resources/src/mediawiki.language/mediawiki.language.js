@@ -29,8 +29,8 @@ $.extend( mw.language, {
 			return mw.language.convertPlural( parseInt( count, 10 ), template.parameters );
 		}
 		// Could not process plural return first form or nothing
-		if ( template.parameters[0] ) {
-			return template.parameters[0];
+		if ( template.parameters[ 0 ] ) {
+			return template.parameters[ 0 ];
 		}
 		return '';
 	},
@@ -40,50 +40,29 @@ $.extend( mw.language, {
 	 *
 	 * @param {number} count Non-localized quantifier
 	 * @param {Array} forms List of plural forms
+	 * @param {Object} [explicitPluralForms] List of explicit plural forms
 	 * @return {string} Correct form for quantifier in this language
 	 */
-	convertPlural: function ( count, forms ) {
+	convertPlural: function ( count, forms, explicitPluralForms ) {
 		var pluralRules,
-			formCount,
-			form,
-			index,
-			equalsPosition,
 			pluralFormIndex = 0;
 
+		if ( explicitPluralForms && explicitPluralForms[ count ] ) {
+			return explicitPluralForms[ count ];
+		}
+
 		if ( !forms || forms.length === 0 ) {
-			return '';
-		}
-
-		// Handle for explicit n= forms
-		for ( index = 0; index < forms.length; index++ ) {
-			form = forms[index];
-			if ( /^\d+=/.test( form ) ) {
-				equalsPosition = form.indexOf( '=' );
-				formCount = parseInt( form.substring( 0, equalsPosition ), 10 );
-				if ( formCount === count ) {
-					return form.substr( equalsPosition + 1 );
-				}
-				forms[index] = undefined;
-			}
-		}
-
-		// Remove explicit plural forms from the forms.
-		forms = $.map( forms, function ( form ) {
-			return form;
-		} );
-
-		if ( forms.length === 0 ) {
 			return '';
 		}
 
 		pluralRules = mw.language.getData( mw.config.get( 'wgUserLanguage' ), 'pluralRules' );
 		if ( !pluralRules ) {
 			// default fallback.
-			return ( count === 1 ) ? forms[0] : forms[1];
+			return ( count === 1 ) ? forms[ 0 ] : forms[ 1 ];
 		}
 		pluralFormIndex = mw.cldr.getPluralForm( count, pluralRules );
 		pluralFormIndex = Math.min( pluralFormIndex, forms.length - 1 );
-		return forms[pluralFormIndex];
+		return forms[ pluralFormIndex ];
 	},
 
 	/**
@@ -107,11 +86,11 @@ $.extend( mw.language, {
 	 * Usage in message text: `{{gender:[gender|user object]|masculine|feminine|neutral}}`.
 	 * If second or third parameter are not specified, masculine is used.
 	 *
-	 * These details may be overriden per language.
+	 * These details may be overridden per language.
 	 *
 	 * @param {string} gender 'male', 'female', or anything else for neutral.
 	 * @param {Array} forms List of gender forms
-	 * @return string
+	 * @return {string}
 	 */
 	gender: function ( gender, forms ) {
 		if ( !forms || forms.length === 0 ) {
@@ -119,12 +98,12 @@ $.extend( mw.language, {
 		}
 		forms = mw.language.preConvertPlural( forms, 2 );
 		if ( gender === 'male' ) {
-			return forms[0];
+			return forms[ 0 ];
 		}
 		if ( gender === 'female' ) {
-			return forms[1];
+			return forms[ 1 ];
 		}
-		return ( forms.length === 3 ) ? forms[2] : forms[0];
+		return ( forms.length === 3 ) ? forms[ 2 ] : forms[ 0 ];
 	},
 
 	/**
@@ -140,12 +119,38 @@ $.extend( mw.language, {
 	 */
 	convertGrammar: function ( word, form ) {
 		var grammarForms = mw.language.getData( mw.config.get( 'wgUserLanguage' ), 'grammarForms' );
-		if ( grammarForms && grammarForms[form] ) {
-			return grammarForms[form][word] || word;
+		if ( grammarForms && grammarForms[ form ] ) {
+			return grammarForms[ form ][ word ] || word;
 		}
 		return word;
-	}
+	},
 
+	/**
+	 * Turn a list of string into a simple list using commas and 'and'.
+	 *
+	 * See Language::listToText in languages/Language.php
+	 *
+	 * @param {string[]} list
+	 * @return {string}
+	 */
+	listToText: function ( list ) {
+		var text = '',
+			i = 0;
+
+		for ( ; i < list.length; i++ ) {
+			text += list[ i ];
+			if ( list.length - 2 === i ) {
+				text += mw.msg( 'and' ) + mw.msg( 'word-separator' );
+			} else if ( list.length - 1 !== i ) {
+				text += mw.msg( 'comma-separator' );
+			}
+		}
+		return text;
+	},
+
+	setSpecialCharacters: function ( data ) {
+		this.specialCharacters = data;
+	}
 } );
 
 }( mediaWiki, jQuery ) );

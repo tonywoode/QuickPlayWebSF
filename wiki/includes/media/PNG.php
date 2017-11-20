@@ -49,15 +49,16 @@ class PNGHandler extends BitmapHandler {
 
 	/**
 	 * @param File $image
+	 * @param bool|IContextSource $context Context to use (optional)
 	 * @return array|bool
 	 */
-	function formatMetadata( $image ) {
+	function formatMetadata( $image, $context = false ) {
 		$meta = $this->getCommonMetaArray( $image );
 		if ( count( $meta ) === 0 ) {
 			return false;
 		}
 
-		return $this->formatMetadataHelper( $meta );
+		return $this->formatMetadataHelper( $meta, $context );
 	}
 
 	/**
@@ -100,7 +101,7 @@ class PNGHandler extends BitmapHandler {
 	/**
 	 * We do not support making APNG thumbnails, so always false
 	 * @param File $image
-	 * @return bool false
+	 * @return bool False
 	 */
 	function canAnimateThumbnail( $image ) {
 		return false;
@@ -117,9 +118,9 @@ class PNGHandler extends BitmapHandler {
 			return self::METADATA_GOOD;
 		}
 
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$data = unserialize( $metadata );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 
 		if ( !$data || !is_array( $data ) ) {
 			wfDebug( __METHOD__ . " invalid png metadata\n" );
@@ -146,9 +147,9 @@ class PNGHandler extends BitmapHandler {
 		global $wgLang;
 		$original = parent::getLongDesc( $image );
 
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$metadata = unserialize( $image->getMetadata() );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 
 		if ( !$metadata || $metadata['frameCount'] <= 0 ) {
 			return $original;
@@ -172,5 +173,12 @@ class PNGHandler extends BitmapHandler {
 		}
 
 		return $wgLang->commaList( $info );
+	}
+
+	// PNGs should be easy to support, but it will need some sharpening applied
+	// and another user test to check if the perceived quality change is noticeable
+
+	public function supportsBucketing() {
+		return false;
 	}
 }

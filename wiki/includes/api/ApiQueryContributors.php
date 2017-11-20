@@ -38,7 +38,7 @@ class ApiQueryContributors extends ApiQueryBase {
 	 */
 	const MAX_PAGES = 100;
 
-	public function __construct( $query, $moduleName ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		// "pc" is short for "page contributors", "co" was already taken by the
 		// GeoData extension's prop=coordinates.
 		parent::__construct( $query, $moduleName, 'pc' );
@@ -89,7 +89,7 @@ class ApiQueryContributors extends ApiQueryBase {
 		$res = $this->select( __METHOD__ );
 		foreach ( $res as $row ) {
 			$fit = $result->addValue( array( 'query', 'pages', $row->page ),
-				'anoncontributors', $row->anons
+				'anoncontributors', (int)$row->anons
 			);
 			if ( !$fit ) {
 				// This not fitting isn't reasonable, so it probably means that
@@ -189,7 +189,7 @@ class ApiQueryContributors extends ApiQueryBase {
 			}
 
 			$fit = $this->addPageSubItem( $row->page,
-				array( 'userid' => $row->user, 'name' => $row->username ),
+				array( 'userid' => (int)$row->user, 'name' => $row->username ),
 				'user'
 			);
 			if ( !$fit ) {
@@ -236,55 +236,20 @@ class ApiQueryContributors extends ApiQueryBase {
 				ApiBase::PARAM_MAX => ApiBase::LIMIT_BIG1,
 				ApiBase::PARAM_MAX2 => ApiBase::LIMIT_BIG2
 			),
-			'continue' => null,
+			'continue' => array(
+				ApiBase::PARAM_HELP_MSG => 'api-help-param-continue',
+			),
 		);
 	}
 
-	public function getParamDescription() {
+	protected function getExamplesMessages() {
 		return array(
-			'group' => array(
-				'Limit users to given group name(s)',
-				'Does not include implicit or auto-promoted groups like *, user, or autoconfirmed'
-			),
-			'excludegroup' => array(
-				'Exclude users in given group name(s)',
-				'Does not include implicit or auto-promoted groups like *, user, or autoconfirmed'
-			),
-			'rights' => array(
-				'Limit users to those having given right(s)',
-				'Does not include rights granted by implicit or auto-promoted groups ' .
-					'like *, user, or autoconfirmed'
-			),
-			'excluderights' => array(
-				'Limit users to those not having given right(s)',
-				'Does not include rights granted by implicit or auto-promoted groups ' .
-					'like *, user, or autoconfirmed'
-			),
-			'limit' => 'How many contributors to return',
-			'continue' => 'When more results are available, use this to continue',
-		);
-	}
-
-	public function getPossibleErrors() {
-		return array_merge( parent::getPossibleErrors(),
-			$this->getRequireMaxOneParameterErrorMessages(
-				array( 'group', 'excludegroup', 'rights', 'excluderights' )
-			)
-		);
-	}
-
-	public function getDescription() {
-		return 'Get the list of logged-in contributors and ' .
-			'the count of anonymous contributors to a page.';
-	}
-
-	public function getExamples() {
-		return array(
-			'api.php?action=query&prop=contributors&titles=Main_Page',
+			'action=query&prop=contributors&titles=Main_Page'
+				=> 'apihelp-query+contributors-example-simple',
 		);
 	}
 
 	public function getHelpUrls() {
-		return 'https://www.mediawiki.org/wiki/API:Properties#contributors_.2F_pc';
+		return 'https://www.mediawiki.org/wiki/API:Contributors';
 	}
 }

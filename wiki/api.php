@@ -30,19 +30,18 @@
  * @file
  */
 
+use MediaWiki\Logger\LegacyLogger;
+
 // So extensions (and other code) can check whether they're running in API mode
 define( 'MW_API', true );
 
-// Bail if PHP is too low
-if ( !function_exists( 'version_compare' ) || version_compare( phpversion(), '5.3.2' ) < 0 ) {
-	// We need to use dirname( __FILE__ ) here cause __DIR__ is PHP5.3+
-	require dirname( __FILE__ ) . '/includes/PHPVersionError.php';
-	wfPHPVersionError( 'api.php' );
-}
+// Bail on old versions of PHP, or if composer has not been run yet to install
+// dependencies. Using dirname( __FILE__ ) here because __DIR__ is PHP5.3+.
+require_once dirname( __FILE__ ) . '/includes/PHPVersionCheck.php';
+wfEntryPointCheck( 'api.php' );
 
 require __DIR__ . '/includes/WebStart.php';
 
-wfProfileIn( 'api.php' );
 $starttime = microtime( true );
 
 // URL safety checks
@@ -60,19 +59,23 @@ if ( !$wgEnableAPI ) {
 
 // Set a dummy $wgTitle, because $wgTitle == null breaks various things
 // In a perfect world this wouldn't be necessary
-$wgTitle = Title::makeTitle( NS_MAIN, 'API' );
+$wgTitle = Title::makeTitle( NS_SPECIAL, 'Badtitle/dummy title for API calls set in api.php' );
 
-/* Construct an ApiMain with the arguments passed via the URL. What we get back
- * is some form of an ApiMain, possibly even one that produces an error message,
- * but we don't care here, as that is handled by the ctor.
- */
-$processor = new ApiMain( RequestContext::getMain(), $wgEnableWriteAPI );
+// RequestContext will read from $wgTitle, but it will also whine about it.
+// In a perfect world this wouldn't be necessary either.
+RequestContext::getMain()->setTitle( $wgTitle );
 
-// Last chance hook before executing the API
 try {
-	wfRunHooks( 'ApiBeforeMain', array( &$processor ) );
+	/* Construct an ApiMain with the arguments passed via the URL. What we get back
+	 * is some form of an ApiMain, possibly even one that produces an error message,
+	 * but we don't care here, as that is handled by the ctor.
+	 */
+	$processor = new ApiMain( RequestContext::getMain(), $wgEnableWriteAPI );
+
+	// Last chance hook before executing the API
+	Hooks::run( 'ApiBeforeMain', array( &$processor ) );
 	if ( !$processor instanceof ApiMain ) {
-		throw new MWException( 'ApiBeforMain hook set $processor to a non-ApiMain class' );
+		throw new MWException( 'ApiBeforeMain hook set $processor to a non-ApiMain class' );
 	}
 } catch ( Exception $e ) {
 	// Crap. Try to report the exception in API format to be friendly to clients.
@@ -85,18 +88,8 @@ if ( $processor ) {
 	$processor->execute();
 }
 
-if ( function_exists( 'fastcgi_finish_request' ) ) {
-	fastcgi_finish_request();
-}
-
-// Execute any deferred updates
-DeferredUpdates::doUpdates();
-
 // Log what the user did, for book-keeping purposes.
 $endtime = microtime( true );
-wfProfileOut( 'api.php' );
-
-wfLogProfilingData();
 
 // Log the request
 if ( $wgAPIRequestLog ) {
@@ -104,12 +97,17 @@ if ( $wgAPIRequestLog ) {
 		wfTimestamp( TS_MW ),
 		$endtime - $starttime,
 		$wgRequest->getIP(),
-		$_SERVER['HTTP_USER_AGENT']
+		$wgRequest->getHeader( 'User-agent' )
 	);
 	$items[] = $wgRequest->wasPosted() ? 'POST' : 'GET';
 	if ( $processor ) {
-		$module = $processor->getModule();
-		if ( $module->mustBePosted() ) {
+		try {
+			$manager = $processor->getModuleManager();
+			$module = $manager->getModule( $wgRequest->getVal( 'action' ), 'action' );
+		} catch ( Exception $ex ) {
+			$module = null;
+		}
+		if ( !$module || $module->mustBePosted() ) {
 			$items[] = "action=" . $wgRequest->getVal( 'action' );
 		} else {
 			$items[] = wfArrayToCgi( $wgRequest->getValues() );
@@ -117,11 +115,9 @@ if ( $wgAPIRequestLog ) {
 	} else {
 		$items[] = "failed in ApiBeforeMain";
 	}
-	wfErrorLog( implode( ',', $items ) . "\n", $wgAPIRequestLog );
+	LegacyLogger::emit( implode( ',', $items ) . "\n", $wgAPIRequestLog );
 	wfDebug( "Logged API request to $wgAPIRequestLog\n" );
 }
 
-// Shut down the database.  foo()->bar() syntax is not supported in PHP4: we won't ever actually
-// get here to worry about whether this should be = or =&, but the file has to parse properly.
-$lb = wfGetLBFactory();
-$lb->shutdown();
+$mediawiki = new MediaWiki();
+$mediawiki->doPostOutputShutdown( 'fast' );

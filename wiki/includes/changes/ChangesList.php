@@ -36,6 +36,9 @@ class ChangesList extends ContextSource {
 	protected $rclistOpen;
 	protected $rcMoveIndex;
 
+	/** @var MapCacheLRU */
+	protected $watchingCache;
+
 	/**
 	 * Changeslist constructor
 	 *
@@ -50,6 +53,7 @@ class ChangesList extends ContextSource {
 			$this->skin = $obj;
 		}
 		$this->preCacheMessages();
+		$this->watchingCache = new MapCacheLRU( 50 );
 	}
 
 	/**
@@ -57,13 +61,13 @@ class ChangesList extends ContextSource {
 	 * Some users might want to use an enhanced list format, for instance
 	 *
 	 * @param IContextSource $context
-	 * @return ChangesList derivative
+	 * @return ChangesList
 	 */
 	public static function newFromContext( IContextSource $context ) {
 		$user = $context->getUser();
 		$sk = $context->getSkin();
 		$list = null;
-		if ( wfRunHooks( 'FetchChangesList', array( $user, &$sk, &$list ) ) ) {
+		if ( Hooks::run( 'FetchChangesList', array( $user, &$sk, &$list ) ) ) {
 			$new = $context->getRequest()->getBool( 'enhanced', $user->getOption( 'usenewrc' ) );
 
 			return $new ? new EnhancedChangesList( $context ) : new OldChangesList( $context );
@@ -74,14 +78,14 @@ class ChangesList extends ContextSource {
 
 	/**
 	 * Sets the list to use a "<li class='watchlist-(namespace)-(page)'>" tag
-	 * @param $value Boolean
+	 * @param bool $value
 	 */
 	public function setWatchlistDivs( $value = true ) {
 		$this->watchlist = $value;
 	}
 
 	/**
-	 * @return bool true when setWatchlistDivs has been called
+	 * @return bool True when setWatchlistDivs has been called
 	 * @since 1.23
 	 */
 	public function isWatchlist() {
@@ -106,13 +110,12 @@ class ChangesList extends ContextSource {
 	/**
 	 * Returns the appropriate flags for new page, minor change and patrolling
 	 * @param array $flags Associative array of 'flag' => Bool
-	 * @param string $nothing to use for empty space
+	 * @param string $nothing To use for empty space
 	 * @return string
 	 */
 	public function recentChangesFlags( $flags, $nothing = '&#160;' ) {
-		global $wgRecentChangesFlags;
 		$f = '';
-		foreach ( array_keys( $wgRecentChangesFlags ) as $flag ) {
+		foreach ( array_keys( $this->getConfig()->get( 'RecentChangesFlags' ) ) as $flag ) {
 			$f .= isset( $flags[$flag] ) && $flags[$flag]
 				? self::flag( $flag )
 				: $nothing;
@@ -177,7 +180,7 @@ class ChangesList extends ContextSource {
 	 * @param ResultWrapper|array $rows
 	 */
 	public function initChangesListRows( $rows ) {
-		wfRunHooks( 'ChangesListInitRows', array( $this, $rows ) );
+		Hooks::run( 'ChangesListInitRows', array( $this, $rows ) );
 	}
 
 	/**
@@ -188,8 +191,6 @@ class ChangesList extends ContextSource {
 	 * @return string
 	 */
 	public static function showCharacterDifference( $old, $new, IContextSource $context = null ) {
-		global $wgRCChangedSizeThreshold, $wgMiserMode;
-
 		if ( !$context ) {
 			$context = RequestContext::getMain();
 		}
@@ -199,10 +200,12 @@ class ChangesList extends ContextSource {
 		$szdiff = $new - $old;
 
 		$lang = $context->getLanguage();
+		$config = $context->getConfig();
 		$code = $lang->getCode();
 		static $fastCharDiff = array();
 		if ( !isset( $fastCharDiff[$code] ) ) {
-			$fastCharDiff[$code] = $wgMiserMode || $context->msg( 'rc-change-size' )->plain() === '$1';
+			$fastCharDiff[$code] = $config->get( 'MiserMode' )
+				|| $context->msg( 'rc-change-size' )->plain() === '$1';
 		}
 
 		$formattedSize = $lang->formatNum( $szdiff );
@@ -211,7 +214,7 @@ class ChangesList extends ContextSource {
 			$formattedSize = $context->msg( 'rc-change-size', $formattedSize )->text();
 		}
 
-		if ( abs( $szdiff ) > abs( $wgRCChangedSizeThreshold ) ) {
+		if ( abs( $szdiff ) > abs( $config->get( 'RCChangedSizeThreshold' ) ) ) {
 			$tag = 'strong';
 		} else {
 			$tag = 'span';
@@ -236,8 +239,8 @@ class ChangesList extends ContextSource {
 	/**
 	 * Format the character difference of one or several changes.
 	 *
-	 * @param $old RecentChange
-	 * @param $new RecentChange last change to use, if not provided, $old will be used
+	 * @param RecentChange $old
+	 * @param RecentChange $new Last change to use, if not provided, $old will be used
 	 * @return string HTML fragment
 	 */
 	public function formatCharacterDifference( RecentChange $old, RecentChange $new = null ) {
@@ -258,7 +261,7 @@ class ChangesList extends ContextSource {
 
 	/**
 	 * Returns text for the end of RC
-	 * @return String
+	 * @return string
 	 */
 	public function endRecentChangesList() {
 		$out = $this->rclistOpen ? "</ul>\n" : '';
@@ -269,7 +272,7 @@ class ChangesList extends ContextSource {
 
 	/**
 	 * @param string $s HTML to update
-	 * @param $rc_timestamp mixed
+	 * @param mixed $rc_timestamp
 	 */
 	public function insertDateHeader( &$s, $rc_timestamp ) {
 		# Make date header if necessary
@@ -286,8 +289,8 @@ class ChangesList extends ContextSource {
 
 	/**
 	 * @param string $s HTML to update
-	 * @param $title Title
-	 * @param $logtype string
+	 * @param Title $title
+	 * @param string $logtype
 	 */
 	public function insertLog( &$s, $title, $logtype ) {
 		$page = new LogPage( $logtype );
@@ -297,8 +300,8 @@ class ChangesList extends ContextSource {
 
 	/**
 	 * @param string $s HTML to update
-	 * @param $rc RecentChange
-	 * @param $unpatrolled
+	 * @param RecentChange $rc
+	 * @param bool $unpatrolled
 	 */
 	public function insertDiffHist( &$s, &$rc, $unpatrolled ) {
 		# Diff link
@@ -338,12 +341,15 @@ class ChangesList extends ContextSource {
 
 	/**
 	 * @param string $s HTML to update
-	 * @param $rc RecentChange
-	 * @param $unpatrolled
-	 * @param $watched
+	 * @param RecentChange $rc
+	 * @param bool $unpatrolled
+	 * @param bool $watched
 	 */
 	public function insertArticleLink( &$s, &$rc, $unpatrolled, $watched ) {
 		$params = array();
+		if ( $rc->getTitle()->isRedirect() ) {
+			$params = array( 'redirect' => 'no' );
+		}
 
 		$articlelink = Linker::linkKnown(
 			$rc->getTitle(),
@@ -359,17 +365,30 @@ class ChangesList extends ContextSource {
 		# RTL/LTR marker
 		$articlelink .= $this->getLanguage()->getDirMark();
 
-		wfRunHooks( 'ChangesListInsertArticleLink',
+		Hooks::run( 'ChangesListInsertArticleLink',
 			array( &$this, &$articlelink, &$s, &$rc, $unpatrolled, $watched ) );
 
 		$s .= " $articlelink";
 	}
 
 	/**
+	 * @param RecentChange $rc
+	 * @param bool $unpatrolled
+	 * @param bool $watched
+	 * @return string
+	 * @since 1.26
+	 */
+	public function getArticleLink( RecentChange $rc, $unpatrolled, $watched ) {
+		$s = '';
+		$this->insertArticleLink( $s, $rc, $unpatrolled, $watched );
+		return $s;
+	}
+
+	/**
 	 * Get the timestamp from $rc formatted with current user's settings
 	 * and a separator
 	 *
-	 * @param $rc RecentChange
+	 * @param RecentChange $rc
 	 * @return string HTML fragment
 	 */
 	public function getTimestamp( $rc ) {
@@ -385,7 +404,7 @@ class ChangesList extends ContextSource {
 	 * Insert time timestamp string from $rc into $s
 	 *
 	 * @param string $s HTML to update
-	 * @param $rc RecentChange
+	 * @param RecentChange $rc
 	 */
 	public function insertTimestamp( &$s, $rc ) {
 		$s .= $this->getTimestamp( $rc );
@@ -394,8 +413,8 @@ class ChangesList extends ContextSource {
 	/**
 	 * Insert links to user page, user talk page and eventually a blocking link
 	 *
-	 * @param &$s String HTML to update
-	 * @param &$rc RecentChange
+	 * @param string &$s HTML to update
+	 * @param RecentChange &$rc
 	 */
 	public function insertUserRelatedLinks( &$s, &$rc ) {
 		if ( $this->isDeleted( $rc, Revision::DELETED_USER ) ) {
@@ -411,7 +430,7 @@ class ChangesList extends ContextSource {
 	/**
 	 * Insert a formatted action
 	 *
-	 * @param $rc RecentChange
+	 * @param RecentChange $rc
 	 * @return string
 	 */
 	public function insertLogEntry( $rc ) {
@@ -425,27 +444,23 @@ class ChangesList extends ContextSource {
 
 	/**
 	 * Insert a formatted comment
-	 * @param $rc RecentChange
+	 * @param RecentChange $rc
 	 * @return string
 	 */
 	public function insertComment( $rc ) {
-		if ( $rc->mAttribs['rc_type'] != RC_MOVE && $rc->mAttribs['rc_type'] != RC_MOVE_OVER_REDIRECT ) {
-			if ( $this->isDeleted( $rc, Revision::DELETED_COMMENT ) ) {
-				return ' <span class="history-deleted">' .
-					$this->msg( 'rev-deleted-comment' )->escaped() . '</span>';
-			} else {
-				return Linker::commentBlock( $rc->mAttribs['rc_comment'], $rc->getTitle() );
-			}
+		if ( $this->isDeleted( $rc, Revision::DELETED_COMMENT ) ) {
+			return ' <span class="history-deleted">' .
+				$this->msg( 'rev-deleted-comment' )->escaped() . '</span>';
+		} else {
+			return Linker::commentBlock( $rc->mAttribs['rc_comment'], $rc->getTitle() );
 		}
-
-		return '';
 	}
 
 	/**
 	 * Check whether to enable recent changes patrol features
 	 *
 	 * @deprecated since 1.22
-	 * @return Boolean
+	 * @return bool
 	 */
 	public static function usePatrol() {
 		global $wgUser;
@@ -461,14 +476,14 @@ class ChangesList extends ContextSource {
 	 * @return string
 	 */
 	protected function numberofWatchingusers( $count ) {
-		static $cache = array();
+		$cache = $this->watchingCache;
 		if ( $count > 0 ) {
-			if ( !isset( $cache[$count] ) ) {
-				$cache[$count] = $this->msg( 'number_of_watching_users_RCview' )
-					->numParams( $count )->escaped();
+			if ( !$cache->has( $count ) ) {
+				$cache->set( $count, $this->msg( 'number_of_watching_users_RCview' )
+					->numParams( $count )->escaped() );
 			}
 
-			return $cache[$count];
+			return $cache->get( $count );
 		} else {
 			return '';
 		}
@@ -501,8 +516,8 @@ class ChangesList extends ContextSource {
 	}
 
 	/**
-	 * @param $link string
-	 * @param $watched bool
+	 * @param string $link
+	 * @param bool $watched
 	 * @return string
 	 */
 	protected function maybeWatchedLink( $link, $watched = false ) {
@@ -515,8 +530,8 @@ class ChangesList extends ContextSource {
 
 	/** Inserts a rollback link
 	 *
-	 * @param $s string
-	 * @param $rc RecentChange
+	 * @param string $s
+	 * @param RecentChange $rc
 	 */
 	public function insertRollback( &$s, &$rc ) {
 		if ( $rc->mAttribs['rc_type'] == RC_EDIT
@@ -542,9 +557,20 @@ class ChangesList extends ContextSource {
 	}
 
 	/**
-	 * @param $s string
-	 * @param $rc RecentChange
-	 * @param $classes
+	 * @param RecentChange $rc
+	 * @return string
+	 * @since 1.26
+	 */
+	public function getRollback( RecentChange $rc ) {
+		$s = '';
+		$this->insertRollback( $s, $rc );
+		return $s;
+	}
+
+	/**
+	 * @param string $s
+	 * @param RecentChange $rc
+	 * @param array $classes
 	 */
 	public function insertTags( &$s, &$rc, &$classes ) {
 		if ( empty( $rc->mAttribs['ts_tags'] ) ) {
@@ -557,6 +583,18 @@ class ChangesList extends ContextSource {
 		);
 		$classes = array_merge( $classes, $newClasses );
 		$s .= ' ' . $tagSummary;
+	}
+
+	/**
+	 * @param RecentChange $rc
+	 * @param array $classes
+	 * @return string
+	 * @since 1.26
+	 */
+	public function getTags( RecentChange $rc, array &$classes ) {
+		$s = '';
+		$this->insertTags( $s, $rc, $classes );
+		return $s;
 	}
 
 	public function insertExtra( &$s, &$rc, &$classes ) {

@@ -25,7 +25,8 @@ require_once __DIR__ . '/../Maintenance.php';
 
 /**
  * Generates the normalizer data file for Arabic.
- * For NFC see includes/normal.
+ *
+ * This data file is used after normalizing to NFC.
  *
  * @ingroup MaintenanceLanguage
  */
@@ -117,8 +118,8 @@ class GenerateNormalizerDataAr extends Maintenance {
 					continue;
 				}
 
-				$source = hexSequenceToUtf8( $data['Code'] );
-				$dest = hexSequenceToUtf8( $m[2] );
+				$source = UtfNormal\Utils::hexSequenceToUtf8( $data['Code'] );
+				$dest = UtfNormal\Utils::hexSequenceToUtf8( $m[2] );
 				$pairs[$source] = $dest;
 			}
 		}

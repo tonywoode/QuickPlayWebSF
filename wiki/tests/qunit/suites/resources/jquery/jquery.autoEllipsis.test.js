@@ -11,7 +11,7 @@
 
 	function findDivergenceIndex( a, b ) {
 		var i = 0;
-		while ( i < a.length && i < b.length && a[i] === b[i] ) {
+		while ( i < a.length && i < b.length && a[ i ] === b[ i ] ) {
 			i++;
 		}
 		return i;
@@ -41,18 +41,13 @@
 		// Add two characters using scary black magic
 		spanText = $span.text();
 		d = findDivergenceIndex( origText, spanText );
-		spanTextNew = spanText.substr( 0, d ) + origText[d] + origText[d] + '...';
+		spanTextNew = spanText.slice( 0, d ) + origText[ d ] + origText[ d ] + '...';
 
 		assert.gt( spanTextNew.length, spanText.length, 'Verify that the new span-length is indeed greater' );
 
 		// Put this text in the span and verify it doesn't fit
 		$span.text( spanTextNew );
-		// In IE6 width works like min-width, allow IE6's width to be "equal to"
-		if ( $.browser.msie && Number( $.browser.version ) === 6 ) {
-			assert.gtOrEq( $span.width(), $span.parent().width(), 'Fit is maximal (adding two characters makes it not fit any more) - IE6: Maybe equal to as well due to width behaving like min-width in IE6' );
-		} else {
-			assert.gt( $span.width(), $span.parent().width(), 'Fit is maximal (adding two characters makes it not fit any more)' );
-		}
+		assert.gt( $span.width(), $span.parent().width(), 'Fit is maximal (adding two characters makes it not fit any more)' );
 	} );
 
 }( jQuery ) );

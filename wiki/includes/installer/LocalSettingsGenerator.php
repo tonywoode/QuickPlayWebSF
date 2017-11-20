@@ -34,6 +34,7 @@ class LocalSettingsGenerator {
 	protected $groupPermissions = array();
 	protected $dbSettings = '';
 	protected $safeMode = false;
+	protected $IP;
 
 	/**
 	 * @var Installer
@@ -43,18 +44,20 @@ class LocalSettingsGenerator {
 	/**
 	 * Constructor.
 	 *
-	 * @param $installer Installer subclass
+	 * @param Installer $installer
 	 */
 	public function __construct( Installer $installer ) {
 		$this->installer = $installer;
 
 		$this->extensions = $installer->getVar( '_Extensions' );
+		$this->skins = $installer->getVar( '_Skins' );
+		$this->IP = $installer->getVar( 'IP' );
 
 		$db = $installer->getDBInstaller( $installer->getVar( 'wgDBtype' ) );
 
 		$confItems = array_merge(
 			array(
-				'wgServer', 'wgScriptPath', 'wgScriptExtension',
+				'wgServer', 'wgScriptPath',
 				'wgPasswordSender', 'wgImageMagickConvertCommand', 'wgShellLocale',
 				'wgLanguageCode', 'wgEnableEmail', 'wgEnableUserEmail', 'wgDiff3',
 				'wgEnotifUserTalk', 'wgEnotifWatchlist', 'wgEmailAuthentication',
@@ -62,7 +65,7 @@ class LocalSettingsGenerator {
 				'wgRightsText', 'wgMainCacheType', 'wgEnableUploads',
 				'wgMainCacheType', '_MemCachedServers', 'wgDBserver', 'wgDBuser',
 				'wgDBpassword', 'wgUseInstantCommons', 'wgUpgradeKey', 'wgDefaultSkin',
-				'wgMetaNamespace', 'wgResourceLoaderMaxQueryLength', 'wgLogo',
+				'wgMetaNamespace', 'wgLogo',
 			),
 			$db->getGlobalNames()
 		);
@@ -105,9 +108,9 @@ class LocalSettingsGenerator {
 	/**
 	 * Returns the escaped version of a string of php code.
 	 *
-	 * @param $string String
+	 * @param string $string
 	 *
-	 * @return String
+	 * @return string
 	 */
 	public static function escapePhpString( $string ) {
 		if ( is_array( $string ) || is_object( $string ) ) {
@@ -129,12 +132,24 @@ class LocalSettingsGenerator {
 
 	/**
 	 * Return the full text of the generated LocalSettings.php file,
-	 * including the extensions
+	 * including the extensions and skins.
 	 *
-	 * @return String
+	 * @return string
 	 */
 	public function getText() {
 		$localSettings = $this->getDefaultText();
+
+		if ( count( $this->skins ) ) {
+			$localSettings .= "
+# Enabled skins.
+# The following skins were automatically enabled:\n";
+
+			foreach ( $this->skins as $skinName ) {
+				$localSettings .= $this->generateExtEnableLine( 'skins', $skinName );
+			}
+
+			$localSettings .= "\n";
+		}
 
 		if ( count( $this->extensions ) ) {
 			$localSettings .= "
@@ -143,15 +158,45 @@ class LocalSettingsGenerator {
 # The following extensions were automatically enabled:\n";
 
 			foreach ( $this->extensions as $extName ) {
-				$encExtName = self::escapePhpString( $extName );
-				$localSettings .= "require_once \"\$IP/extensions/$encExtName/$encExtName.php\";\n";
+				$localSettings .= $this->generateExtEnableLine( 'extensions', $extName );
 			}
+
+			$localSettings .= "\n";
 		}
 
-		$localSettings .= "\n\n# End of automatically generated settings.
+		$localSettings .= "
+# End of automatically generated settings.
 # Add more configuration options below.\n\n";
 
 		return $localSettings;
+	}
+
+	/**
+	 * Generate the appropriate line to enable the given extension or skin
+	 *
+	 * @param string $dir Either "extensions" or "skins"
+	 * @param string $name Name of extension/skin
+	 * @throws InvalidArgumentException
+	 * @return string
+	 */
+	private function generateExtEnableLine( $dir, $name ) {
+		if ( $dir === 'extensions' ) {
+			$jsonFile = 'extension.json';
+			$function = 'wfLoadExtension';
+		} elseif ( $dir === 'skins' ) {
+			$jsonFile = 'skin.json';
+			$function = 'wfLoadSkin';
+		} else {
+			throw new InvalidArgumentException( '$dir was not "extensions" or "skins' );
+		}
+
+		$encName = self::escapePhpString( $name );
+
+		if ( file_exists( "{$this->IP}/$dir/$encName/$jsonFile" ) ) {
+			return "$function( '$encName' );\n";
+		} else {
+			return "require_once \"\$IP/$dir/$encName/$encName.php\";\n";
+		}
 	}
 
 	/**
@@ -164,7 +209,7 @@ class LocalSettingsGenerator {
 	}
 
 	/**
-	 * @return String
+	 * @return string
 	 */
 	protected function buildMemcachedServerList() {
 		$servers = $this->values['_MemCachedServers'];
@@ -185,7 +230,7 @@ class LocalSettingsGenerator {
 	}
 
 	/**
-	 * @return String
+	 * @return string
 	 */
 	protected function getDefaultText() {
 		if ( !$this->values['wgImageMagickConvertCommand'] ) {
@@ -202,7 +247,6 @@ class LocalSettingsGenerator {
 			$locale = '';
 		}
 
-		//$rightsUrl = $this->values['wgRightsUrl'] ? '' : '#'; // @todo FIXME: I'm unused!
 		$hashedUploads = $this->safeMode ? '' : '#';
 		$metaNamespace = '';
 		if ( $this->values['wgMetaNamespace'] !== $this->values['wgSitename'] ) {
@@ -221,6 +265,8 @@ class LocalSettingsGenerator {
 						wfBoolToStr( $perm ) . ";\n";
 				}
 			}
+			$groupRights .= "\n";
+
 			if ( ( isset( $this->groupPermissions['*']['edit'] ) &&
 					$this->groupPermissions['*']['edit'] === false )
 				&& ( isset( $this->groupPermissions['*']['createaccount'] ) &&
@@ -228,12 +274,12 @@ class LocalSettingsGenerator {
 				&& ( isset( $this->groupPermissions['*']['read'] ) &&
 					$this->groupPermissions['*']['read'] !== false )
 			) {
-				$noFollow = "\n# Set \$wgNoFollowLinks to true if you open up your wiki to editing by\n"
+				$noFollow = "# Set \$wgNoFollowLinks to true if you open up your wiki to editing by\n"
 					. "# the general public and wish to apply nofollow to external links as a\n"
 					. "# deterrent to spammers. Nofollow is not a comprehensive anti-spam solution\n"
 					. "# and open wikis will generally require other anti-spam measures; for more\n"
 					. "# information, see https://www.mediawiki.org/wiki/Manual:Combating_spam\n"
-					. "\$wgNoFollowLinks = false;";
+					. "\$wgNoFollowLinks = false;\n\n";
 			}
 		}
 
@@ -285,12 +331,12 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 ## (like /w/index.php/Page_title to /wiki/Page_title) please see:
 ## https://www.mediawiki.org/wiki/Manual:Short_URL
 \$wgScriptPath = \"{$this->values['wgScriptPath']}\";
-\$wgScriptExtension = \"{$this->values['wgScriptExtension']}\";
 ${serverSetting}
-## The relative URL path to the skins directory
-\$wgStylePath = \"\$wgScriptPath/skins\";
 
-## The relative URL path to the logo.  Make sure you change this from the default,
+## The URL path to static resources (images, scripts, etc.)
+\$wgResourceBasePath = \$wgScriptPath;
+
+## The URL path to the logo.  Make sure you change this from the default,
 ## or else you'll overwrite your logo when you upgrade!
 \$wgLogo = \"{$this->values['wgLogo']}\";
 
@@ -325,7 +371,7 @@ ${serverSetting}
 {$magic}\$wgUseImageMagick = true;
 {$magic}\$wgImageMagickConvertCommand = \"{$this->values['wgImageMagickConvertCommand']}\";
 
-# InstantCommons allows wiki to use images from http://commons.wikimedia.org
+# InstantCommons allows wiki to use images from https://commons.wikimedia.org
 \$wgUseInstantCommons = {$this->values['wgUseInstantCommons']};
 
 ## If you use ImageMagick (or any other shell command) on a
@@ -353,10 +399,6 @@ ${serverSetting}
 # web installer while LocalSettings.php is in place
 \$wgUpgradeKey = \"{$this->values['wgUpgradeKey']}\";
 
-## Default skin: you can change the default skin. Use the internal symbolic
-## names, ie 'cologneblue', 'monobook', 'vector':
-\$wgDefaultSkin = \"{$this->values['wgDefaultSkin']}\";
-
 ## For attaching licensing metadata to pages, and displaying an
 ## appropriate copyright notice / icon. GNU Free Documentation
 ## License and Creative Commons licenses are supported so far.
@@ -368,6 +410,9 @@ ${serverSetting}
 # Path to the GNU diff3 utility. Used for conflict resolution.
 \$wgDiff3 = \"{$this->values['wgDiff3']}\";
 
-{$groupRights}{$noFollow}";
+{$groupRights}{$noFollow}## Default skin: you can change the default skin. Use the internal symbolic
+## names, ie 'vector', 'monobook':
+\$wgDefaultSkin = \"{$this->values['wgDefaultSkin']}\";
+";
 	}
 }

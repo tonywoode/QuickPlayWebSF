@@ -7,7 +7,7 @@
  */
 class UploadStashTest extends MediaWikiTestCase {
 	/**
-	 * @var Array of UploadStashTestUser
+	 * @var array Array of UploadStashTestUser
 	 */
 	public static $users;
 
@@ -20,7 +20,7 @@ class UploadStashTest extends MediaWikiTestCase {
 		parent::setUp();
 
 		// Setup a file for bug 29408
-		$this->bug29408File = __DIR__ . '/bug29408';
+		$this->bug29408File = wfTempDir() . '/bug29408';
 		file_put_contents( $this->bug29408File, "\x00" );
 
 		self::$users = array(
@@ -68,7 +68,7 @@ class UploadStashTest extends MediaWikiTestCase {
 		$stash->removeFile( $file->getFileKey() );
 	}
 
-	public function provideInvalidRequests() {
+	public static function provideInvalidRequests() {
 		return array(
 			'Check failure on bad wpFileKey' =>
 				array( new FauxRequest( array( 'wpFileKey' => 'foo' ) ) ),
@@ -84,7 +84,7 @@ class UploadStashTest extends MediaWikiTestCase {
 		$this->assertFalse( UploadFromStash::isValidRequest( $request ) );
 	}
 
-	public function provideValidRequests() {
+	public static function provideValidRequests() {
 		return array(
 			'Check good wpFileKey' =>
 				array( new FauxRequest( array( 'wpFileKey' => 'testkey-test.test' ) ) ),

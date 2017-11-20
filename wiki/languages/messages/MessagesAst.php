@@ -1,8 +1,7 @@
 <?php
 /** Asturian (asturianu)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -30,7 +29,7 @@ $namespaceNames = array(
 
 $namespaceAliases = array(
 	'Imaxe'               => NS_FILE,
-	'Imaxe alderique'     => NS_FILE_TALK,
+	'Imaxe_alderique'     => NS_FILE_TALK,
 	'Discusión'           => NS_TALK,
 	'Usuariu_discusión'   => NS_USER_TALK,
 	'$1_discusión'        => NS_PROJECT_TALK,
@@ -50,6 +49,7 @@ $namespaceAliases = array(
 $specialPageAliases = array(
 	'Block'                     => array( 'Bloquiar', 'BloquiarIP', 'BloquiarUsuariu' ),
 	'Log'                       => array( 'Rexistru', 'Rexistros' ),
+	'Recentchanges'             => array( 'CambeosRecientes' ),
 	'Search'                    => array( 'Gueta' ),
 	'Statistics'                => array( 'Estadístiques' ),
 );

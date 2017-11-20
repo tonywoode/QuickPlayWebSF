@@ -48,7 +48,7 @@ interface LoadMonitor {
 	 * @param array $serverIndexes
 	 * @param string $wiki
 	 *
-	 * @return array
+	 * @return array Map of (server index => seconds)
 	 */
 	public function getLagTimes( $serverIndexes, $wiki );
 }
@@ -62,88 +62,5 @@ class LoadMonitorNull implements LoadMonitor {
 
 	public function getLagTimes( $serverIndexes, $wiki ) {
 		return array_fill_keys( $serverIndexes, 0 );
-	}
-}
-
-/**
- * Basic MySQL load monitor with no external dependencies
- * Uses memcached to cache the replication lag for a short time
- *
- * @ingroup Database
- */
-class LoadMonitorMySQL implements LoadMonitor {
-	/** @var LoadBalancer */
-	public $parent;
-
-	public function __construct( $parent ) {
-		$this->parent = $parent;
-	}
-
-	public function scaleLoads( &$loads, $group = false, $wiki = false ) {
-	}
-
-	public function getLagTimes( $serverIndexes, $wiki ) {
-		if ( count( $serverIndexes ) == 1 && reset( $serverIndexes ) == 0 ) {
-			// Single server only, just return zero without caching
-			return array( 0 => 0 );
-		}
-
-		$section = new ProfileSection( __METHOD__ );
-
-		$expiry = 5;
-		$requestRate = 10;
-
-		global $wgMemc;
-		if ( empty( $wgMemc ) ) {
-			$wgMemc = wfGetMainCache();
-		}
-
-		$masterName = $this->parent->getServerName( 0 );
-		$memcKey = wfMemcKey( 'lag_times', $masterName );
-		$times = $wgMemc->get( $memcKey );
-		if ( is_array( $times ) ) {
-			# Randomly recache with probability rising over $expiry
-			$elapsed = time() - $times['timestamp'];
-			$chance = max( 0, ( $expiry - $elapsed ) * $requestRate );
-			if ( mt_rand( 0, $chance ) != 0 ) {
-				unset( $times['timestamp'] ); // hide from caller
-
-				return $times;
-			}
-			wfIncrStats( 'lag_cache_miss_expired' );
-		} else {
-			wfIncrStats( 'lag_cache_miss_absent' );
-		}
-
-		# Cache key missing or expired
-		if ( $wgMemc->add( "$memcKey:lock", 1, 10 ) ) {
-			# Let this process alone update the cache value
-			$unlocker = new ScopedCallback( function () use ( $wgMemc, $memcKey ) {
-				$wgMemc->delete( $memcKey );
-			} );
-		} elseif ( is_array( $times ) ) {
-			# Could not acquire lock but an old cache exists, so use it
-			unset( $times['timestamp'] ); // hide from caller
-
-			return $times;
-		}
-
-		$times = array();
-		foreach ( $serverIndexes as $i ) {
-			if ( $i == 0 ) { # Master
-				$times[$i] = 0;
-			} elseif ( false !== ( $conn = $this->parent->getAnyOpenConnection( $i ) ) ) {
-				$times[$i] = $conn->getLag();
-			} elseif ( false !== ( $conn = $this->parent->openConnection( $i, $wiki ) ) ) {
-				$times[$i] = $conn->getLag();
-			}
-		}
-
-		# Add a timestamp key so we know when it was cached
-		$times['timestamp'] = time();
-		$wgMemc->set( $memcKey, $times, $expiry + 10 );
-		unset( $times['timestamp'] ); // hide from caller
-
-		return $times;
 	}
 }

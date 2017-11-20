@@ -28,14 +28,31 @@ class HTMLRadioField extends HTMLFormField {
 	 * This returns a block of all the radio options, in one cell.
 	 * @see includes/HTMLFormField#getInputHTML()
 	 *
-	 * @param $value String
+	 * @param string $value
 	 *
-	 * @return String
+	 * @return string
 	 */
 	function getInputHTML( $value ) {
 		$html = $this->formatOptions( $this->getOptions(), strval( $value ) );
 
 		return $html;
+	}
+
+	function getInputOOUI( $value ) {
+		$options = array();
+		foreach ( $this->getOptions() as $label => $data ) {
+			$options[] = array(
+				'data' => $data,
+				'label' => $this->mOptionsLabelsNotFromMessage ? new OOUI\HtmlSnippet( $label ) : $label,
+			);
+		}
+
+		return new OOUI\RadioSelectInputWidget( array(
+			'name' => $this->mName,
+			'value' => $value,
+			'options' => $options,
+			'classes' => 'mw-htmlform-flatlist-item',
+		) + $this->getAttributes( array( 'disabled', 'tabindex' ), array( 'tabindex' => 'tabIndex' ) ) );
 	}
 
 	function formatOptions( $options, $value ) {
@@ -56,7 +73,7 @@ class HTMLRadioField extends HTMLFormField {
 
 				$html .= ' ' . Html::rawElement(
 					'div',
-					array( 'class' => 'mw-htmlform-flatlist-item' ),
+					array( 'class' => 'mw-htmlform-flatlist-item mw-ui-radio' ),
 					$radio
 				);
 			}

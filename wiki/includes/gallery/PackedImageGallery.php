@@ -21,8 +21,8 @@
  */
 
 class PackedImageGallery extends TraditionalImageGallery {
-	function __construct( $mode = 'traditional' ) {
-		parent::__construct( $mode );
+	function __construct( $mode = 'traditional', IContextSource $context = null ) {
+		parent::__construct( $mode, $context );
 		// Does not support per row option.
 		$this->mPerRow = 0;
 	}
@@ -76,7 +76,7 @@ class PackedImageGallery extends TraditionalImageGallery {
 	}
 
 	/**
-	 * @param MediaTransformOutput|bool $thumb the thumbnail, or false if no
+	 * @param MediaTransformOutput|bool $thumb The thumbnail, or false if no
 	 *   thumb (which can happen)
 	 * @return float
 	 */
@@ -95,6 +95,7 @@ class PackedImageGallery extends TraditionalImageGallery {
 	/**
 	 * Add javascript which auto-justifies the rows by manipulating the image sizes.
 	 * Also ensures that the hover version of this degrades gracefully.
+	 * @return array
 	 */
 	protected function getModules() {
 		return array( 'mediawiki.page.gallery' );
@@ -103,6 +104,7 @@ class PackedImageGallery extends TraditionalImageGallery {
 	/**
 	 * Do not support per-row on packed. It really doesn't work
 	 * since the images have varying widths.
+	 * @param int $num
 	 */
 	public function setPerRow( $num ) {
 		return;

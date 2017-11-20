@@ -24,7 +24,7 @@
 /**
  * Class to handle job queues stored in Redis
  *
- * This is faster, less resource intensive, queue that JobQueueDB.
+ * This is a faster and less resource-intensive job queue than JobQueueDB.
  * All data for a queue using this class is placed into one redis server.
  *
  * There are eight main redis keys used to track jobs:
@@ -49,7 +49,7 @@
  *
  * This class requires Redis 2.6 as it makes use Lua scripts for fast atomic operations.
  * Additionally, it should be noted that redis has different persistence modes, such
- * as rdb snapshots, journaling, and no persistent. Appropriate configuration should be
+ * as rdb snapshots, journaling, and no persistence. Appropriate configuration should be
  * made on the servers based on what queues are using it and what tolerance they have.
  *
  * @ingroup JobQueue
@@ -62,7 +62,6 @@ class JobQueueRedis extends JobQueue {
 
 	/** @var string Server address */
 	protected $server;
-
 	/** @var string Compression method to use */
 	protected $compression;
 
@@ -72,24 +71,17 @@ class JobQueueRedis extends JobQueue {
 	protected $key;
 
 	/**
-	 * @var null|int maximum seconds between execution of periodic tasks.  Used to speed up
-	 * testing but should otherwise be left unset.
-	 */
-	protected $maximumPeriodicTaskSeconds;
-
-	/**
-	 * @params include:
+	 * @param array $params Possible keys:
 	 *   - redisConfig : An array of parameters to RedisConnectionPool::__construct().
 	 *                   Note that the serializer option is ignored as "none" is always used.
 	 *   - redisServer : A hostname/port combination or the absolute path of a UNIX socket.
 	 *                   If a hostname is specified but no port, the standard port number
 	 *                   6379 will be used. Required.
 	 *   - compression : The type of compression to use; one of (none,gzip).
-	 *   - maximumPeriodicTaskSeconds : Maximum seconds between check periodic tasks.  Set to
-	 *                   force faster execution of periodic tasks for inegration tests that
-	 *                   rely on checkDelay.  Without this the integration tests are very very
-	 *                   slow.  This really shouldn't be set in production.
-	 * @param array $params
+	 *   - daemonized  : Set to true if the redisJobRunnerService runs in the background.
+	 *                   This will disable job recycling/undelaying from the MediaWiki side
+	 *                   to avoid redundance and out-of-sync configuration.
+	 * @throws InvalidArgumentException
 	 */
 	public function __construct( array $params ) {
 		parent::__construct( $params );
@@ -97,8 +89,11 @@ class JobQueueRedis extends JobQueue {
 		$this->server = $params['redisServer'];
 		$this->compression = isset( $params['compression'] ) ? $params['compression'] : 'none';
 		$this->redisPool = RedisConnectionPool::singleton( $params['redisConfig'] );
-		$this->maximumPeriodicTaskSeconds = isset( $params['maximumPeriodicTaskSeconds'] ) ?
-			$params['maximumPeriodicTaskSeconds'] : null;
+		if ( empty( $params['daemonized'] ) ) {
+			throw new InvalidArgumentException(
+				"Non-daemonized mode is no longer supported. Please install the " .
+				"mediawiki/services/jobrunner service and update \$wgJobTypeConf as needed." );
+		}
 	}
 
 	protected function supportedOrders() {
@@ -116,7 +111,7 @@ class JobQueueRedis extends JobQueue {
 	/**
 	 * @see JobQueue::doIsEmpty()
 	 * @return bool
-	 * @throws MWException
+	 * @throws JobQueueError
 	 */
 	protected function doIsEmpty() {
 		return $this->doGetSize() == 0;
@@ -125,7 +120,7 @@ class JobQueueRedis extends JobQueue {
 	/**
 	 * @see JobQueue::doGetSize()
 	 * @return int
-	 * @throws MWException
+	 * @throws JobQueueError
 	 */
 	protected function doGetSize() {
 		$conn = $this->getConnection();
@@ -142,9 +137,6 @@ class JobQueueRedis extends JobQueue {
 	 * @throws JobQueueError
 	 */
 	protected function doGetAcquiredCount() {
-		if ( $this->claimTTL <= 0 ) {
-			return 0; // no acknowledgements
-		}
 		$conn = $this->getConnection();
 		try {
 			$conn->multi( Redis::PIPELINE );
@@ -163,9 +155,6 @@ class JobQueueRedis extends JobQueue {
 	 * @throws JobQueueError
 	 */
 	protected function doGetDelayedCount() {
-		if ( !$this->checkDelay ) {
-			return 0; // no delayed jobs
-		}
 		$conn = $this->getConnection();
 		try {
 			return $conn->zSize( $this->getQueueKey( 'z-delayed' ) );
@@ -180,9 +169,6 @@ class JobQueueRedis extends JobQueue {
 	 * @throws JobQueueError
 	 */
 	protected function doGetAbandonedCount() {
-		if ( $this->claimTTL <= 0 ) {
-			return 0; // no acknowledgements
-		}
 		$conn = $this->getConnection();
 		try {
 			return $conn->zSize( $this->getQueueKey( 'z-abandoned' ) );
@@ -194,8 +180,8 @@ class JobQueueRedis extends JobQueue {
 	/**
 	 * @see JobQueue::doBatchPush()
 	 * @param array $jobs
-	 * @param $flags
-	 * @return bool
+	 * @param int $flags
+	 * @return void
 	 * @throws JobQueueError
 	 */
 	protected function doBatchPush( array $jobs, $flags ) {
@@ -211,7 +197,7 @@ class JobQueueRedis extends JobQueue {
 		}
 
 		if ( !count( $items ) ) {
-			return true; // nothing to do
+			return; // nothing to do
 		}
 
 		$conn = $this->getConnection();
@@ -220,7 +206,7 @@ class JobQueueRedis extends JobQueue {
 			if ( $flags & self::QOS_ATOMIC ) {
 				$batches = array( $items ); // all or nothing
 			} else {
-				$batches = array_chunk( $items, 500 ); // avoid tying up the server
+				$batches = array_chunk( $items, 100 ); // avoid tying up the server
 			}
 			$failed = 0;
 			$pushed = 0;
@@ -235,16 +221,14 @@ class JobQueueRedis extends JobQueue {
 			if ( $failed > 0 ) {
 				wfDebugLog( 'JobQueueRedis', "Could not insert {$failed} {$this->type} job(s)." );
 
-				return false;
+				throw new RedisException( "Could not insert {$failed} {$this->type} job(s)." );
 			}
-			JobQueue::incrStats( 'job-insert', $this->type, count( $items ), $this->wiki );
-			JobQueue::incrStats( 'job-insert-duplicate', $this->type,
-				count( $items ) - $failed - $pushed, $this->wiki );
+			JobQueue::incrStats( 'inserts', $this->type, count( $items ) );
+			JobQueue::incrStats( 'dupe_inserts', $this->type,
+				count( $items ) - $failed - $pushed );
 		} catch ( RedisException $e ) {
 			$this->throwRedisException( $conn, $e );
 		}
-
-		return true;
 	}
 
 	/**
@@ -309,36 +293,22 @@ LUA;
 	protected function doPop() {
 		$job = false;
 
-		// Push ready delayed jobs into the queue every 10 jobs to spread the load.
-		// This is also done as a periodic task, but we don't want too much done at once.
-		if ( $this->checkDelay && mt_rand( 0, 9 ) == 0 ) {
-			$this->recyclePruneAndUndelayJobs();
-		}
-
 		$conn = $this->getConnection();
 		try {
 			do {
-				if ( $this->claimTTL > 0 ) {
-					// Keep the claimed job list down for high-traffic queues
-					if ( mt_rand( 0, 99 ) == 0 ) {
-						$this->recyclePruneAndUndelayJobs();
-					}
-					$blob = $this->popAndAcquireBlob( $conn );
-				} else {
-					$blob = $this->popAndDeleteBlob( $conn );
-				}
-				if ( $blob === false ) {
+				$blob = $this->popAndAcquireBlob( $conn );
+				if ( !is_string( $blob ) ) {
 					break; // no jobs; nothing to do
 				}
 
-				JobQueue::incrStats( 'job-pop', $this->type, 1, $this->wiki );
+				JobQueue::incrStats( 'job-pop', $this->type );
 				$item = $this->unserialize( $blob );
 				if ( $item === false ) {
 					wfDebugLog( 'JobQueueRedis', "Could not unserialize {$this->type} job." );
 					continue;
 				}
 
-				// If $item is invalid, recyclePruneAndUndelayJobs() will cleanup as needed
+				// If $item is invalid, the runner loop recyling will cleanup as needed
 				$job = $this->getJobFromFields( $item ); // may be false
 			} while ( !$job ); // job may be false if invalid
 		} catch ( RedisException $e ) {
@@ -350,40 +320,7 @@ LUA;
 
 	/**
 	 * @param RedisConnRef $conn
-	 * @return array serialized string or false
-	 * @throws RedisException
-	 */
-	protected function popAndDeleteBlob( RedisConnRef $conn ) {
-		static $script =
-<<<LUA
-		local kUnclaimed, kSha1ById, kIdBySha1, kData = unpack(KEYS)
-		-- Pop an item off the queue
-		local id = redis.call('rpop',kUnclaimed)
-		if not id then return false end
-		-- Get the job data and remove it
-		local item = redis.call('hGet',kData,id)
-		redis.call('hDel',kData,id)
-		-- Allow new duplicates of this job
-		local sha1 = redis.call('hGet',kSha1ById,id)
-		if sha1 then redis.call('hDel',kIdBySha1,sha1) end
-		redis.call('hDel',kSha1ById,id)
-		-- Return the job data
-		return item
-LUA;
-		return $conn->luaEval( $script,
-			array(
-				$this->getQueueKey( 'l-unclaimed' ), # KEYS[1]
-				$this->getQueueKey( 'h-sha1ById' ), # KEYS[2]
-				$this->getQueueKey( 'h-idBySha1' ), # KEYS[3]
-				$this->getQueueKey( 'h-data' ), # KEYS[4]
-			),
-			4 # number of first argument(s) that are keys
-		);
-	}
-
-	/**
-	 * @param RedisConnRef $conn
-	 * @return array serialized string or false
+	 * @return array Serialized string or false
 	 * @throws RedisException
 	 */
 	protected function popAndAcquireBlob( RedisConnRef $conn ) {
@@ -420,42 +357,45 @@ LUA;
 	 * @see JobQueue::doAck()
 	 * @param Job $job
 	 * @return Job|bool
-	 * @throws MWException|JobQueueError
+	 * @throws UnexpectedValueException
+	 * @throws JobQueueError
 	 */
 	protected function doAck( Job $job ) {
 		if ( !isset( $job->metadata['uuid'] ) ) {
-			throw new MWException( "Job of type '{$job->getType()}' has no UUID." );
+			throw new UnexpectedValueException( "Job of type '{$job->getType()}' has no UUID." );
 		}
-		if ( $this->claimTTL > 0 ) {
-			$conn = $this->getConnection();
-			try {
-				static $script =
+
+		$uuid = $job->metadata['uuid'];
+		$conn = $this->getConnection();
+		try {
+			static $script =
 <<<LUA
-				local kClaimed, kAttempts, kData = unpack(KEYS)
-				-- Unmark the job as claimed
-				redis.call('zRem',kClaimed,ARGV[1])
-				redis.call('hDel',kAttempts,ARGV[1])
-				-- Delete the job data itself
-				return redis.call('hDel',kData,ARGV[1])
+			local kClaimed, kAttempts, kData = unpack(KEYS)
+			-- Unmark the job as claimed
+			redis.call('zRem',kClaimed,ARGV[1])
+			redis.call('hDel',kAttempts,ARGV[1])
+			-- Delete the job data itself
+			return redis.call('hDel',kData,ARGV[1])
 LUA;
-				$res = $conn->luaEval( $script,
-					array(
-						$this->getQueueKey( 'z-claimed' ), # KEYS[1]
-						$this->getQueueKey( 'h-attempts' ), # KEYS[2]
-						$this->getQueueKey( 'h-data' ), # KEYS[3]
-						$job->metadata['uuid'] # ARGV[1]
-					),
-					3 # number of first argument(s) that are keys
-				);
+			$res = $conn->luaEval( $script,
+				array(
+					$this->getQueueKey( 'z-claimed' ), # KEYS[1]
+					$this->getQueueKey( 'h-attempts' ), # KEYS[2]
+					$this->getQueueKey( 'h-data' ), # KEYS[3]
+					$uuid # ARGV[1]
+				),
+				3 # number of first argument(s) that are keys
+			);
 
-				if ( !$res ) {
-					wfDebugLog( 'JobQueueRedis', "Could not acknowledge {$this->type} job." );
+			if ( !$res ) {
+				wfDebugLog( 'JobQueueRedis', "Could not acknowledge {$this->type} job $uuid." );
 
-					return false;
-				}
-			} catch ( RedisException $e ) {
-				$this->throwRedisException( $conn, $e );
+				return false;
 			}
+
+			JobQueue::incrStats( 'job-ack', $this->type );
+		} catch ( RedisException $e ) {
+			$this->throwRedisException( $conn, $e );
 		}
 
 		return true;
@@ -463,13 +403,14 @@ LUA;
 
 	/**
 	 * @see JobQueue::doDeduplicateRootJob()
-	 * @param Job $job
+	 * @param IJobSpecification $job
 	 * @return bool
-	 * @throws MWException|JobQueueError
+	 * @throws JobQueueError
+	 * @throws LogicException
 	 */
-	protected function doDeduplicateRootJob( Job $job ) {
+	protected function doDeduplicateRootJob( IJobSpecification $job ) {
 		if ( !$job->hasRootJobParams() ) {
-			throw new MWException( "Cannot register root job; missing parameters." );
+			throw new LogicException( "Cannot register root job; missing parameters." );
 		}
 		$params = $job->getRootJobParams();
 
@@ -506,6 +447,7 @@ LUA;
 			// Get the last time this root job was enqueued
 			$timestamp = $conn->get( $this->getRootJobCacheKey( $params['rootJobSignature'] ) );
 		} catch ( RedisException $e ) {
+			$timestamp = false;
 			$this->throwRedisException( $conn, $e );
 		}
 
@@ -538,47 +480,84 @@ LUA;
 	/**
 	 * @see JobQueue::getAllQueuedJobs()
 	 * @return Iterator
+	 * @throws JobQueueError
 	 */
 	public function getAllQueuedJobs() {
 		$conn = $this->getConnection();
 		try {
-			$that = $this;
-
-			return new MappedIterator(
-				$conn->lRange( $this->getQueueKey( 'l-unclaimed' ), 0, -1 ),
-				function ( $uid ) use ( $that, $conn ) {
-					return $that->getJobFromUidInternal( $uid, $conn );
-				},
-				array( 'accept' => function ( $job ) {
-					return is_object( $job );
-				} )
-			);
+			$uids = $conn->lRange( $this->getQueueKey( 'l-unclaimed' ), 0, -1 );
 		} catch ( RedisException $e ) {
 			$this->throwRedisException( $conn, $e );
 		}
+
+		return $this->getJobIterator( $conn, $uids );
 	}
 
 	/**
-	 * @see JobQueue::getAllQueuedJobs()
+	 * @see JobQueue::getAllDelayedJobs()
 	 * @return Iterator
+	 * @throws JobQueueError
 	 */
 	public function getAllDelayedJobs() {
 		$conn = $this->getConnection();
 		try {
-			$that = $this;
-
-			return new MappedIterator( // delayed jobs
-				$conn->zRange( $this->getQueueKey( 'z-delayed' ), 0, -1 ),
-				function ( $uid ) use ( $that, $conn ) {
-					return $that->getJobFromUidInternal( $uid, $conn );
-				},
-				array( 'accept' => function ( $job ) {
-					return is_object( $job );
-				} )
-			);
+			$uids = $conn->zRange( $this->getQueueKey( 'z-delayed' ), 0, -1 );
 		} catch ( RedisException $e ) {
 			$this->throwRedisException( $conn, $e );
 		}
+
+		return $this->getJobIterator( $conn, $uids );
+	}
+
+	/**
+	 * @see JobQueue::getAllAcquiredJobs()
+	 * @return Iterator
+	 * @throws JobQueueError
+	 */
+	public function getAllAcquiredJobs() {
+		$conn = $this->getConnection();
+		try {
+			$uids = $conn->zRange( $this->getQueueKey( 'z-claimed' ), 0, -1 );
+		} catch ( RedisException $e ) {
+			$this->throwRedisException( $conn, $e );
+		}
+
+		return $this->getJobIterator( $conn, $uids );
+	}
+
+	/**
+	 * @see JobQueue::getAllAbandonedJobs()
+	 * @return Iterator
+	 * @throws JobQueueError
+	 */
+	public function getAllAbandonedJobs() {
+		$conn = $this->getConnection();
+		try {
+			$uids = $conn->zRange( $this->getQueueKey( 'z-abandoned' ), 0, -1 );
+		} catch ( RedisException $e ) {
+			$this->throwRedisException( $conn, $e );
+		}
+
+		return $this->getJobIterator( $conn, $uids );
+	}
+
+	/**
+	 * @param RedisConnRef $conn
+	 * @param array $uids List of job UUIDs
+	 * @return MappedIterator
+	 */
+	protected function getJobIterator( RedisConnRef $conn, array $uids ) {
+		$that = $this;
+
+		return new MappedIterator(
+			$uids,
+			function ( $uid ) use ( $that, $conn ) {
+				return $that->getJobFromUidInternal( $uid, $conn );
+			},
+			array( 'accept' => function ( $job ) {
+				return is_object( $job );
+			} )
+		);
 	}
 
 	public function getCoalesceLocationInternal() {
@@ -614,10 +593,11 @@ LUA;
 	/**
 	 * This function should not be called outside JobQueueRedis
 	 *
-	 * @param $uid string
-	 * @param $conn RedisConnRef
+	 * @param string $uid
+	 * @param RedisConnRef $conn
 	 * @return Job|bool Returns false if the job does not exist
-	 * @throws MWException|JobQueueError
+	 * @throws JobQueueError
+	 * @throws UnexpectedValueException
 	 */
 	public function getJobFromUidInternal( $uid, RedisConnRef $conn ) {
 		try {
@@ -625,129 +605,21 @@ LUA;
 			if ( $data === false ) {
 				return false; // not found
 			}
-			$item = $this->unserialize( $conn->hGet( $this->getQueueKey( 'h-data' ), $uid ) );
+			$item = $this->unserialize( $data );
 			if ( !is_array( $item ) ) { // this shouldn't happen
-				throw new MWException( "Could not find job with ID '$uid'." );
+				throw new UnexpectedValueException( "Could not find job with ID '$uid'." );
 			}
 			$title = Title::makeTitle( $item['namespace'], $item['title'] );
 			$job = Job::factory( $item['type'], $title, $item['params'] );
 			$job->metadata['uuid'] = $item['uuid'];
+			$job->metadata['timestamp'] = $item['timestamp'];
+			// Add in attempt count for debugging at showJobs.php
+			$job->metadata['attempts'] = $conn->hGet( $this->getQueueKey( 'h-attempts' ), $uid );
 
 			return $job;
 		} catch ( RedisException $e ) {
 			$this->throwRedisException( $conn, $e );
 		}
-	}
-
-	/**
-	 * Recycle or destroy any jobs that have been claimed for too long
-	 * and release any ready delayed jobs into the queue
-	 *
-	 * @return int Number of jobs recycled/deleted/undelayed
-	 * @throws MWException|JobQueueError
-	 */
-	public function recyclePruneAndUndelayJobs() {
-		$count = 0;
-		// For each job item that can be retried, we need to add it back to the
-		// main queue and remove it from the list of currenty claimed job items.
-		// For those that cannot, they are marked as dead and kept around for
-		// investigation and manual job restoration but are eventually deleted.
-		$conn = $this->getConnection();
-		try {
-			$now = time();
-			static $script =
-<<<LUA
-			local kClaimed, kAttempts, kUnclaimed, kData, kAbandoned, kDelayed = unpack(KEYS)
-			local released,abandoned,pruned,undelayed = 0,0,0,0
-			-- Get all non-dead jobs that have an expired claim on them.
-			-- The score for each item is the last claim timestamp (UNIX).
-			local staleClaims = redis.call('zRangeByScore',kClaimed,0,ARGV[1])
-			for k,id in ipairs(staleClaims) do
-				local timestamp = redis.call('zScore',kClaimed,id)
-				local attempts = redis.call('hGet',kAttempts,id)
-				if attempts < ARGV[3] then
-					-- Claim expired and retries left: re-enqueue the job
-					redis.call('lPush',kUnclaimed,id)
-					redis.call('hIncrBy',kAttempts,id,1)
-					released = released + 1
-				else
-					-- Claim expired and no retries left: mark the job as dead
-					redis.call('zAdd',kAbandoned,timestamp,id)
-					abandoned = abandoned + 1
-				end
-				redis.call('zRem',kClaimed,id)
-			end
-			-- Get all of the dead jobs that have been marked as dead for too long.
-			-- The score for each item is the last claim timestamp (UNIX).
-			local deadClaims = redis.call('zRangeByScore',kAbandoned,0,ARGV[2])
-			for k,id in ipairs(deadClaims) do
-				-- Stale and out of retries: remove any traces of the job
-				redis.call('zRem',kAbandoned,id)
-				redis.call('hDel',kAttempts,id)
-				redis.call('hDel',kData,id)
-				pruned = pruned + 1
-			end
-			-- Get the list of ready delayed jobs, sorted by readiness (UNIX timestamp)
-			local ids = redis.call('zRangeByScore',kDelayed,0,ARGV[4])
-			-- Migrate the jobs from the "delayed" set to the "unclaimed" list
-			for k,id in ipairs(ids) do
-				redis.call('lPush',kUnclaimed,id)
-				redis.call('zRem',kDelayed,id)
-			end
-			undelayed = #ids
-			return {released,abandoned,pruned,undelayed}
-LUA;
-			$res = $conn->luaEval( $script,
-				array(
-					$this->getQueueKey( 'z-claimed' ), # KEYS[1]
-					$this->getQueueKey( 'h-attempts' ), # KEYS[2]
-					$this->getQueueKey( 'l-unclaimed' ), # KEYS[3]
-					$this->getQueueKey( 'h-data' ), # KEYS[4]
-					$this->getQueueKey( 'z-abandoned' ), # KEYS[5]
-					$this->getQueueKey( 'z-delayed' ), # KEYS[6]
-					$now - $this->claimTTL, # ARGV[1]
-					$now - self::MAX_AGE_PRUNE, # ARGV[2]
-					$this->maxTries, # ARGV[3]
-					$now # ARGV[4]
-				),
-				6 # number of first argument(s) that are keys
-			);
-			if ( $res ) {
-				list( $released, $abandoned, $pruned, $undelayed ) = $res;
-				$count += $released + $pruned + $undelayed;
-				JobQueue::incrStats( 'job-recycle', $this->type, $released, $this->wiki );
-				JobQueue::incrStats( 'job-abandon', $this->type, $abandoned, $this->wiki );
-			}
-		} catch ( RedisException $e ) {
-			$this->throwRedisException( $conn, $e );
-		}
-
-		return $count;
-	}
-
-	/**
-	 * @return array
-	 */
-	protected function doGetPeriodicTasks() {
-		$periods = array( 3600 ); // standard cleanup (useful on config change)
-		if ( $this->claimTTL > 0 ) {
-			$periods[] = ceil( $this->claimTTL / 2 ); // avoid bad timing
-		}
-		if ( $this->checkDelay ) {
-			$periods[] = 300; // 5 minutes
-		}
-		$period = min( $periods );
-		$period = max( $period, 30 ); // sanity
-		// Support override for faster testing
-		if ( $this->maximumPeriodicTaskSeconds !== null ) {
-			$period = min( $period, $this->maximumPeriodicTaskSeconds );
-		}
-		return array(
-			'recyclePruneAndUndelayJobs' => array(
-				'callback' => array( $this, 'recyclePruneAndUndelayJobs' ),
-				'period'   => $period,
-			)
-		);
 	}
 
 	/**
@@ -773,19 +645,16 @@ LUA;
 	}
 
 	/**
-	 * @param $fields array
+	 * @param array $fields
 	 * @return Job|bool
 	 */
 	protected function getJobFromFields( array $fields ) {
-		$title = Title::makeTitleSafe( $fields['namespace'], $fields['title'] );
-		if ( $title ) {
-			$job = Job::factory( $fields['type'], $title, $fields['params'] );
-			$job->metadata['uuid'] = $fields['uuid'];
+		$title = Title::makeTitle( $fields['namespace'], $fields['title'] );
+		$job = Job::factory( $fields['type'], $title, $fields['params'] );
+		$job->metadata['uuid'] = $fields['uuid'];
+		$job->metadata['timestamp'] = $fields['timestamp'];
 
-			return $job;
-		}
-
-		return false;
+		return $job;
 	}
 
 	/**
@@ -840,8 +709,8 @@ LUA;
 	}
 
 	/**
-	 * @param $conn RedisConnRef
-	 * @param $e RedisException
+	 * @param RedisConnRef $conn
+	 * @param RedisException $e
 	 * @throws JobQueueError
 	 */
 	protected function throwRedisException( RedisConnRef $conn, $e ) {
@@ -850,8 +719,8 @@ LUA;
 	}
 
 	/**
-	 * @param $prop string
-	 * @param $type string|null
+	 * @param string $prop
+	 * @param string|null $type
 	 * @return string
 	 */
 	private function getQueueKey( $prop, $type = null ) {
@@ -865,7 +734,7 @@ LUA;
 	}
 
 	/**
-	 * @param $key string
+	 * @param string $key
 	 * @return void
 	 */
 	public function setTestingPrefix( $key ) {

@@ -109,7 +109,8 @@ class HtmlTest extends MediaWikiTestCase {
 			Html::expandAttributes( array( 'foo' => false ) ),
 			'skip keys with false value'
 		);
-		$this->assertNotEmpty(
+		$this->assertEquals(
+			' foo=""',
 			Html::expandAttributes( array( 'foo' => '' ) ),
 			'keep keys with an empty string'
 		);
@@ -149,6 +150,33 @@ class HtmlTest extends MediaWikiTestCase {
 	}
 
 	/**
+	 * @covers HTML::expandAttributes
+	 */
+	public function testExpandAttributesForNumbers() {
+		$this->assertEquals(
+			' value="1"',
+			Html::expandAttributes( array( 'value' => 1 ) ),
+			'Integer value is cast to a string'
+		);
+		$this->assertEquals(
+			' value="1.1"',
+			Html::expandAttributes( array( 'value' => 1.1 ) ),
+			'Float value is cast to a string'
+		);
+	}
+
+	/**
+	 * @covers HTML::expandAttributes
+	 */
+	public function testExpandAttributesForObjects() {
+		$this->assertEquals(
+			' value="stringValue"',
+			Html::expandAttributes( array( 'value' => new HtmlTestValue() ) ),
+			'Object value is converted to a string'
+		);
+	}
+
+	/**
 	 * Test for Html::expandAttributes()
 	 * Please note it output a string prefixed with a space!
 	 * @covers Html::expandAttributes
@@ -175,6 +203,7 @@ class HtmlTest extends MediaWikiTestCase {
 			Html::expandAttributes( array( 'zero' => 0 ) ),
 			'Number 0 value needs no quotes'
 		);
+
 	}
 
 	/**
@@ -269,6 +298,21 @@ class HtmlTest extends MediaWikiTestCase {
 				'GREEN',
 			) ) )
 		);
+	}
+
+	/**
+	 * @covers Html::expandAttributes
+	 * @expectedException MWException
+	 */
+	public function testExpandAttributes_ArrayOnNonListValueAttribute_ThrowsException() {
+		// Real-life test case found in the Popups extension (see Gerrit cf0fd64),
+		// when used with an outdated BetaFeatures extension (see Gerrit deda1e7)
+		Html::expandAttributes( array(
+			'src' => array(
+				'ltr' => 'ltr.svg',
+				'rtl' => 'rtl.svg'
+			)
+		) );
 	}
 
 	/**
@@ -457,7 +501,7 @@ class HtmlTest extends MediaWikiTestCase {
 		# Will be mapped to Html::element()
 		$cases = array();
 
-		### Generic cases, match $attribDefault static array
+		# ## Generic cases, match $attribDefault static array
 		$cases[] = array( '<area/>',
 			'area', array( 'shape' => 'rect' )
 		);
@@ -531,7 +575,7 @@ class HtmlTest extends MediaWikiTestCase {
 			'textarea', array( 'wrap' => 'soft' )
 		);
 
-		### SPECIFIC CASES
+		# ## SPECIFIC CASES
 
 		# <link type="text/css">
 		$cases[] = array( '<link/>',
@@ -562,10 +606,11 @@ class HtmlTest extends MediaWikiTestCase {
 		# see remarks on http://msdn.microsoft.com/en-us/library/ie/ms535211%28v=vs.85%29.aspx
 		$cases[] = array( '<button type="submit"></button>',
 			'button', array( 'type' => 'submit' ),
-			'According to standard the default type is "submit". Depending on compatibility mode IE might use "button", instead.',
+			'According to standard the default type is "submit". '
+				. 'Depending on compatibility mode IE might use "button", instead.',
 		);
 
-		# <select> specifc handling
+		# <select> specific handling
 		$cases[] = array( '<select multiple=""></select>',
 			'select', array( 'size' => '4', 'multiple' => true ),
 		);
@@ -612,13 +657,114 @@ class HtmlTest extends MediaWikiTestCase {
 	 */
 	public function testFormValidationBlacklist() {
 		$this->assertEmpty(
-			Html::expandAttributes( array( 'min' => 1, 'max' => 100, 'pattern' => 'abc', 'required' => true, 'step' => 2 ) ),
+			Html::expandAttributes( array(
+				'min' => 1,
+				'max' => 100,
+				'pattern' => 'abc',
+				'required' => true,
+				'step' => 2
+			) ),
 			'Blacklist form validation attributes.'
 		);
 		$this->assertEquals(
 			' step="any"',
-			Html::expandAttributes( array( 'min' => 1, 'max' => 100, 'pattern' => 'abc', 'required' => true, 'step' => 'any' ) ),
-			'Allow special case "step=any".'
+			Html::expandAttributes(
+				array(
+					'min' => 1,
+					'max' => 100,
+					'pattern' => 'abc',
+					'required' => true,
+					'step' => 'any'
+				),
+				'Allow special case "step=any".'
+			)
 		);
+	}
+
+	public function testWrapperInput() {
+		$this->assertEquals(
+			'<input type="radio" value="testval" name="testname"/>',
+			Html::input( 'testname', 'testval', 'radio' ),
+			'Input wrapper with type and value.'
+		);
+		$this->assertEquals(
+			'<input name="testname"/>',
+			Html::input( 'testname' ),
+			'Input wrapper with all default values.'
+		);
+	}
+
+	public function testWrapperCheck() {
+		$this->assertEquals(
+			'<input type="checkbox" value="1" name="testname"/>',
+			Html::check( 'testname' ),
+			'Checkbox wrapper unchecked.'
+		);
+		$this->assertEquals(
+			'<input checked="" type="checkbox" value="1" name="testname"/>',
+			Html::check( 'testname', true ),
+			'Checkbox wrapper checked.'
+		);
+		$this->assertEquals(
+			'<input type="checkbox" value="testval" name="testname"/>',
+			Html::check( 'testname', false, array( 'value' => 'testval' ) ),
+			'Checkbox wrapper with a value override.'
+		);
+	}
+
+	public function testWrapperRadio() {
+		$this->assertEquals(
+			'<input type="radio" value="1" name="testname"/>',
+			Html::radio( 'testname' ),
+			'Radio wrapper unchecked.'
+		);
+		$this->assertEquals(
+			'<input checked="" type="radio" value="1" name="testname"/>',
+			Html::radio( 'testname', true ),
+			'Radio wrapper checked.'
+		);
+		$this->assertEquals(
+			'<input type="radio" value="testval" name="testname"/>',
+			Html::radio( 'testname', false, array( 'value' => 'testval' ) ),
+			'Radio wrapper with a value override.'
+		);
+	}
+
+	public function testWrapperLabel() {
+		$this->assertEquals(
+			'<label for="testid">testlabel</label>',
+			Html::label( 'testlabel', 'testid' ),
+			'Label wrapper'
+		);
+	}
+
+	public static function provideSrcSetImages() {
+		return array(
+			array( array(), '', 'when there are no images, return empty string' ),
+			array(
+				array( '1x' => '1x.png', '1.5x' => '1_5x.png', '2x' => '2x.png' ),
+				'1x.png 1x, 1_5x.png 1.5x, 2x.png 2x',
+				'pixel depth keys may include a trailing "x"'
+			),
+			array(
+				array( '1'  => '1x.png', '1.5' => '1_5x.png', '2'  => '2x.png' ),
+				'1x.png 1x, 1_5x.png 1.5x, 2x.png 2x',
+				'pixel depth keys may omit a trailing "x"'
+			),
+		);
+	}
+
+	/**
+	 * @dataProvider provideSrcSetImages
+	 * @covers Html::srcSet
+	 */
+	public function testSrcSet( $images, $expected, $message ) {
+		$this->assertEquals( Html::srcSet( $images ), $expected, $message );
+	}
+}
+
+class HtmlTestValue {
+	function __toString() {
+		return 'stringValue';
 	}
 }

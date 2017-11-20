@@ -44,15 +44,16 @@ class GIFHandler extends BitmapHandler {
 
 	/**
 	 * @param File $image
+	 * @param bool|IContextSource $context Context to use (optional)
 	 * @return array|bool
 	 */
-	function formatMetadata( $image ) {
+	function formatMetadata( $image, $context = false ) {
 		$meta = $this->getCommonMetaArray( $image );
 		if ( count( $meta ) === 0 ) {
 			return false;
 		}
 
-		return $this->formatMetadataHelper( $meta );
+		return $this->formatMetadataHelper( $meta, $context );
 	}
 
 	/**
@@ -130,9 +131,9 @@ class GIFHandler extends BitmapHandler {
 			return self::METADATA_GOOD;
 		}
 
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$data = unserialize( $metadata );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 
 		if ( !$data || !is_array( $data ) ) {
 			wfDebug( __METHOD__ . " invalid GIF metadata\n" );
@@ -160,9 +161,9 @@ class GIFHandler extends BitmapHandler {
 
 		$original = parent::getLongDesc( $image );
 
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		$metadata = unserialize( $image->getMetadata() );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 
 		if ( !$metadata || $metadata['frameCount'] <= 1 ) {
 			return $original;

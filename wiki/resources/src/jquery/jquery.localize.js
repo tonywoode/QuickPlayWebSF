@@ -5,16 +5,16 @@
 
 /**
  * Gets a localized message, using parameters from options if present.
- * @ignore
  *
+ * @ignore
  * @param {Object} options
  * @param {string} key
  * @return {string} Localized message
  */
 function msg( options, key ) {
-	var args = options.params[key] || [];
+	var args = options.params[ key ] || [];
 	// Format: mw.msg( key [, p1, p2, ...] )
-	args.unshift( options.prefix + ( options.keys[key] || key ) );
+	args.unshift( options.prefix + ( options.keys[ key ] || key ) );
 	return mw.msg.apply( mw, args );
 }
 
@@ -108,7 +108,7 @@ function msg( options, key ) {
  */
 $.fn.localize = function ( options ) {
 	var $target = this,
-		attributes = ['title', 'alt', 'placeholder'];
+		attributes = [ 'title', 'alt', 'placeholder' ];
 
 	// Extend options
 	options = $.extend( {
@@ -123,7 +123,7 @@ $.fn.localize = function ( options ) {
 	// for 'html:msg' turns up the 'html:msg', but searching for 'msg' doesn't. So searching for
 	// both 'msg' and 'html:msg' seems to get the job done. This feels pretty icky, though.
 	$target.find( 'msg,html\\:msg' ).each( function () {
-		var $el = $(this);
+		var $el = $( this );
 		// Escape by default
 		if ( $el.attr( 'raw' ) ) {
 			$el.html( msg( options, $el.attr( 'key' ) ) );
@@ -140,7 +140,7 @@ $.fn.localize = function ( options ) {
 	$.each( attributes, function ( i, attr ) {
 		var msgAttr = attr + '-msg';
 		$target.find( '[' + msgAttr + ']' ).each( function () {
-			var $el = $(this);
+			var $el = $( this );
 			$el.attr( attr, msg( options, $el.attr( msgAttr ) ) ).removeAttr( msgAttr );
 		} );
 	} );

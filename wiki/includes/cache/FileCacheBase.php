@@ -154,7 +154,7 @@ abstract class FileCacheBase {
 	/**
 	 * Save and compress text to the cache
 	 * @param string $text
-	 * @return string compressed text
+	 * @return string Compressed text
 	 */
 	public function saveText( $text ) {
 		global $wgUseFileCache;
@@ -185,9 +185,9 @@ abstract class FileCacheBase {
 	 * @return void
 	 */
 	public function clearCache() {
-		wfSuppressWarnings();
+		MediaWiki\suppressWarnings();
 		unlink( $this->cachePath() );
-		wfRestoreWarnings();
+		MediaWiki\restoreWarnings();
 		$this->mCached = false;
 	}
 
@@ -231,7 +231,7 @@ abstract class FileCacheBase {
 
 	/**
 	 * Roughly increments the cache misses in the last hour by unique visitors
-	 * @param $request WebRequest
+	 * @param WebRequest $request
 	 * @return void
 	 */
 	public function incrMissesRecent( WebRequest $request ) {

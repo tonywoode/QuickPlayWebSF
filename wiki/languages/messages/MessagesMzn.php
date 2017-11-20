@@ -1,8 +1,7 @@
 <?php
 /** Mazanderani (مازِرونی)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -27,7 +26,6 @@ $rtl = true;
 $namespaceNames = array(
 	NS_MEDIA            => 'مدیا',
 	NS_SPECIAL          => 'شا',
-	NS_MAIN             => '',
 	NS_TALK             => 'گپ',
 	NS_USER             => 'کارور',
 	NS_USER_TALK        => 'کارور_گپ',
@@ -57,18 +55,18 @@ $namespaceAliases = array(
 	'بحث_تصویر'     => NS_FILE_TALK,
 	'بحث_پرونده'    => NS_FILE_TALK,
 	'مدیاویکی'      => NS_MEDIAWIKI,
-	'مه‌دیا ویکی'    => NS_MEDIAWIKI,
+	'مه‌دیا_ویکی'    => NS_MEDIAWIKI,
 	'مه‌دیاویکی'     => NS_MEDIAWIKI,
 	'مه‌دیاویکی_گپ'  => NS_MEDIAWIKI_TALK,
 	'بحث_مدیاویکی'  => NS_MEDIAWIKI_TALK,
-	'مه‌دیا ویکی گپ' => NS_MEDIAWIKI_TALK,
+	'مه‌دیا_ویکی_گپ' => NS_MEDIAWIKI_TALK,
 	'الگو'          => NS_TEMPLATE,
 	'بحث_الگو'      => NS_TEMPLATE_TALK,
 	'راهنما'        => NS_HELP,
 	'رانه‌ما'        => NS_HELP,
 	'رانه‌مائه_گپ'   => NS_HELP_TALK,
 	'بحث_راهنما'    => NS_HELP_TALK,
-	'رانه‌مای گپ'    => NS_HELP_TALK,
+	'رانه‌مای_گپ'    => NS_HELP_TALK,
 	'رده'           => NS_CATEGORY,
 	'بحث_رده'       => NS_CATEGORY_TALK,
 );
@@ -108,7 +106,6 @@ $magicWords = array(
 	'numberofusers'             => array( '1', 'تعدادکارورون', 'تعدادکاربران', 'NUMBEROFUSERS' ),
 	'numberofactiveusers'       => array( '1', 'کارورون_فعال', 'کاربران_فعال', 'کاربران‌فعال', 'NUMBEROFACTIVEUSERS' ),
 	'numberofedits'             => array( '1', 'تعداددچی‌یه‌ئون', 'تعدادویرایش‌ها', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'تعدادبازدید', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'نام‌صفحه', 'نام_صفحه', 'PAGENAME' ),
 	'pagenamee'                 => array( '1', 'نام‌صفحه‌کد', 'نام_صفحه_کد', 'PAGENAMEE' ),
 	'namespace'                 => array( '1', 'فضای‌نام', 'فضای_نام', 'NAMESPACE' ),

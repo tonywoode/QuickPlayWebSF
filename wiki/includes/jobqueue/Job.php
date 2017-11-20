@@ -32,7 +32,7 @@ abstract class Job implements IJobSpecification {
 	/** @var string */
 	public $command;
 
-	/** @var array|bool Array of job parameters or false if none */
+	/** @var array Array of job parameters */
 	public $params;
 
 	/** @var array Additional queue metadata */
@@ -47,30 +47,22 @@ abstract class Job implements IJobSpecification {
 	/** @var string Text for error that occurred last */
 	protected $error;
 
-	/*-------------------------------------------------------------------------
-	 * Abstract functions
-	 *------------------------------------------------------------------------*/
-
 	/**
 	 * Run the job
 	 * @return bool Success
 	 */
 	abstract public function run();
 
-	/*-------------------------------------------------------------------------
-	 * Static functions
-	 *------------------------------------------------------------------------*/
-
 	/**
 	 * Create the appropriate object to handle a specific job
 	 *
 	 * @param string $command Job command
 	 * @param Title $title Associated title
-	 * @param array|bool $params Job parameters
+	 * @param array $params Job parameters
 	 * @throws MWException
 	 * @return Job
 	 */
-	public static function factory( $command, Title $title, $params = false ) {
+	public static function factory( $command, Title $title, $params = array() ) {
 		global $wgJobClasses;
 		if ( isset( $wgJobClasses[$command] ) ) {
 			$class = $wgJobClasses[$command];
@@ -81,75 +73,34 @@ abstract class Job implements IJobSpecification {
 	}
 
 	/**
+	 * @param string $command
+	 * @param Title $title
+	 * @param array|bool $params Can not be === true
+	 */
+	public function __construct( $command, $title, $params = false ) {
+		$this->command = $command;
+		$this->title = $title;
+		$this->params = is_array( $params ) ? $params : array(); // sanity
+
+		// expensive jobs may set this to true
+		$this->removeDuplicates = false;
+	}
+
+	/**
 	 * Batch-insert a group of jobs into the queue.
 	 * This will be wrapped in a transaction with a forced commit.
 	 *
 	 * This may add duplicate at insert time, but they will be
 	 * removed later on, when the first one is popped.
 	 *
-	 * @param array $jobs of Job objects
+	 * @param Job[] $jobs Array of Job objects
 	 * @return bool
 	 * @deprecated since 1.21
 	 */
 	public static function batchInsert( $jobs ) {
-		return JobQueueGroup::singleton()->push( $jobs );
-	}
-
-	/**
-	 * Insert a group of jobs into the queue.
-	 *
-	 * Same as batchInsert() but does not commit and can thus
-	 * be rolled-back as part of a larger transaction. However,
-	 * large batches of jobs can cause slave lag.
-	 *
-	 * @param array $jobs of Job objects
-	 * @return bool
-	 * @deprecated since 1.21
-	 */
-	public static function safeBatchInsert( $jobs ) {
-		return JobQueueGroup::singleton()->push( $jobs, JobQueue::QOS_ATOMIC );
-	}
-
-	/**
-	 * Pop a job of a certain type.  This tries less hard than pop() to
-	 * actually find a job; it may be adversely affected by concurrent job
-	 * runners.
-	 *
-	 * @param $type string
-	 * @return Job|bool Returns false if there are no jobs
-	 * @deprecated since 1.21
-	 */
-	public static function pop_type( $type ) {
-		return JobQueueGroup::singleton()->get( $type )->pop();
-	}
-
-	/**
-	 * Pop a job off the front of the queue.
-	 * This is subject to $wgJobTypesExcludedFromDefaultQueue.
-	 *
-	 * @return Job|bool False if there are no jobs
-	 * @deprecated since 1.21
-	 */
-	public static function pop() {
-		return JobQueueGroup::singleton()->pop();
-	}
-
-	/*-------------------------------------------------------------------------
-	 * Non-static functions
-	 *------------------------------------------------------------------------*/
-
-	/**
-	 * @param $command
-	 * @param $title
-	 * @param $params array|bool
-	 */
-	public function __construct( $command, $title, $params = false ) {
-		$this->command = $command;
-		$this->title = $title;
-		$this->params = $params;
-
-		// expensive jobs may set this to true
-		$this->removeDuplicates = false;
+		wfDeprecated( __METHOD__, '1.21' );
+		JobQueueGroup::singleton()->push( $jobs );
+		return true;
 	}
 
 	/**
@@ -184,7 +135,33 @@ abstract class Job implements IJobSpecification {
 	}
 
 	/**
-	 * @return bool Whether only one of each identical set of jobs should be run
+	 * @return int|null UNIX timestamp of when the job was queued, or null
+	 * @since 1.26
+	 */
+	public function getQueuedTimestamp() {
+		return isset( $this->metadata['timestamp'] )
+			? wfTimestampOrNull( TS_UNIX, $this->metadata['timestamp'] )
+			: null;
+	}
+
+	/**
+	 * @return int|null UNIX timestamp of when the job was runnable, or null
+	 * @since 1.26
+	 */
+	public function getReadyTimestamp() {
+		return $this->getReleaseTimestamp() ?: $this->getQueuedTimestamp();
+	}
+
+	/**
+	 * Whether the queue should reject insertion of this job if a duplicate exists
+	 *
+	 * This can be used to avoid duplicated effort or combined with delayed jobs to
+	 * coalesce updates into larger batches. Claimed jobs are never treated as
+	 * duplicates of new jobs, and some queues may allow a few duplicates due to
+	 * network partitions and fail-over. Thus, additional locking is needed to
+	 * enforce mutual exclusion if this is really needed.
+	 *
+	 * @return bool
 	 */
 	public function ignoreDuplicates() {
 		return $this->removeDuplicates;
@@ -199,7 +176,7 @@ abstract class Job implements IJobSpecification {
 	}
 
 	/**
-	 * @return integer Number of actually "work items" handled in this job
+	 * @return int Number of actually "work items" handled in this job
 	 * @see $wgJobBackoffThrottling
 	 * @since 1.23
 	 */
@@ -229,21 +206,35 @@ abstract class Job implements IJobSpecification {
 			unset( $info['params']['rootJobTimestamp'] );
 			// Likewise for jobs with different delay times
 			unset( $info['params']['jobReleaseTimestamp'] );
+			// Queues pack and hash this array, so normalize the order
+			ksort( $info['params'] );
 		}
 
 		return $info;
 	}
 
 	/**
+	 * Get "root job" parameters for a task
+	 *
+	 * This is used to no-op redundant jobs, including child jobs of jobs,
+	 * as long as the children inherit the root job parameters. When a job
+	 * with root job parameters and "rootJobIsSelf" set is pushed, the
+	 * deduplicateRootJob() method is automatically called on it. If the
+	 * root job is only virtual and not actually pushed (e.g. the sub-jobs
+	 * are inserted directly), then call deduplicateRootJob() directly.
+	 *
 	 * @see JobQueue::deduplicateRootJob()
+	 *
 	 * @param string $key A key that identifies the task
 	 * @return array Map of:
+	 *   - rootJobIsSelf    : true
 	 *   - rootJobSignature : hash (e.g. SHA1) that identifies the task
 	 *   - rootJobTimestamp : TS_MW timestamp of this instance of the task
 	 * @since 1.21
 	 */
 	public static function newRootJobParams( $key ) {
 		return array(
+			'rootJobIsSelf'    => true,
 			'rootJobSignature' => sha1( $key ),
 			'rootJobTimestamp' => wfTimestampNow()
 		);
@@ -276,18 +267,35 @@ abstract class Job implements IJobSpecification {
 	}
 
 	/**
+	 * @see JobQueue::deduplicateRootJob()
+	 * @return bool Whether this is job is a root job
+	 */
+	public function isRootJob() {
+		return $this->hasRootJobParams() && !empty( $this->params['rootJobIsSelf'] );
+	}
+
+	/**
 	 * Insert a single job into the queue.
-	 * @return bool true on success
+	 * @return bool True on success
 	 * @deprecated since 1.21
 	 */
 	public function insert() {
-		return JobQueueGroup::singleton()->push( $this );
+		JobQueueGroup::singleton()->push( $this );
+		return true;
 	}
 
 	/**
 	 * @return string
 	 */
 	public function toString() {
+		$truncFunc = function ( $value ) {
+			$value = (string)$value;
+			if ( mb_strlen( $value ) > 1024 ) {
+				$value = "string(" . mb_strlen( $value ) . ")";
+			}
+			return $value;
+		};
+
 		$paramString = '';
 		if ( $this->params ) {
 			foreach ( $this->params as $key => $value ) {
@@ -295,29 +303,47 @@ abstract class Job implements IJobSpecification {
 					$paramString .= ' ';
 				}
 				if ( is_array( $value ) ) {
-					$value = "array(" . count( $value ) . ")";
+					$filteredValue = array();
+					foreach ( $value as $k => $v ) {
+						if ( is_scalar( $v ) ) {
+							$filteredValue[$k] = $truncFunc( $v );
+						} else {
+							$filteredValue = null;
+							break;
+						}
+					}
+					if ( $filteredValue && count( $filteredValue ) < 10 ) {
+						$value = FormatJson::encode( $filteredValue );
+					} else {
+						$value = "array(" . count( $value ) . ")";
+					}
 				} elseif ( is_object( $value ) && !method_exists( $value, '__toString' ) ) {
 					$value = "object(" . get_class( $value ) . ")";
 				}
-				$value = (string)$value;
-				if ( mb_strlen( $value ) > 1024 ) {
-					$value = "string(" . mb_strlen( $value ) . ")";
-				}
 
-				$paramString .= "$key=$value";
+				$paramString .= "$key={$truncFunc( $value )}";
 			}
 		}
 
+		$metaString = '';
+		foreach ( $this->metadata as $key => $value ) {
+			if ( is_scalar( $value ) && mb_strlen( $value ) < 1024 ) {
+				$metaString .= ( $metaString ? ",$key=$value" : "$key=$value" );
+			}
+		}
+
+		$s = $this->command;
 		if ( is_object( $this->title ) ) {
-			$s = "{$this->command} " . $this->title->getPrefixedDBkey();
-			if ( $paramString !== '' ) {
-				$s .= ' ' . $paramString;
-			}
-
-			return $s;
-		} else {
-			return "{$this->command} $paramString";
+			$s .= " {$this->title->getPrefixedDBkey()}";
 		}
+		if ( $paramString != '' ) {
+			$s .= " $paramString";
+		}
+		if ( $metaString != '' ) {
+			$s .= " ($metaString)";
+		}
+
+		return $s;
 	}
 
 	protected function setLastError( $error ) {

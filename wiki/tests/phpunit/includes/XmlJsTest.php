@@ -3,7 +3,7 @@
 /**
  * @group Xml
  */
-class XmlJs extends MediaWikiTestCase {
+class XmlJs extends PHPUnit_Framework_TestCase {
 
 	/**
 	 * @covers XmlJsCode::__construct
@@ -14,7 +14,7 @@ class XmlJs extends MediaWikiTestCase {
 		$this->assertEquals( $value, $obj->value );
 	}
 
-	public function provideConstruction() {
+	public static function provideConstruction() {
 		return array(
 			array( null ),
 			array( '' ),

@@ -1,8 +1,7 @@
 <?php
 /** Sanskrit (संस्कृतम्)
  *
- * See MessagesQqq.php for message documentation incl. usage of parameters
- * To improve a translation please visit http://translatewiki.net
+ * To improve a translation please visit https://translatewiki.net
  *
  * @ingroup Language
  * @file
@@ -47,19 +46,19 @@ $linkPrefixExtension = false;
 
 $namespaceNames = array(
 	NS_MEDIA            => 'माध्यमम्',
-	NS_SPECIAL          => 'विशेषम्',
+	NS_SPECIAL          => 'विशेषः',
 	NS_TALK             => 'सम्भाषणम्',
-	NS_USER             => 'योजकः',
-	NS_USER_TALK        => 'योजकसम्भाषणम्',
+	NS_USER             => 'सदस्यः',
+	NS_USER_TALK        => 'सदस्यसम्भाषणम्',
 	NS_PROJECT_TALK     => '$1सम्भाषणम्',
-	NS_FILE             => 'चित्रम्',
-	NS_FILE_TALK        => 'चित्रसम्भाषणम्',
-	NS_MEDIAWIKI        => 'मिडीयाविकी',
-	NS_MEDIAWIKI_TALK   => 'मिडियाविकीसम्भाषणम्',
+	NS_FILE             => 'सञ्चिका',
+	NS_FILE_TALK        => 'सञ्चिकासम्भाषणम्',
+	NS_MEDIAWIKI        => 'मीडियाविकि',
+	NS_MEDIAWIKI_TALK   => 'मीडियाविकिसम्भाषणम्',
 	NS_TEMPLATE         => 'फलकम्',
-	NS_TEMPLATE_TALK    => 'फलकस्य_सम्भाषणम्',
-	NS_HELP             => 'सहाय्यम्',
-	NS_HELP_TALK        => 'सहाय्यस्य_सम्भाषणम्',
+	NS_TEMPLATE_TALK    => 'फलकसम्भाषणम्',
+	NS_HELP             => 'साहाय्यम्',
+	NS_HELP_TALK        => 'साहाय्यसम्भाषणम्',
 	NS_CATEGORY         => 'वर्गः',
 	NS_CATEGORY_TALK    => 'वर्गसम्भाषणम्',
 );
@@ -67,19 +66,29 @@ $namespaceNames = array(
 $namespaceAliases = array(
 	'माध्यम'             => NS_MEDIA,
 	'विशेष'              => NS_SPECIAL,
+	'विशेषम्'            => NS_SPECIAL,
 	'संभाषणं'            => NS_TALK,
+	'योजकः'              => NS_USER,
 	'योजकसंभाषणं'        => NS_USER_TALK,
-	'$1संभाषणं'         => NS_PROJECT_TALK,
+	'योजकसम्भाषणम्'      => NS_USER_TALK,
+	'$1संभाषणं'          => NS_PROJECT_TALK,
 	'चित्रं'             => NS_FILE,
+	'चित्रम्'           => NS_FILE,
 	'चित्रसंभाषणं'       => NS_FILE_TALK,
-	'मिडियाविकीसंभाषणं' => NS_MEDIAWIKI_TALK,
+	'चित्रसम्भाषणम्'     => NS_FILE_TALK,
+	'मिडीयाविकी'         => NS_MEDIAWIKI,
+	'मिडियाविकीसंभाषणं'  => NS_MEDIAWIKI_TALK,
+	'मिडियाविकीसम्भाषणम्' => NS_MEDIAWIKI_TALK,
 	'बिंबधर'             => NS_TEMPLATE,
-	'बिंबधर संभाषणं'      => NS_TEMPLATE_TALK,
+	'बिंबधर_संभाषणं'     => NS_TEMPLATE_TALK,
+	'फलकस्य_सम्भाषणम्'   => NS_TEMPLATE_TALK,
 	'सहाय्य'             => NS_HELP,
+	'सहाय्यम्'           => NS_HELP,
 	'सहाय्यसंभाषणं'      => NS_HELP_TALK,
+	'सहाय्यस्य_सम्भाषणम्' => NS_HELP_TALK,
 	'उपकारः'             => NS_HELP,
-	'उपकारसंभाषणं'        => NS_HELP_TALK,
-	'वर्गसंभाषणं'         => NS_CATEGORY_TALK,
+	'उपकारसंभाषणं'       => NS_HELP_TALK,
+	'वर्गसंभाषणं'        => NS_CATEGORY_TALK,
 );
 
 $specialPageAliases = array(
@@ -133,7 +142,6 @@ $specialPageAliases = array(
 	'Newimages'                 => array( 'नूतनसंचिका', 'नूतनचित्रानि' ),
 	'Newpages'                  => array( 'नूतनपृष्टानि' ),
 	'PasswordReset'             => array( 'सङ्केतशब्दपुन:प्रयु्क्ता' ),
-	'Popularpages'              => array( 'लोकप्रियपृष्टानि' ),
 	'Preferences'               => array( 'इष्टतमानि' ),
 	'Prefixindex'               => array( 'उपसर्गअनुक्रमणी' ),
 	'Protectedpages'            => array( 'सुरक्षितपृष्टानि' ),
@@ -204,7 +212,6 @@ $magicWords = array(
 	'numberoffiles'             => array( '1', 'संचिकानाम्‌‌सङ्ख्या', 'NUMBEROFFILES' ),
 	'numberofusers'             => array( '1', 'योजकस्यसङ्ख्या', 'NUMBEROFUSERS' ),
 	'numberofedits'             => array( '1', 'सम्पादनसङ्ख्या', 'NUMBEROFEDITS' ),
-	'numberofviews'             => array( '1', 'दृष्टिसङ्ख्या', 'NUMBEROFVIEWS' ),
 	'pagename'                  => array( '1', 'पृष्ठनाम', 'PAGENAME' ),
 	'namespace'                 => array( '1', 'नामविश्व', 'NAMESPACE' ),
 	'talkspace'                 => array( '1', 'व्यासपिठ', 'TALKSPACE' ),

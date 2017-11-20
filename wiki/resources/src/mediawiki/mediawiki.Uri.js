@@ -68,19 +68,25 @@
 		if ( val === undefined || val === null || val === '' ) {
 			return '';
 		}
+		/* jshint latedef:false */
 		return pre + ( raw ? val : mw.Uri.encode( val ) ) + post;
+		/* jshint latedef:true */
 	}
 
 	/**
 	 * Regular expressions to parse many common URIs.
+	 *
+	 * As they are gnarly, they have been moved to separate files to allow us to format them in the
+	 * 'extended' regular expression format (which JavaScript normally doesn't support). The subset of
+	 * features handled is minimal, but just the free whitespace gives us a lot.
 	 *
 	 * @private
 	 * @static
 	 * @property {Object} parser
 	 */
 	var parser = {
-		strict: /^(?:([^:\/?#]+):)?(?:\/\/(?:(?:([^:@\/?#]*)(?::([^:@\/?#]*))?)?@)?([^:\/?#]*)(?::(\d*))?)?((?:[^?#\/]*\/)*[^?#]*)(?:\?([^#]*))?(?:#(.*))?/,
-		loose:  /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?(?:(?:([^:@\/?#]*)(?::([^:@\/?#]*))?)?@)?([^:\/?#]*)(?::(\d*))?((?:\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?[^?#\/]*)(?:\?([^#]*))?(?:#(.*))?/
+		strict: mw.template.get( 'mediawiki.Uri', 'strict.regexp' ).render(),
+		loose: mw.template.get( 'mediawiki.Uri', 'loose.regexp' ).render()
 	},
 
 	/**
@@ -127,15 +133,29 @@
 	 */
 
 	/**
-	 * A factory method to create a variation of mw.Uri with a different default location (for
-	 * relative URLs, including protocol-relative URLs). Used so the library is still testable &
-	 * purely functional.
+	 * A factory method to create a Uri class with a default location to resolve relative URLs
+	 * against (including protocol-relative URLs).
 	 *
 	 * @method
+	 * @param {string|Function} documentLocation A full url, or function returning one.
+	 *  If passed a function, the return value may change over time and this will be honoured. (T74334)
 	 * @member mw
 	 */
 	mw.UriRelative = function ( documentLocation ) {
-		var defaultUri;
+		var getDefaultUri = ( function () {
+			// Cache
+			var href, uri;
+
+			return function () {
+				var hrefCur = typeof documentLocation === 'string' ? documentLocation : documentLocation();
+				if ( href === hrefCur ) {
+					return uri;
+				}
+				href = hrefCur;
+				uri = new Uri( href );
+				return uri;
+			};
+		}() );
 
 		/**
 		 * @class mw.Uri
@@ -147,15 +167,19 @@
 		 * @param {Object|string} [uri] URI string, or an Object with appropriate properties (especially
 		 *  another URI object to clone). Object must have non-blank `protocol`, `host`, and `path`
 		 *  properties. If omitted (or set to `undefined`, `null` or empty string), then an object
-		 *  will be created for the default `uri` of this constructor (`document.location` for
-		 *  mw.Uri, other values for other instances -- see mw.UriRelative for details).
+		 *  will be created for the default `uri` of this constructor (`location.href` for mw.Uri,
+		 *  other values for other instances -- see mw.UriRelative for details).
 		 * @param {Object|boolean} [options] Object with options, or (backwards compatibility) a boolean
 		 *  for strictMode
 		 * @param {boolean} [options.strictMode=false] Trigger strict mode parsing of the url.
 		 * @param {boolean} [options.overrideKeys=false] Whether to let duplicate query parameters
 		 *  override each other (`true`) or automagically convert them to an array (`false`).
 		 */
+		/* jshint latedef:false */
 		function Uri( uri, options ) {
+			var prop,
+				defaultUri = getDefaultUri();
+
 			options = typeof options === 'object' ? options : { strictMode: !!options };
 			options = $.extend( {
 				strictMode: false,
@@ -167,14 +191,14 @@
 					this.parse( uri, options );
 				} else if ( typeof uri === 'object' ) {
 					// Copy data over from existing URI object
-					for ( var prop in uri ) {
+					for ( prop in uri ) {
 						// Only copy direct properties, not inherited ones
 						if ( uri.hasOwnProperty( prop ) ) {
 							// Deep copy object properties
-							if ( $.isArray( uri[prop] ) || $.isPlainObject( uri[prop] ) ) {
-								this[prop] = $.extend( true, {}, uri[prop] );
+							if ( $.isArray( uri[ prop ] ) || $.isPlainObject( uri[ prop ] ) ) {
+								this[ prop ] = $.extend( true, {}, uri[ prop ] );
 							} else {
-								this[prop] = uri[prop];
+								this[ prop ] = uri[ prop ];
 							}
 						}
 					}
@@ -199,7 +223,7 @@
 					this.port = defaultUri.port;
 				}
 			}
-			if ( this.path && this.path.charAt( 0 ) !== '/' ) {
+			if ( this.path && this.path[ 0 ] !== '/' ) {
 				// A real relative URL, relative to defaultUri.path. We can't really handle that since we cannot
 				// figure out whether the last path component of defaultUri.path is a directory or a file.
 				throw new Error( 'Bad constructor arguments' );
@@ -390,14 +414,12 @@
 			}
 		};
 
-		defaultUri = new Uri( documentLocation );
-
 		return Uri;
 	};
 
-	// If we are running in a browser, inject the current document location (for relative URLs).
-	if ( document && document.location && document.location.href ) {
-		mw.Uri = mw.UriRelative( document.location.href );
-	}
+	// Default to the current browsing location (for relative URLs).
+	mw.Uri = mw.UriRelative( function () {
+		return location.href;
+	} );
 
 }( mediaWiki, jQuery ) );

@@ -32,14 +32,17 @@ require_once __DIR__ . '/Maintenance.php';
 class MwSql extends Maintenance {
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription = "Send SQL queries to a MediaWiki database";
+		$this->mDescription = "Send SQL queries to a MediaWiki database. " .
+				"Takes a file name containing SQL as argument or runs interactively.";
+		$this->addOption( 'query', 'Run a single query instead of running interactively', false, true );
 		$this->addOption( 'cluster', 'Use an external cluster by name', false, true );
 		$this->addOption( 'wikidb', 'The database wiki ID to use if not the current one', false, true );
 		$this->addOption( 'slave', 'Use a slave server (either "any" or by name)', false, true );
 	}
 
 	public function execute() {
-		$wiki = $this->getOption( 'wikidb' ) ?: false;
+		// We wan't to allow "" for the wikidb, meaning don't call select_db()
+		$wiki = $this->hasOption( 'wikidb' ) ? $this->getOption( 'wikidb' ) : false;
 		// Get the appropriate load balancer (for this wiki)
 		if ( $this->hasOption( 'cluster' ) ) {
 			$lb = wfGetLBFactory()->getExternalLB( $this->getOption( 'cluster' ), $wiki );
@@ -53,7 +56,8 @@ class MwSql extends Maintenance {
 				$index = DB_SLAVE;
 			} else {
 				$index = null;
-				for ( $i = 0; $i < $lb->getServerCount(); ++$i ) {
+				$serverCount = $lb->getServerCount();
+				for ( $i = 0; $i < $serverCount; ++$i ) {
 					if ( $lb->getServerName( $i ) === $server ) {
 						$index = $i;
 						break;
@@ -86,19 +90,27 @@ class MwSql extends Maintenance {
 			}
 		}
 
+		if ( $this->hasOption( 'query' ) ) {
+			$query = $this->getOption( 'query' );
+			$this->sqlDoQuery( $db, $query, /* dieOnError */ true );
+			wfWaitForSlaves();
+			return;
+		}
+
 		$useReadline = function_exists( 'readline_add_history' )
-				&& Maintenance::posix_isatty( 0 /*STDIN*/ );
+			&& Maintenance::posix_isatty( 0 /*STDIN*/ );
 
 		if ( $useReadline ) {
 			global $IP;
 			$historyFile = isset( $_ENV['HOME'] ) ?
-					"{$_ENV['HOME']}/.mwsql_history" : "$IP/maintenance/.mwsql_history";
+				"{$_ENV['HOME']}/.mwsql_history" : "$IP/maintenance/.mwsql_history";
 			readline_read_history( $historyFile );
 		}
 
 		$wholeLine = '';
 		$newPrompt = '> ';
 		$prompt = $newPrompt;
+		$doDie = !Maintenance::posix_isatty( 0 );
 		while ( ( $line = Maintenance::readconsole( $prompt ) ) !== false ) {
 			if ( !$line ) {
 				# User simply pressed return key
@@ -119,23 +131,26 @@ class MwSql extends Maintenance {
 				readline_add_history( $wholeLine . $db->getDelimiter() );
 				readline_write_history( $historyFile );
 			}
-			try {
-				$res = $db->query( $wholeLine );
-				$this->sqlPrintResult( $res, $db );
-				$prompt = $newPrompt;
-				$wholeLine = '';
-			} catch ( DBQueryError $e ) {
-				$doDie = ! Maintenance::posix_isatty( 0 );
-				$this->error( $e, $doDie );
-			}
+			$this->sqlDoQuery( $db, $wholeLine, $doDie );
+			$prompt = $newPrompt;
+			$wholeLine = '';
 		}
 		wfWaitForSlaves();
 	}
 
+	protected function sqlDoQuery( $db, $line, $dieOnError ) {
+		try {
+			$res = $db->query( $line );
+			$this->sqlPrintResult( $res, $db );
+		} catch ( DBQueryError $e ) {
+			$this->error( $e, $dieOnError );
+		}
+	}
+
 	/**
 	 * Print the results, callback for $db->sourceStream()
-	 * @param $res ResultWrapper The results object
-	 * @param $db DatabaseBase object
+	 * @param ResultWrapper $res The results object
+	 * @param DatabaseBase $db
 	 */
 	public function sqlPrintResult( $res, $db ) {
 		if ( !$res ) {

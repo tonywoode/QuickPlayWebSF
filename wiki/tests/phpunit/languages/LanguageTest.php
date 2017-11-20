@@ -16,7 +16,7 @@ class LanguageTest extends LanguageClassesTestCase {
 	}
 
 	/**
-	 * @dataProvider provideFormattableTimes#
+	 * @dataProvider provideFormattableTimes
 	 * @covers Language::formatTimePeriod
 	 */
 	public function testFormatTimePeriod( $seconds, $format, $expected, $desc ) {
@@ -276,7 +276,7 @@ class LanguageTest extends LanguageClassesTestCase {
 	}
 
 	/**
-	 * @return array format is ($len, $ellipsis, $input, $expected)
+	 * @return array Format is ($len, $ellipsis, $input, $expected)
 	 */
 	public static function provideHTMLTruncateData() {
 		return array(
@@ -412,7 +412,10 @@ class LanguageTest extends LanguageClassesTestCase {
 			array( 'fr-Latn-F', 'region too short' ),
 			array( 'a-value', 'language too short with region' ),
 			array( 'tlh-a-b-foo', 'valid three-letter with wrong variant' ),
-			array( 'i-notexist', 'grandfathered but not registered: invalid, even if we only test well-formedness' ),
+			array(
+				'i-notexist',
+				'grandfathered but not registered: invalid, even if we only test well-formedness'
+			),
 			array( 'abcdefghi-012345678', 'numbers too long' ),
 			array( 'ab-abc-abc-abc-abc', 'invalid extensions' ),
 			array( 'ab-abcd-abc', 'invalid extensions' ),
@@ -454,32 +457,22 @@ class LanguageTest extends LanguageClassesTestCase {
 	 * @dataProvider provideLanguageCodes
 	 * @covers Language::isValidBuiltInCode
 	 */
-	public function testBuiltInCodeValidation( $code, $message = '' ) {
-		$this->assertTrue(
+	public function testBuiltInCodeValidation( $code, $expected, $message = '' ) {
+		$this->assertEquals( $expected,
 			(bool)Language::isValidBuiltInCode( $code ),
 			"validating code $code $message"
 		);
 	}
 
-	/**
-	 * @covers Language::isValidBuiltInCode
-	 */
-	public function testBuiltInCodeValidationRejectUnderscore() {
-		$this->assertFalse(
-			(bool)Language::isValidBuiltInCode( 'be_tarask' ),
-			"reject underscore in language code"
-		);
-	}
-
 	public static function provideLanguageCodes() {
 		return array(
-			array( 'fr', 'Two letters, minor case' ),
-			array( 'EN', 'Two letters, upper case' ),
-			array( 'tyv', 'Three letters' ),
-			array( 'tokipona', 'long language code' ),
-			array( 'be-tarask', 'With dash' ),
-			array( 'Zh-classical', 'Begin with upper case, dash' ),
-			array( 'Be-x-old', 'With extension (two dashes)' ),
+			array( 'fr', true, 'Two letters, minor case' ),
+			array( 'EN', false, 'Two letters, upper case' ),
+			array( 'tyv', true, 'Three letters' ),
+			array( 'tokipona', true, 'long language code' ),
+			array( 'be-tarask', true, 'With dash' ),
+			array( 'be-x-old', true, 'With extension (two dashes)' ),
+			array( 'be_tarask', false, 'Reject underscores' ),
 		);
 	}
 
@@ -508,12 +501,14 @@ class LanguageTest extends LanguageClassesTestCase {
 	 */
 	public function testKnownCldrLanguageTag() {
 		if ( !class_exists( 'LanguageNames' ) ) {
-			$this->markTestSkipped( 'The LanguageNames class is not available. The cldr extension is probably not installed.' );
+			$this->markTestSkipped( 'The LanguageNames class is not available. '
+				. 'The CLDR extension is probably not installed.' );
 		}
 
 		$this->assertTrue(
 			(bool)Language::isKnownLanguageTag( 'pal' ),
-			'validating code "pal" an ancient language, which probably will not appear in Names.php, but appears in CLDR in English'
+			'validating code "pal" an ancient language, which probably will '
+				. 'not appear in Names.php, but appears in CLDR in English'
 		);
 	}
 
@@ -568,11 +563,30 @@ class LanguageTest extends LanguageClassesTestCase {
 	 * @covers Language::sprintfDate
 	 */
 	public function testSprintfDate( $format, $ts, $expected, $msg ) {
+		$ttl = null;
 		$this->assertEquals(
 			$expected,
-			$this->getLang()->sprintfDate( $format, $ts ),
+			$this->getLang()->sprintfDate( $format, $ts, null, $ttl ),
 			"sprintfDate('$format', '$ts'): $msg"
 		);
+		if ( $ttl ) {
+			$dt = new DateTime( $ts );
+			$lastValidTS = $dt->add( new DateInterval( 'PT' . ( $ttl - 1 ) . 'S' ) )->format( 'YmdHis' );
+			$this->assertEquals(
+				$expected,
+				$this->getLang()->sprintfDate( $format, $lastValidTS, null ),
+				"sprintfDate('$format', '$ts'): TTL $ttl too high (output was different at $lastValidTS)"
+			);
+		} else {
+			// advance the time enough to make all of the possible outputs different (except possibly L)
+			$dt = new DateTime( $ts );
+			$newTS = $dt->add( new DateInterval( 'P1Y1M8DT13H1M1S' ) )->format( 'YmdHis' );
+			$this->assertEquals(
+				$expected,
+				$this->getLang()->sprintfDate( $format, $newTS, null ),
+				"sprintfDate('$format', '$ts'): Missing TTL (output was different at $newTS)"
+			);
+		}
 	}
 
 	/**
@@ -658,7 +672,8 @@ class LanguageTest extends LanguageClassesTestCase {
 				'2009-W53-4',
 				'leap week'
 			),
-			// What follows is mostly copied from https://www.mediawiki.org/wiki/Help:Extension:ParserFunctions#.23time
+			// What follows is mostly copied from
+			// https://www.mediawiki.org/wiki/Help:Extension:ParserFunctions#.23time
 			array(
 				'Y',
 				'20120102090705',
@@ -1015,7 +1030,7 @@ class LanguageTest extends LanguageClassesTestCase {
 		return array(
 			array(
 				0,
-				"0 B",
+				"0 bytes",
 				"Zero bytes"
 			),
 			array(
@@ -1031,7 +1046,7 @@ class LanguageTest extends LanguageClassesTestCase {
 			array(
 				1024 * 1024 * 1024,
 				"1 GB",
-				"1 gigabytes"
+				"1 gigabyte"
 			),
 			array(
 				pow( 1024, 4 ),
@@ -1284,6 +1299,7 @@ class LanguageTest extends LanguageClassesTestCase {
 	}
 
 	public static function provideCheckTitleEncodingData() {
+		// @codingStandardsIgnoreStart Ignore Generic.Files.LineLength.TooLong
 		return array(
 			array( "" ),
 			array( "United States of America" ), // 7bit ASCII
@@ -1334,6 +1350,7 @@ class LanguageTest extends LanguageClassesTestCase {
 				)
 			)
 		);
+		// @codingStandardsIgnoreEnd
 	}
 
 	/**
@@ -1396,6 +1413,77 @@ class LanguageTest extends LanguageClassesTestCase {
 	}
 
 	/**
+	 * @dataProvider provideHebrewNumeralsData
+	 * @covers Language::hebrewNumeral
+	 */
+	public function testHebrewNumeral( $num, $numerals ) {
+		$this->assertEquals(
+			$numerals,
+			Language::hebrewNumeral( $num ),
+			"hebrewNumeral('$num')"
+		);
+	}
+
+	public static function provideHebrewNumeralsData() {
+		return array(
+			array( -1, -1 ),
+			array( 0, 0 ),
+			array( 1, "א'" ),
+			array( 2, "ב'" ),
+			array( 3, "ג'" ),
+			array( 4, "ד'" ),
+			array( 5, "ה'" ),
+			array( 6, "ו'" ),
+			array( 7, "ז'" ),
+			array( 8, "ח'" ),
+			array( 9, "ט'" ),
+			array( 10, "י'" ),
+			array( 11, 'י"א' ),
+			array( 14, 'י"ד' ),
+			array( 15, 'ט"ו' ),
+			array( 16, 'ט"ז' ),
+			array( 17, 'י"ז' ),
+			array( 20, "כ'" ),
+			array( 21, 'כ"א' ),
+			array( 30, "ל'" ),
+			array( 40, "מ'" ),
+			array( 50, "נ'" ),
+			array( 60, "ס'" ),
+			array( 70, "ע'" ),
+			array( 80, "פ'" ),
+			array( 90, "צ'" ),
+			array( 99, 'צ"ט' ),
+			array( 100, "ק'" ),
+			array( 101, 'ק"א' ),
+			array( 110, 'ק"י' ),
+			array( 200, "ר'" ),
+			array( 300, "ש'" ),
+			array( 400, "ת'" ),
+			array( 500, 'ת"ק' ),
+			array( 800, 'ת"ת' ),
+			array( 1000, "א' אלף" ),
+			array( 1001, "א'א'" ),
+			array( 1012, "א'י\"ב" ),
+			array( 1020, "א'ך'" ),
+			array( 1030, "א'ל'" ),
+			array( 1081, "א'פ\"א" ),
+			array( 2000, "ב' אלפים" ),
+			array( 2016, "ב'ט\"ז" ),
+			array( 3000, "ג' אלפים" ),
+			array( 4000, "ד' אלפים" ),
+			array( 4904, "ד'תתק\"ד" ),
+			array( 5000, "ה' אלפים" ),
+			array( 5680, "ה'תר\"ף" ),
+			array( 5690, "ה'תר\"ץ" ),
+			array( 5708, "ה'תש\"ח" ),
+			array( 5720, "ה'תש\"ך" ),
+			array( 5740, "ה'תש\"ם" ),
+			array( 5750, "ה'תש\"ן" ),
+			array( 5775, "ה'תשע\"ה" ),
+		);
+	}
+
+	/**
 	 * @dataProvider providePluralData
 	 * @covers Language::convertPlural
 	 */
@@ -1441,6 +1529,31 @@ class LanguageTest extends LanguageClassesTestCase {
 	}
 
 	/**
+	 * @covers Language::embedBidi()
+	 */
+	public function testEmbedBidi() {
+		$lre = "\xE2\x80\xAA"; // U+202A LEFT-TO-RIGHT EMBEDDING
+		$rle = "\xE2\x80\xAB"; // U+202B RIGHT-TO-LEFT EMBEDDING
+		$pdf = "\xE2\x80\xAC"; // U+202C POP DIRECTIONAL FORMATTING
+		$lang = $this->getLang();
+		$this->assertEquals(
+			'123',
+			$lang->embedBidi( '123' ),
+			'embedBidi with neutral argument'
+		);
+		$this->assertEquals(
+			$lre . 'Ben_(WMF)' . $pdf,
+			$lang->embedBidi( 'Ben_(WMF)' ),
+			'embedBidi with LTR argument'
+		);
+		$this->assertEquals(
+			$rle . 'יהודי (מנוחין)' . $pdf,
+			$lang->embedBidi( 'יהודי (מנוחין)' ),
+			'embedBidi with RTL argument'
+		);
+	}
+
+	/**
 	 * @covers Language::translateBlockExpiry()
 	 * @dataProvider provideTranslateBlockExpiry
 	 */
@@ -1464,11 +1577,38 @@ class LanguageTest extends LanguageClassesTestCase {
 			array( array( 'formatDuration', 1023 * 60 * 60 ), '1023 hours', 'relative' ),
 			array( array( 'formatDuration', -1023 ), '-1023 seconds', 'negative relative' ),
 			array( array( 'formatDuration', 0 ), 'now', 'now' ),
-			array( array( 'timeanddate', '20120102070000' ), '2012-1-1 7:00 +1 day', 'mixed, handled as absolute' ),
+			array(
+				array( 'timeanddate', '20120102070000' ),
+				'2012-1-1 7:00 +1 day',
+				'mixed, handled as absolute'
+			),
 			array( array( 'timeanddate', '19910203040506' ), '1991-2-3 4:05:06', 'absolute' ),
 			array( array( 'timeanddate', '19700101000000' ), '1970-1-1 0:00:00', 'absolute at epoch' ),
 			array( array( 'timeanddate', '19691231235959' ), '1969-12-31 23:59:59', 'time before epoch' ),
 			array( 'dummy', 'dummy', 'return garbage as is' ),
+		);
+	}
+
+	/**
+	 * @dataProvider parseFormattedNumberProvider
+	 */
+	public function testParseFormattedNumber( $langCode, $number ) {
+		$lang = Language::factory( $langCode );
+
+		$localisedNum = $lang->formatNum( $number );
+		$normalisedNum = $lang->parseFormattedNumber( $localisedNum );
+
+		$this->assertEquals( $number, $normalisedNum );
+	}
+
+	public function parseFormattedNumberProvider() {
+		return array(
+			array( 'de', 377.01 ),
+			array( 'fa', 334 ),
+			array( 'fa', 382.772 ),
+			array( 'ar', 1844 ),
+			array( 'lzh', 3731 ),
+			array( 'zh-classical', 7432 )
 		);
 	}
 
@@ -1555,10 +1695,12 @@ class LanguageTest extends LanguageClassesTestCase {
 	public static function provideGetParentLanguage() {
 		return array(
 			array( 'zh-cn', 'zh', 'zh is the parent language of zh-cn' ),
-			array( 'zh', 'zh', 'zh is defined as the parent language of zh, because zh converter can convert zh-cn to zh' ),
+			array( 'zh', 'zh', 'zh is defined as the parent language of zh, '
+				. 'because zh converter can convert zh-cn to zh' ),
 			array( 'zh-invalid', null, 'do not be fooled by arbitrarily composed language codes' ),
 			array( 'en-gb', null, 'en does not have converter' ),
-			array( 'en', null, 'en does not have converter. Although FakeConverter handles en -> en conversion but it is useless' ),
+			array( 'en', null, 'en does not have converter. Although FakeConverter '
+					. 'handles en -> en conversion but it is useless' ),
 		);
 	}
 

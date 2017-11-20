@@ -158,12 +158,12 @@ class GIFMetadataExtractor {
 					// assume its that, otherwise assume its windows-1252 (iso-8859-1)
 					$dataCopy = $data;
 					// quickIsNFCVerify has the side effect of replacing any invalid characters
-					UtfNormal::quickIsNFCVerify( $dataCopy );
+					UtfNormal\Validator::quickIsNFCVerify( $dataCopy );
 
 					if ( $dataCopy !== $data ) {
-						wfSuppressWarnings();
+						MediaWiki\suppressWarnings();
 						$data = iconv( 'windows-1252', 'UTF-8', $data );
-						wfRestoreWarnings();
+						MediaWiki\restoreWarnings();
 					}
 
 					$commentCount = count( $comment );
