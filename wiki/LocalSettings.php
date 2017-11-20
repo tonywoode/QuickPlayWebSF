@@ -89,6 +89,7 @@ $wgEnableUploads		= true;
 $wgUseImageResize		= true;
 $wgUseImageMagick = true;
 ## for osx/local i've setup an ln to /usr/local/bin/convert. osx SIP doesn't allow the below ln to be made
+# be aware in the secrets files for local/live/blank we must backslash escape the slashes
 $wgImageMagickConvertCommand = "/usr/bin/convert";
 $wgAllowExternalImages = true;
 

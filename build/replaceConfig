@@ -49,6 +49,7 @@ function getConfigKeysToChange {
 		'$wgDBuser' 
 		'$wgDBpassword' 
 		'$wgDBprefix'  
+        '$wgImageMagickConvertCommand' 
 		#Class.database.php
 		'$this->dbhost'
 		'$this->dbport'
