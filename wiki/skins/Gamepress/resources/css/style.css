@@ -63,6 +63,9 @@ h3 { font-size: 20px; }
 h4 { font-size: 18px; }
 h5, h6 { font-size: 16px; }
 
+div#toc.toc { text-shadow: none; }
+div#toc.toc h2 { color: #AC1618; }
+
 h1 a:hover, h2 a:hover {
 	border: none !important;
 }
@@ -74,6 +77,7 @@ h1 a:hover, h2 a:hover {
 .entry-content h6 {
 	clear: both;
 }
+
 
 .p404 h1 {
 	line-height: 65px;
@@ -88,6 +92,8 @@ strong, b { font-weight: bold; }
 small { font-size: 80%; }
 hr { border: none; }
 em { font-style: italic; }
+pre { text-shadow: none; }
+
 
 /* Links */
 a {
