@@ -826,15 +826,15 @@ header #logo p {
 	padding: 0 0 36px 0;
 }
 #content-inner {
-	max-width: 980px;
+	max-width: 90%;
 	margin: 0 auto;
 	text-align: left;
 	width: auto !important;
 }
 #content {
 	float: left;
-	max-width: 642px;
-	width: auto;
+	max-width: 80%;
+	width: 80%;
 }
 #content.full-width {
 	float: none;
@@ -1324,7 +1324,7 @@ ol.children {
 /*-----------------------------------------------------------------------------------*/
 #sidebar {
 	float: left;
-	width: 300px;
+	width: 10%;
 	margin-left: 38px;
 }
 

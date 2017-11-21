@@ -141,6 +141,3 @@ $wgCacheEpoch = max( $wgCacheEpoch, $configdate );
 $wgGroupPermissions['*']['createaccount'] = false;
 $wgGroupPermissions['*']['edit'] = false;
 ?>
-
-wfLoadSkin( 'Gamepress' );
-
