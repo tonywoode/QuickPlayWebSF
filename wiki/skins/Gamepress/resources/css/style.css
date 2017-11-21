@@ -516,7 +516,8 @@ textarea:focus, input:focus {
 	width: auto !important;
 }
 #header-inner {
-	max-width: 980px !important;
+   
+	max-width: 90%; !important; // it said it was important max-wdith stays at 980px but i tested many resolutions and its what i want
 	padding: 35px 0 0 0;
 	margin: 0 auto;
 	text-align: left;

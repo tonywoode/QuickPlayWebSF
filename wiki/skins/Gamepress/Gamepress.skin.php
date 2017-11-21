@@ -76,9 +76,8 @@ class GamepressTemplate extends BaseTemplate {
 	<header id="header">
 		<div id="header-inner">
 			<div id="logo">
-				<h1 id="site-title"><?php echo Html::element( 'a', array(
-					'href' => $this->data['nav_urls']['mainpage']['href'], 'rel' => 'home' )
-					+ Linker::tooltipAndAccesskeyAttribs( 'p-logo' ), $wgSitename ); ?></h1><?php echo $tagline ?>
+              <a href="http://www.quickplayfrontend.com" title="Go to community index" rel="home" accesskey="1">
+                <img src="/images/5__3_QuickPlay_transparency.png" alt="Logo"></a>
 			</div>
 			<div class="clear"></div>
 			<nav class="nosearch noprint">
