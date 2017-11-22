@@ -1,9 +1,14 @@
 BODY {
   margin:0;
-  background : transparent url(../images/nexusBackgroundOrig.jpg) no-repeat fixed 50% 0px;
+  background : transparent url(../images/nexusBackgroundOrig.jpg) no-repeat fixed 100% 0px;
+  background-size: cover;
   color : rgb(114, 118, 129);
   font-family : verdana;
   font-size : 12px;
+	line-height: 1;
+	font: 13px/20px "OpenSansRegular", Tahoma, sans-serif;
+	-ms-word-wrap: break-word;
+	word-wrap: break-word;
   }
 
 
@@ -17,14 +22,58 @@ a:hover{
   background : transparent none; 
 }
 
-h3{
-  font-weight : bolder;
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+	font-family: "FrancoisOneRegular", "OpenSansRegular", Tahoma, sans-serif;
+	line-height: 1.6em;
+}
+h1, h2 { margin-bottom: 12px; }
+h3, h4, h5, h6 { margin-bottom: 6px; }
+h1 { font-size: 30px; }
+h1#firstHeading, h2 { font-size: 24px; }
+h3 { font-size: 20px; }
+h4 { font-size: 18px; }
+h5, h6 { font-size: 16px; }
+
+h1 a:hover, h2 a:hover {
+	border: none !important;
+}
+.entry-content h1,
+.entry-content h2,
+.entry-content h3,
+.entry-content h4,
+.entry-content h5,
+.entry-content h6 {
+	clear: both;
 }
 
+
+.p404 h1 {
+	line-height: 65px;
+	font-size: 62px;
+	text-shadow: 2px 2px #ed1c24;
+}
 img {
   border: 0;
 }
-     
+
+/* Text */
+p { margin: 12px 0; }
+em { font-style: italic; }
+strong, b { font-weight: bold; }
+small { font-size: 80%; }
+hr { border: none; }
+em { font-style: italic; }
+pre { text-shadow: none; }
+
+/* Links */
+a {
+	text-decoration: none;
+	border-bottom: 1px dotted transparent;
+}
+
+
 div.welcome{
   background : Black none;
   color : White;
@@ -35,13 +84,14 @@ div.welcome{
   text-align : center;
 }
 div.maincontainer{
-  margin : 0;
   border-radius: 10px 10px 10px 10px;
   padding: 10px;
   line-height: 120%;
   box-shadow: 0px 5px 9px rgba(0, 0, 0, 0.1);
+  max-width: 90%;
+  width: 90%;
+  margin: 0 auto;
 
-  width : auto;
 }
 
 div.sidebar{
