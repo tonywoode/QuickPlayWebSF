@@ -1,15 +1,14 @@
 BODY {
   margin:0;
-  background : transparent url(../images/nexusBackgroundOrig.jpg) no-repeat fixed 100% 0px;
   background-size: cover;
   color : rgb(114, 118, 129);
   font-family : verdana;
   font-size : 12px;
-	line-height: 1;
-	font: 13px/20px "OpenSansRegular", Tahoma, sans-serif;
-	-ms-word-wrap: break-word;
-	word-wrap: break-word;
-    opacity: 0.9;
+  line-height: 1;
+  font: 13px/20px "OpenSansRegular", Tahoma, sans-serif;
+  -ms-word-wrap: break-word;
+  word-wrap: break-word;
+  opacity: 0.9;
  
   }
 
@@ -37,18 +36,6 @@ h1#firstHeading, h2 { font-size: 24px; }
 h3 { font-size: 20px; }
 h4 { font-size: 18px; }
 h5, h6 { font-size: 16px; }
-
-h1 a:hover, h2 a:hover {
-	border: none !important;
-}
-.entry-content h1,
-.entry-content h2,
-.entry-content h3,
-.entry-content h4,
-.entry-content h5,
-.entry-content h6 {
-	clear: both;
-}
 
 
 .p404 h1 {
@@ -89,7 +76,6 @@ div.maincontainer{
   border-radius: 10px 10px 10px 10px;
   padding: 10px;
   line-height: 120%;
-  box-shadow: 0px 5px 9px rgba(0, 0, 0, 0.1);
   max-width: 90%;
   width: 90%;
   margin: 0 auto;
@@ -98,14 +84,19 @@ div.maincontainer{
 
 div.sidebar{
   margin : 0;
-  margin-top : 2%;
   margin-right: 8%;
   padding : 0;
   height : auto;
   text-align : center;
-   	float: right;
-	width: 10%;
-	margin-left: 38px;
+  float: right;
+  width: 10%;
+  margin-left: 38px;
+}
+
+div.sidebar a {
+	margin: 0 0 18px 0;
+	clear: both;
+	overflow: hidden;
 }
 
 div.maincontent{
@@ -113,6 +104,12 @@ div.maincontent{
   width : 80%;
   margin-top : 0.5em;
 }
+
+div.maincontent h1, h2, h3, h4, h5 {
+color: #A0522D;
+text-shadow: 0 1px 0 #000;
+}
+
 
 div.menu{
   border : none;
@@ -124,16 +121,19 @@ div.menu{
 
 div.menuelement{
   border-bottom: none;
-  background : #f4f5f8 none;
   color : Black;
 }
 
 div.menuelement a{
   display : block;
-  margin: 5;
-  padding: 9px;
   background : transparent none;
 text-decoration: none;
+font: 13px/20px "OpenSansRegular",Tahoma,sans-serif;
+text-align: left;
+    padding-left: 18px;
+    list-style: none;
+    line-height: 18px;
+    margin-bottom: 6px;
 }
 
 div.about{
@@ -146,17 +146,35 @@ div.about{
 
 div.newshead{
   border : none;
-  border-top : 2px solid Black;
-  border-left : 2px solid Black;
   background : #f4f5f8 none;
   color : black;
   padding : 0.1em;
   padding-left : 1em;
+  border-bottom: 1px solid #aaa;
+  font-size: 20px;
+  font-family: "FrancoisOneRegular","OpenSansRegular",Tahoma,sans-serif;
+  line-height: 1.6em;
+  background-attachment: scroll;
+  background-clip: border-box;
+  background-color: rgba(0, 0, 0, 0);
+  background-origin: padding-box;
+  background-repeat: repeat;
+  background-size: auto auto;
+  border-bottom-style: dotted;
+  border-bottom-width: 1px;
+  direction: ltr;
+  font-kerning: auto;
+  font-weight: 400;
+  line-height: 38.4px;
+  overflow-wrap: break-word;
+  text-align: left;
+  text-decoration: none;
+  text-decoration-style: solid;
+  vertical-align: baseline;
 }
 
 div.newscontent{
   padding : 0.1em 0.4em;
-  border-left : 2px solid black;
   border-bottom : 1px solid #f4f5f8; 
   background : White none;
   color : Black;
@@ -166,9 +184,6 @@ div.newscontent{
 div.newsfooter{
   font-size : 0.8em;
   border : none;
-  border-left : 2px solid black;
-  border-bottom : 1px solid black;
-  background : #f4f5f8 none;
   color : black;
   padding : 0.1em;
   padding-left : 1em;
@@ -188,9 +203,9 @@ div.features{
 }
 
 div.adminmenu{
+  background: white;
   padding : 0.4em 0.2em;
   border : thin solid White;
-  border-bottom : 2px solid black;
   margin-bottom : 1em;
   color : Black;
   text-align : justify;

@@ -20,7 +20,7 @@
      <div id="branding">
       <div id="logo">
         <a href="http://www.quickplayfrontend.com" title="Go to community index" rel="home" accesskey="1">
-          <img src="/wiki/images/5_quickplaylogo.png" alt="Logo"></a>
+          <img src="images/5__3_QuickPlay_black.png" alt="Logo"></a>
       </div>
      </div>
       <div class="sidebar">
