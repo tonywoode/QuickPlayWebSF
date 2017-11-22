@@ -77,7 +77,7 @@ class GamepressTemplate extends BaseTemplate {
 		<div id="header-inner">
 			<div id="logo">
               <a href="http://www.quickplayfrontend.com" title="Go to community index" rel="home" accesskey="1">
-                <img src="/images/5__3_QuickPlay_transparency.png" alt="Logo"></a>
+                <img src="/images/5__3_QuickPlay_black.png" alt="Logo"></a>
 			</div>
 			<div class="clear"></div>
 			<nav class="nosearch noprint">

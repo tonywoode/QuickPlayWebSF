@@ -1,6 +1,6 @@
 BODY {
   margin:0;
-  background : transparent url(http://www.quickplayfrontend.com/public/style_images/fenix/bg.jpg) no-repeat fixed 50% 0px;
+  background : transparent url(../images/nexusBackgroundOrig.jpg) no-repeat fixed 50% 0px;
   color : rgb(114, 118, 129);
   font-family : verdana;
   font-size : 12px;
@@ -127,7 +127,6 @@ div.features{
   border-top : 2px solid black;
   border-bottom : 2px solid black;
   margin-bottom : 0.2em;
-  background : white none;
   color : Black;
   text-align : justify;
   font-size : 1em;
@@ -139,7 +138,6 @@ div.adminmenu{
   border-top : 2px solid black;
   border-bottom : 2px solid black;
   margin-bottom : 1em;
-  background : white none;
   color : Black;
   text-align : justify;
   font-size : 1em;
@@ -169,7 +167,6 @@ div.code {
     font-size: 11px;
     font-family: Consolas,"Liberation Mono",Courier,monospace;
     margin: 0px 2px;
-    white-space: nowrap;
 
 }
 
