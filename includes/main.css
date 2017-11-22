@@ -122,18 +122,24 @@ div.menu{
 div.menuelement{
   border-bottom: none;
   color : Black;
+  font: 20px "OpenSansRegular",Tahoma,sans-serif;
+  color: #A0522D;
+  text-shadow: 0 1px 0 #000;
+  line-height: 1.6em;
+  font-weight: bold; 
 }
 
 div.menuelement a{
   display : block;
   background : transparent none;
-text-decoration: none;
-font: 13px/20px "OpenSansRegular",Tahoma,sans-serif;
-text-align: left;
-    padding-left: 18px;
-    list-style: none;
-    line-height: 18px;
-    margin-bottom: 6px;
+  text-decoration: none;
+  font: 13px/20px "OpenSansRegular",Tahoma,sans-serif;
+  text-align: left;
+  padding-left: 18px;
+  list-style: none;
+  line-height: 18px;
+  margin-bottom: 6px;
+  text-shadow: none;
 }
 
 div.about{
