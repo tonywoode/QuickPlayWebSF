@@ -1,6 +1,7 @@
 BODY {
   margin:0;
-  background-size: cover;
+  background : transparent url("../images/transparecy pics/akuma.gif") fixed no-repeat center center;
+  background-size: 60% auto;
   color : rgb(114, 118, 129);
   font-family : verdana;
   font-size : 12px;
@@ -8,7 +9,7 @@ BODY {
   font: 13px/20px "OpenSansRegular", Tahoma, sans-serif;
   -ms-word-wrap: break-word;
   word-wrap: break-word;
-  opacity: 0.9;
+  opacity: 0.6;
  
   }
 
