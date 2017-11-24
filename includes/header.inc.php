@@ -7,7 +7,7 @@
     <title>
      QuickPlay Homepage - Current Version <?=$config['version']?>
     </title>
-    <meta name="keywords" content="quickplay, emulation, frontend, mame, zsnes, multi, emulator, universal" />
+    <meta name="keywords" content="quickplay, emulation, frontend, retro, gaming, mame, mess, retroarch, gamebase, mednafen, bluemsx, winuaeloader, multi, emulator, universal" />
     <meta name="description" content="Quickplay the universal emulator Frontend" />
     <link rel="shortcut icon" href="favicon.ico" />
     <link href="includes/main.css" title="Default Look" rel="stylesheet" type="text/css" />
@@ -23,6 +23,7 @@
           <img src="images/5__3_QuickPlay_black.png" alt="Logo"></a>
       </div>
      </div>
+
       <div class="sidebar">
         
         <!-- The version tracker -->
@@ -35,37 +36,25 @@
         <!-- Main Menu begins here -->
         <div class="menu">
           <div class="menuelement">
-            [Main Page|news_show]
+            [News|news_show]
+          </div>
+	      <div class="menuelement">
+            <a href="https://sourceforge.net/projects/quickplay/files/latest/download?source=files">Download</a>
           </div>
           <div class="menuelement">
             <a href="http://forums.quickplayfrontend.com/">Forums</a>
           </div>
-	  <div class="menuelement">
+          <div class="menuelement">
             <a href="wiki">Wiki</a>
           </div>
-          <div class="menuelement">
-             [Download|download]
-          </div>
-	  <div class="menuelement">
+	      <div class="menuelement">
             [ScreenShots|screenshots]
           </div>
           <div class="menuelement">
             [Change Log|changelog]
           </div>
           <div class="menuelement">
-            <a href="wiki/index.php/Features">Features</a>
-          </div>
-          <div class="menuelement">
-            [Links|links]
-          </div>
-          <div class="menuelement">
-            [Contact Info|contact]
-          </div>
-          <div class="menuelement">
-            [Source Code|sourcecode]
-          </div>
-          <div class="menuelement">
-            <a href="wiki/index.php/Category:User_Guides">Tutorials</a>
+            [Contact|contact]
           </div>
         </div>
         
@@ -81,22 +70,24 @@
        
        <div class="menu">
 	<div class="menuelement">
-		<a href="http://sourceforge.net/projects/quickplay">Go to QuickPlay on Sourceforge<img src="http://sflogo.sourceforge.net/sflogo.php?group_id=122303&amp;type=15" width="150" height="40" alt="Get QuickPlay at SourceForge.net. Fast, secure and Free Open Source software 	downloads" />
+		<a href="http://sourceforge.net/projects/quickplay">QuickPlay at Sourceforge</a> <!--img src="http://sflogo.sourceforge.net/sflogo.php?group_id=122303&amp;type=15" width="150" height="40" alt="" /> -->
 		</a>
 	</div>
 	<div class="menuelement">
           <a href="http://sourceforge.net/tracker/?group_id=122303&atid=693044">
-          Submit a Bug</a>
+          Submit Bug</a>
 	</div>
 	<div class="menuelement">
           <a href="http://sourceforge.net/tracker/?group_id=122303&atid=693047">
-          Request a Feature</a>
+          Request Feature</a>
 	</div>
 
 </div>
         
         
-      </div><!-- Main Content -->
+      </div>
+
+<!-- Main Content -->
       <div class="maincontent">
 
         

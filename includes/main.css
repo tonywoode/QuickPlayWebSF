@@ -85,8 +85,6 @@ div.maincontainer{
 
 div.sidebar{
   margin : 0;
-  margin-right: 8%;
-  padding : 0;
   height : auto;
   text-align : center;
   float: right;
@@ -139,6 +137,8 @@ div.menuelement a{
   padding-left: 18px;
   list-style: none;
   line-height: 18px;
+  position: relative;
+  left: 10px;
   margin-bottom: 6px;
   text-shadow: none;
 }
