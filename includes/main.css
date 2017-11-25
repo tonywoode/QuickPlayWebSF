@@ -9,7 +9,6 @@ BODY {
   font: 13px/20px "OpenSansRegular", Tahoma, sans-serif;
   -ms-word-wrap: break-word;
   word-wrap: break-word;
-  opacity: 0.6;
  
   }
 
@@ -226,6 +225,7 @@ div.fenix-content {
     line-height: 120%;
     overflow: auto;
 
+  opacity: 0.6;
 }
 
 div.branding{
