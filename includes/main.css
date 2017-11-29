@@ -149,6 +149,8 @@ div.about{
   color : Black;
   padding : 0.2em;
   margin-bottom : 0.4em;
+
+  background-color: rgba(255,255,255,0.1)
 }
 
 div.newshead{
@@ -178,6 +180,7 @@ div.newshead{
   text-decoration: none;
   text-decoration-style: solid;
   vertical-align: baseline;
+  display:inline-block
 }
 
 div.newscontent{
@@ -186,6 +189,11 @@ div.newscontent{
   background : White none;
   color : Black;
   text-align : justify;
+  background-color: rgba(255,255,255,0.1);
+}
+
+div.newscontent li {
+  padding-top: 10px;
 }
 
 div.newsfooter{
@@ -217,14 +225,15 @@ div.adminmenu{
   color : Black;
   text-align : justify;
   font-size : 1em;
+  display:inline-block;
+  background-color: rgba(255,255,255,0.1);
 }
 div.fenix-content {
     padding: 10px;
-    background: none repeat scroll 0% 0% rgb(255, 255, 255);
+    background: none repeat scroll 0% 0% rgb(255, 255, 255, 0.1);
     border-radius: 10px 10px 10px 10px;
     line-height: 120%;
     overflow: auto;
-
   opacity: 0.6;
 }
 

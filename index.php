@@ -63,26 +63,56 @@ if ( $auth->IsLoggedOn() ){
 
   //change the images depending on which page is loaded
   if ($title=='news_show') { 
-    $lightIt = $lightboxRequires;
     $image1 = 'sshots/MAME_ARCADE1.png';     
     $image1Small = 'sshots/SMALL/MAME_ARCADE1.png';
-    $image2 = "<a href='sshots/MESS2.png' data-lightbox='quickplay-images'>
-      <li><img src='sshots/SMALL/MESS2.png'></li>".
-      "</a>";
-
-    $imageBlock = "
-      $lightIt.
+    $image2 = 'sshots/MESS2.png';     
+    $image2Small = 'sshots/SMALL/MESS2.png';
+    $image3 = 'sshots/MESS3.png';     
+    $image3Small = 'sshots/SMALL/MESS3.png';
+    $image4 = 'sshots/MAME_EMBDEDDED1.png';     
+    $image4Small = 'sshots/SMALL/MAME_EMBDEDDED1.png';
+    $image5 = 'sshots/MAME_ARCADE2.png';     
+    $image5Small = 'sshots/SMALL/MAME_ARCADE2.png';
+    $image6 = 'sshots/MAME_ARCADE4.png';     
+    $image6Small = 'sshots/SMALL/MAME_ARCADE4.png';
+   //this is the resulting block we'll add to the pages
+  $imageHeader = "
+    $lightboxRequires.
       <div id='images'>
-      <ul class='gallery'>
-      <a href=$image1 data-lightbox='page-images'>
-      <li><img src=$image1Small></li>.
-      </a>.$image2
-      </ul>
+        <ul class='gallery'>
+          <a href=$image1 data-lightbox='page-images'>
+            <li><img src=$image1Small></li>.
+          </a>
+          <a href=$image2 data-lightbox='page-images'>
+            <li><img src=$image2Small></li>.
+          </a>
+          <a href=$image3 data-lightbox='page-images'>
+            <li><img src=$image3Small></li>.
+          </a>
+        </ul>
       </div>
-      </div>
+    </div>
     ";
+  $imageFooter = "
+      <div id='images'>
+        <ul class='gallery'>
+          <a href=$image4 data-lightbox='page-images'>
+            <li><img src=$image4Small></li>.
+          </a>
+          <a href=$image5 data-lightbox='page-images'>
+            <li><img src=$image5Small></li>.
+          </a>
+          <a href=$image6 data-lightbox='page-images'>
+            <li><img src=$image6Small></li>.
+          </a>
+        </ul>
+      </div>
+    </div>
+    ";
+  
   }
 
+ 
   if ($title=='login'){
     $auth->GenerateLogin();
   }
@@ -110,7 +140,7 @@ if ( $auth->IsLoggedOn() ){
         $text = html_entity_decode($text, ENT_QUOTES); // Because the editor converts HTML to character entities
       
         ob_start(); // Buffering this eval circumvents the issue of double SQL output.
-        eval("?> <div class=fenix-content>".$imageBlock.$text."</div><?"); // Short tag used, as <?php throws errors.
+        eval("?> <div class=fenix-content>".$imageHeader.$text.$imageFooter."</div><?"); // Short tag used, as <?php throws errors.
           $eval_buffer = ob_get_contents();
         ob_end_clean();
         $body = $eval_buffer;

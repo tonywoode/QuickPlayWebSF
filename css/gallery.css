@@ -18,7 +18,8 @@
 
 #images {
   float: left;
-  width: 600px;
+  max-width: 100%;
+    max-height: 100%;
 }
 
 #details {
@@ -53,12 +54,12 @@ h1
 .gallery
 
 {
-    width: 1400px;
 
 	cursor: default;
 
 	list-style: none;
-
+max-width: 100%;
+    max-height: 100%;
 }
 
 
@@ -71,7 +72,7 @@ h1
 
 	border-color: #aaa #ccc #ddd #bbb;
 
-	border-style: solid;
+	border-style: hidden;
 
 	border-width: 1px;
 
@@ -81,10 +82,8 @@ h1
 
 	vertical-align: top;
 
-	width: 400px;
-
-	height: 257px;
-
+max-width: 100%;
+    max-height: 100%;
 }
 
 
@@ -93,11 +92,11 @@ h1
 
 {
 
-	background: #eee;
+	background: #fff;
 
 	border-color: #ddd #bbb #aaa #ccc;
 
-	border-style: solid;
+	border-style: hidden;
 
 	border-width: 1px;
 
