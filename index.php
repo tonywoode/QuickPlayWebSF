@@ -56,8 +56,33 @@ if ( $auth->IsLoggedOn() ){
     $title= $_GET['title'];
   }
 
-  
-  
+  $lightboxRequires = " <script src='js/jquery-1.7.2.min.js'></script>
+<script src='js/lightbox.js'></script>
+   <link href='css/lightbox.css' rel='stylesheet' />  
+<link href='css/gallery.css' rel='stylesheet' /> ";
+
+  //change the images depending on which page is loaded
+  if ($title=='news_show') { 
+    $lightIt = $lightboxRequires;
+    $image1 = 'sshots/MAME_ARCADE1.png';     
+    $image1Small = 'sshots/SMALL/MAME_ARCADE1.png';
+    $image2 = "<a href='sshots/MESS2.png' data-lightbox='quickplay-images'>
+      <li><img src='sshots/SMALL/MESS2.png'></li>".
+      "</a>";
+
+    $imageBlock = "
+      $lightIt.
+      <div id='images'>
+      <ul class='gallery'>
+      <a href=$image1 data-lightbox='page-images'>
+      <li><img src=$image1Small></li>.
+      </a>.$image2
+      </ul>
+      </div>
+      </div>
+    ";
+  }
+
   if ($title=='login'){
     $auth->GenerateLogin();
   }
@@ -85,7 +110,7 @@ if ( $auth->IsLoggedOn() ){
         $text = html_entity_decode($text, ENT_QUOTES); // Because the editor converts HTML to character entities
       
         ob_start(); // Buffering this eval circumvents the issue of double SQL output.
-          eval("?> <div class=fenix-content>". $text ."</div><?"); // Short tag used, as <?php throws errors.
+        eval("?> <div class=fenix-content>".$imageBlock.$text."</div><?"); // Short tag used, as <?php throws errors.
           $eval_buffer = ob_get_contents();
         ob_end_clean();
         $body = $eval_buffer;
