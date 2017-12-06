@@ -158,7 +158,10 @@ if ( $auth->IsLoggedOn() ){
     }
   }
   
-require("includes/footer.inc.php");
+if (!$auth->IsLoggedOn() ) { 
+  require("includes/footer.inc.php");
+}
+
 ob_end_flush(); // Immediately calls rewrite
 ?>
 
