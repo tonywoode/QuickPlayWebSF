@@ -144,13 +144,18 @@ div.menuelement a{
 
 }
 
+#login  {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+}
+
 div.about{
   border : thin solid White;
   background : White none;
   color : Black;
   padding : 0.2em;
   margin-bottom : 0.4em;
-
   background-color: rgba(255,255,255,0.1)
 }
 
@@ -195,6 +200,7 @@ div.newscontent{
 
 div.newscontent ul {
   margin-top: 10px;
+  margin-bottom: 10px;
 }
 
 
