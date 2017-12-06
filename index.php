@@ -159,7 +159,9 @@ if ( $auth->IsLoggedOn() ){
   }
   
 if (!$auth->IsLoggedOn() ) { 
-  require("includes/footer.inc.php");
+  if ($title!='login') { 
+    require("includes/footer.inc.php");
+  }
 }
 
 ob_end_flush(); // Immediately calls rewrite
