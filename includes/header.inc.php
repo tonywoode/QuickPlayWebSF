@@ -56,7 +56,6 @@
           <div class="menuelement">
             [Contact|contact]
           </div>
-        </div>
         
        <!-- Possibly add donation button later? 
        <div class="menu">
@@ -68,7 +67,6 @@
       </div>
        -->
        
-       <div class="menu">
 	<div class="menuelement">
 		<a href="http://sourceforge.net/projects/quickplay">QuickPlay at Sourceforge</a> <!--img src="http://sflogo.sourceforge.net/sflogo.php?group_id=122303&amp;type=15" width="150" height="40" alt="" /> -->
 		</a>
@@ -82,10 +80,9 @@
           Request Feature</a>
 	</div>
 
+  </div>
+        
 </div>
-        
-        
-      </div>
 
 <!-- Main Content -->
       <div class="maincontent">

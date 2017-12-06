@@ -1,16 +1,8 @@
-*
-
-{
-
+* {
 	border: 0;
-
 	margin: 0;
-
 	padding: 0;
-
 }
-
-
 
 #page {
   position: relative;
@@ -19,97 +11,51 @@
 #images {
   float: left;
   max-width: 100%;
-    max-height: 100%;
+  max-height: 100%;
 }
 
 #details {
   color: #000;
 }
 
-
-
-h1
-
-{
-
+h1 {
 	background: inherit;
-
 	border-bottom: 1px dashed #ccc;
-
 	color: #933;
-
 	font: 32px Georgia, serif;
-        font-weight: bold;
-
+    font-weight: bold;
 	margin: 0 0 20px;
-
 	padding: 0 0 15px;
-
 	text-align: center;
-
 }
 
-
-
-.gallery
-
-{
-
+.gallery {
 	cursor: default;
-
 	list-style: none;
-max-width: 100%;
+    max-width: 100%;
     max-height: 100%;
 }
 
-
-
-.gallery img
-
-{
-
+.gallery img {
 	background: #fff;
-
 	border-color: #aaa #ccc #ddd #bbb;
-
 	border-style: hidden;
-
 	border-width: 1px;
-
 	color: inherit;
-
 	padding: 2px;
-
 	vertical-align: top;
-
-max-width: 100%;
+    max-width: 100%;
     max-height: 100%;
 }
 
-
-
-.gallery li
-
-{
-
+.gallery li {
 	background: #fff;
-
 	border-color: #ddd #bbb #aaa #ccc;
-
 	border-style: hidden;
-
 	border-width: 1px;
-
 	color: inherit;
-
 	display: inline;
-
-	float: left;
-
 	margin: 3px;
-
 	padding: 5px;
-
 	position: relative;
-
 }
