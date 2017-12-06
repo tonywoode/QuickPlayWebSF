@@ -72,10 +72,11 @@ div.welcome{
   padding : 0.2em;
   text-align : center;
 }
+
 div.maincontainer{
   border-radius: 10px 10px 10px 10px;
   padding: 10px;
-  line-height: 120%;
+  line-height: 140%;
   max-width: 90%;
   width: 90%;
   margin: 0 auto;
@@ -158,7 +159,6 @@ div.newshead{
   background : #f4f5f8 none;
   color : black;
   padding : 0.1em;
-  padding-left : 1em;
   border-bottom: 1px solid #aaa;
   font-size: 20px;
   font-family: "FrancoisOneRegular","OpenSansRegular",Tahoma,sans-serif;
@@ -190,10 +190,17 @@ div.newscontent{
   color : Black;
   text-align : justify;
   background-color: rgba(255,255,255,0.1);
+  padding-top: 10px;
 }
 
+div.newscontent ul {
+  margin-top: 10px;
+}
+
+
 div.newscontent li {
-  padding-top: 10px;
+  padding-left: 10px;
+  margin-left: 20px;
 }
 
 div.newsfooter{
@@ -232,9 +239,9 @@ div.fenix-content {
     padding: 10px;
     background: none repeat scroll 0% 0% rgb(255, 255, 255, 0.1);
     border-radius: 10px 10px 10px 10px;
-    line-height: 120%;
+    line-height: 140%;
     overflow: auto;
-  opacity: 0.6;
+    opacity: 0.6;
 }
 
 div.branding{
