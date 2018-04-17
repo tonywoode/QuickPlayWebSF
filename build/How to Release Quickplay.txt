@@ -1,7 +1,7 @@
-1) Version number in Delphi must be right: In MAIN.pas around line 690 change version number of QP, compile and exit
-
-DO THIS IN WINDOWS (so you don't have to reset pc's between steps 2 and 3):
-2) Finish up with git. In windows ensure: 
+1) DONT LOAD WINDOWS YET: Version number in Delphi must be right: In MAIN.pas around line 690 change version number of QP, compile and exit
+2) Load windows in parallels: make sure MAMETOOL is pushed to windows at latest version: go to shared drives in mac and load up the windows one, nvm list, nvm use [the version of the files], npm run packageParallels
+3) Carry on in windows:
+   Finish up with git. In windows ensure: 
 	* all commits are done on dev
 	* all changes merged into master
 	* both pushed
@@ -12,16 +12,16 @@ DO THIS IN WINDOWS (so you don't have to reset pc's between steps 2 and 3):
 	git push origin --tags
 		(if problems undo both local and remote tags: http://stackoverflow.com/questions/5480258/how-to-delete-a-remote-git-tag)
 
-3)Make the release:
+4)Make the release:
 	* Run makeRelease.bat in the QuickPlayFrontend folder (which will read latest tag)
-		(Script copies ALL files then deletes the ones that we don't want in release)
-	* Script opens notepad++ so you can remove dev/build/commit related changelog items (if for any reason it doesn't, when it says 'press any key to contune' do that and it'll tell you which file to open ). Save the txt file when you're done (at this point it has nix line endings).
+		(Script copies ALL files then deletes the ones that we don't want in release - make sure any old data directories are included i've included data_PREV just like in the gitignore)
+	* Script opens notepad++ so you can remove dev/build/commit related changelog items (if for any reason it doesn't, when it says 'press any key to continue' do that and it'll tell you which file to open ). Save the txt file when you're done (at this point it has nix line endings).
 		(Script puts result at top of changelog in BOTH release and dev (ie: MY!) quickplay folder (so any problems mean deleting the top entry of MY QP’s changelog)
 		(Script makes the zip out of the qp dir and then deletes the qp dir (zip overwrites if this isn't the first run))
 
-4) Manually Test the build (needs automated tests!!!!)
+5) Manually Test the build (needs automated tests!!!!)
 
-5) Upload the release:
+6) Upload the release:
 	* Do the rest in OSX: Go into the quickplayWeb folder, into htdocs and into build and ./runner
     * If mySQL isn't going to have the quickplay database, run option 9 from the menu first. If you don't have the database you'll have errors about sql, check you can open a mysql command line against mysql -u root -p q122303_qp. Also you could have the db dump but not have a database so mysql -u root -p q122303_qp < ../../database/q122303_qp.sql. Check also mysql is the one you think it is e.g.: /Applications/MAMP/Library/bin/mysq. If you don't have the database you probably don't have pandoc-bin for the node bit of the code, which needs to be npm installed globally not locally or it will error! (install it with global flag then locally and it should work)
 	* Choose item 2 on the list - upload release file. (automated equivalent of uploading release to: https://sourceforge.net/projects/quickplay/files/quickplay/ )
@@ -29,7 +29,7 @@ DO THIS IN WINDOWS (so you don't have to reset pc's between steps 2 and 3):
 		(Seems SourceForge at this point needs to check the file, as manually checking for zip in a browser takes about 5 mins to appear, despite being there if you ssh)
 		(Without this automation, SF’s Latest Version prompt would only have changed for anything NON windows. Script uses the SF api to change (using my api key - see	comments in switcher script. If the script didn’t do this we would have do this lot:  (http://stackoverflow.com/questions/6777327/how-to-manually-set-the-default-download-file-in-a-sourceforge-project#7280936): (i) Log into SF (ii) Browse to preferred file (iii) click ‘i’ icon at the right of the file’s entry in the table of files (iv) In popup, under Default for, select all (v) Save (vi) Wait a few minutes, refresh page and check.)
 
-6) Do the website:
+7) Do the website:
 	* Get the release file details info into the local db with option 3
 		(a node script works out the URL, filesize and version number and inserts them into the local db)
 	* Choose option 4 to update the changelog (check the text, but it IS what you altered in notepad++ a few steps back)
@@ -39,7 +39,7 @@ DO THIS IN WINDOWS (so you don't have to reset pc's between steps 2 and 3):
 		(When SQL altering those tables, DON’T mix up changes, version and news tables, its easily done)
 		(remember if problems with changes table, then news needs to be fixed as well: if one or the other has a problem, BOTH need deletion and auto-increment resetting)
 
-7) Upload the website
+8) Upload the website
 	* select option 6 in my menu
 		(the php binary reads the local and admin passwords from AdminSettings_Local.php and AdminSettings.php in my secrets folder)
 		(script is keeping a check on when i last pushed (in ../../../Release.dates.txt) It iterates through the files on the server finding any with a later
@@ -56,8 +56,8 @@ DO THIS IN WINDOWS (so you don't have to reset pc's between steps 2 and 3):
 	* Scripts hangs in interactive ssh again for you to check all ok.
 		(Remember script HAS transferred local vars to the server, so e.g.: if we want to logon to mysql just go mysql -h mysql-q -u "$dbuser" “$db”)
 
-8) REFRESH BROWSER and check release
-9) Bear in mind your QuickPlayFrontend repo is now on master, and you have uncommited changelog changes. So add these to master, and then make sure they get ported to develop (git checkout develop && git add -A && git commit -m "adding released changelog")
+9) REFRESH BROWSER and check release
+10) UPDATE THE REPO AGAIN: Bear in mind your QuickPlayFrontend repo is now on master, and you have uncommited changelog changes. So add these to master, and then make sure they get ported to develop (git push && git checkout develop && git add -A && git commit -m "adding released changelog" && git push)
 
 
 
