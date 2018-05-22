@@ -1,5 +1,5 @@
 1) DONT LOAD WINDOWS YET: Version number in Delphi must be right: In MAIN.pas around line 690 change version number of QP, compile and exit
-2) Load windows in parallels: make sure MAMETOOL is pushed to windows at latest version: go to shared drives in mac and load up the windows one, nvm list, nvm use [the version of the files], npm run packageParallels
+2) if MAMETOOL has changed, Load windows in parallels: make sure MAMETOOL is pushed to windows at latest version: go to shared drives in mac and load up the windows one, nvm list, nvm use [the version of the files], npm run packageParallels
 3) Carry on in windows:
    Finish up with git. In windows ensure: 
 	* all commits are done on dev
