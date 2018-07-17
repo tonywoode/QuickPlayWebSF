@@ -2,9 +2,8 @@
   "name": "QuickPlay_release_version_info_updater",
   "description": "When we have details of the release package, it must be cascaded to the website via this table. npm install",
   "dependencies": {
-    "handlebars": "^3.0.3",
     "mysql": "^2.7.0",
-    "pandoc-bin": "^0.1.2",
+    "pandoc-bin": "^0.2.0",
     "prompt": "^0.2.14"
   }
 }
