@@ -1,6 +1,6 @@
 1) DONT LOAD WINDOWS YET: Version number in Delphi must be right: In MAIN.pas around line 690 change version number of QP, compile, save and exit.
 2) if MAMETOOL has changed, Load windows in parallels: make sure MAMETOOL is pushed to windows at latest version: go to shared drives in mac and load up the windows one, nvm list, nvm use [the version of the files], npm run packageParallels
-3) If qpElectron has changed, so the same. remember the version number of electron in the package.json might need updating
+3) If qpElectron has changed, do the same. remember the version number of electron in the package.json might need updating
 4) Finish up with git. In windows ensure: 
 	* all commits are done on dev
 	* all changes merged into master
@@ -14,7 +14,7 @@
 
 5)Carry on in windows: Make the release:
 	* Run makeRelease.bat in the QuickPlayFrontend folder (which will read latest tag)
-		(Script copies ALL files then deletes the ones that we don't want in release - make sure any old data directories are included i've included data_PREV just like in the gitignore)
+		(Script copies ALL files then deletes the ones that we don't want in release - make sure any old data directories are included i've included data_PREV etc just like in the gitignore)
 	* Script opens notepad++ so you can remove dev/build/commit related changelog items (if for any reason it doesn't, when it says 'press any key to continue' do that and it'll tell you which file to open ). Save the txt file when you're done (at this point it has nix line endings).
 		(Script puts result at top of changelog in BOTH release and dev (ie: MY!) quickplay folder (so any problems mean deleting the top entry of MY QP’s changelog)
 		(Script makes the zip out of the qp dir and then deletes the qp dir (zip overwrites if this isn't the first run))
