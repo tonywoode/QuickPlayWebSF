@@ -1,7 +1,7 @@
 1) DONT LOAD WINDOWS YET: Version number in Delphi must be right: In MAIN.pas around line 690 change version number of QP, compile, save and exit.
-2) if MAMETOOL has changed, Load windows in parallels: make sure MAMETOOL is pushed to windows at latest version: go to shared drives in mac and load up the windows one, nvm list, nvm use [the version of the files], npm run packageParallels
+2) if QPNODE has changed, Load windows in parallels: make sure QPNODE is pushed to windows at latest version: go to shared drives in mac and load up the windows one, nvm list, nvm use [the version of the files], npm run packageParallels
 3) If qpElectron has changed, do the same. remember the version number of electron in the package.json might need updating
-4) Finish up with git. In windows ensure: 
+4) Finish up with git. Ensure: 
 	* all commits are done on dev
 	* all changes merged into master
 	* both pushed
