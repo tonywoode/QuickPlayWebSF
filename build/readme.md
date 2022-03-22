@@ -13,6 +13,7 @@ We use three external folders
 3) Release - my build script builds in here and also pulls git tag and commit messages
 
 ### Considerations
+	* MediaWiki Image Uploads require ImageMajick to be Installed (needs folder /usr/local/bin/convert - use your favourite package manager to do so)
 	* Note we must calls MAMP's version of mysql/mysqldump etc
 	* Note exp is so-called because its expect not bash, tcl syntax
 		- there's doubtless a way to stop it echoing back, but hey its informative

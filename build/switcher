@@ -3,6 +3,8 @@
 # basic build system for editing. creds are kept above repo. 
 # No flags gets us blank configs for repo
 
+[ ! -f "/usr/local/bin/convert" ] && echo "*****WARNING*****: /usr/local/bin/convert doesn't exist - you need to install ImageMajick for MediaWiki uploads to work"
+
 . replaceConfig
 
 function blankem {
@@ -48,6 +50,7 @@ if [[ "$1" = "--local" ]]; then
 	echo "alter table version/changes/news AUTO_INCREMENT = 21; (but do the above first)"
 	echo ""
 	echo "Don't forget to uncomment top of index.php to debug, then var_dump()/print_r()/echo"
+	echo "to PHP debug wiki, uncomment ini_set( 'display_errors', 1 ); in wiki/localSettings.php - https://www.mediawiki.org/wiki/Manual:How_to_debug"
 	echo "******************************************************"
 	echo $warn
 	exit
