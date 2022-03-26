@@ -58,7 +58,7 @@
 		(Remember script HAS transferred local vars to the server, so e.g.: if we want to logon to mysql just go mysql -h mysql-q -u "$dbuser" “$db”)
 
 10) REFRESH BROWSER and check release
-11) UPDATE THE REPO AGAIN: Bear in mind your QuickPlayFrontend repo is now on master, and you have un commited changelog changes. So add these to master, and then make sure they get ported to develop (git push && git checkout develop && git add -A && git commit -m "adding released changelog" && git push)
+11) UPDATE THE REPO AGAIN: Bear in mind your QuickPlayFrontend repo is now on master, and you have un commited changelog changes. So add these to master, and then make sure they get ported to develop (git push && git checkout develop && git merge master && git push)
 12) By the nature of things, probably something in this build repo got changed by you too during this lot, so update that too
 
 
