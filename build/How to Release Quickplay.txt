@@ -16,6 +16,7 @@
 	* Run makeRelease.bat in the QuickPlayFrontend folder (which will read latest tag)
 		(Script copies ALL files then deletes the ones that we don't want in release - make sure any old data directories are included i've included data_PREV etc just like in the gitignore)
 	* Script opens notepad++ so you can remove dev/build/commit related changelog items (if for any reason it doesn't, when it says 'press any key to continue' do that and it'll tell you which file to open ). Save the txt file when you're done (at this point it has nix line endings).
+	* Massage the changelog - remember we're going to put this through pandoc as Markdown and it will get converted to html! Any problems later edit the changelogLF in the Release Dir
 		(Script puts result at top of changelog in BOTH release and dev (ie: MY!) quickplay folder (so any problems mean deleting the top entry of MY QP’s changelog)
 		(Script makes the zip out of the qp dir and then deletes the qp dir (zip overwrites if this isn't the first run))
 

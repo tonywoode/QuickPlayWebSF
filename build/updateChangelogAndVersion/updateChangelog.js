@@ -85,14 +85,16 @@ function pandocIt (doItOrNot, next) {
 
 //insert values for the next tuple - primary key id in the table auto-increments
 function insertChangelog(date_posted, version, changelog, author_id) {
-  connection.query('INSERT INTO changes (date_posted, title, changes, author_id) values ("'+date_posted+'", "'+version+'", "'+changelog+'", "'+author_id+'")',
+  //need to escape any potential doublequotes in the html - id/classnames
+  const stringSafeChangelog = changelog.replace(/"/g,`\\"`)
+  connection.query('INSERT INTO changes (date_posted, title, changes, author_id) values ("'+date_posted+'", "'+version+'", "'+stringSafeChangelog+'", "'+author_id+'")',
   function (error, results, fields) {
   if (error) { console.log('ERRORS=', error); }
   if (results) { console.log('RESULTS=', results); }
   if (fields) { console.log('FIELDS=', fields); }
   });
 
-  connection.query('INSERT INTO news (date_posted, title, news, author_id) values ("'+date_posted+'", "QuickPlay '+version+' is released", "'+changelog+'", "'+author_id+'")',
+  connection.query('INSERT INTO news (date_posted, title, news, author_id) values ("'+date_posted+'", "QuickPlay '+version+' is released", "'+stringSafeChangelog+'", "'+author_id+'")',
   function (error, results, fields) {
     if (error) { console.log('ERRORS=', error); }
     if (results) { console.log('RESULTS=', results); }
