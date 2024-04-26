@@ -36,9 +36,9 @@
 
     //make sure the content variable is UNSLASHED!
     if (get_magic_quotes_gpc() == 1)
-      $content = StripSlashes($content);
+      $content = StripSlashes((string) $content);
       
-    $content = htmlentities($content, ENT_QUOTES);
+    $content = htmlentities((string) $content, ENT_QUOTES);
     $content = AddSlashes($content);
 
 		// Write new data
@@ -58,7 +58,7 @@
     Returning to 
     <a href=\"index.php?title=$t\">$t</a>. 
     <META HTTP-EQUIV=REFRESH CONTENT=4;URL=\"index.php?title=" 
-    . urlencode($t) . "\"></div>";
+    . urlencode((string) $t) . "\"></div>";
 
 	}
   else
@@ -92,7 +92,7 @@
               $rec = $DBo->WikiGetPage($theTitle);
               if ($rec != False)
               {
-                $mybody = StripSlashes($rec[0]['p_body']);
+                $mybody = StripSlashes((string) $rec[0]['p_body']);
                 echo html_entity_decode($mybody, ENT_QUOTES);
               }
               else

@@ -38,7 +38,7 @@ else //if no $_GET['action']  (the page will default to this) Begin main section
   {
     while (false !== ($file = readdir($handle)))
     {
-        if ($file != "." && $file != ".." && $file != ".htaccess" && substr($file,-4) != ".php" && substr($file,-1) != "~" && $file != "del.php")
+        if ($file != "." && $file != ".." && $file != ".htaccess" && !str_ends_with($file, ".php") && !str_ends_with($file, "~") && $file != "del.php")
         {
           $list .= '<a href="'.$dir.'/'.$file.'">'.$file.'</a> - 
           <font size="2"><a href="'. $_SERVER["PHP_SELF"] 

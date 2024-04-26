@@ -9,17 +9,18 @@ class IImysqli_result {
 
 class QPDatabase {
 
-  var $dbhost, $dbport, $dbusername, $dbpassword, $dbname;
-  var $type, $bindtype, $stmt, $result, $conn, $lastqueryresult, $lasterror, $lasterrno, $lastinsertid, $iilastqueryresult;
+	public $dbhost, $dbport, $dbusername, $dbpassword, $dbname;
+	public $type, $bindtype, $stmt, $result, $conn, $lastqueryresult, $lasterror, $lasterrno, $lastinsertid, $iilastqueryresult;
 
   // ---- Constructor ----
 
-  function QPDatabase() {
-    $this->dbhost = "";
-    $this->dbport = ;
-    $this->dbusername = "";
-    $this->dbpassword = "";
-    $this->dbname = "";
+	function __construct()
+	{
+		$this->dbhost = "";
+		$this->dbport = ;
+		$this->dbusername = "";
+		$this->dbpassword = "";
+		$this->dbname = "";
     $this->iilastqueryresult = "";
     //$this->lastqueryresult = "";//without a sqlnd driver on the server, we needed our own result object
     $this->Open();
@@ -69,34 +70,34 @@ class QPDatabase {
 	//this mimics mysqli_fetch_array by returning a new row each time until exhausted
 	function iimysqli_result_fetch_array(&$result) {
 		$stmt = $result->stmt;
-		$stmt->store_result();
-		$resultkeys = array();
+		$metadata = $stmt->result_metadata();
+		$resultkeys = [];
 		$thisName = "";
-		for ( $i = 0; $i < $stmt->num_rows; $i++ ) {
-				$metadata = $stmt->result_metadata();
-				while ( $field = $metadata->fetch_field() ) {
-					$thisName = $field->name;
-					$resultkeys[] = $thisName;
-				}
+		while ($field = $metadata->fetch_field()) {
+			$thisName = $field->name;
+			$resultkeys[] = $thisName;
 		}
-			
-		$ret = array();
+
+		$ret = [];
 		$code = "return mysqli_stmt_bind_result(\$result->stmt ";
-		for ($i=0; $i<$result->ncols; $i++) {
+		for ($i = 0; $i < $result->ncols; $i++) {
 			$ret[$i] = NULL;
 			$theValue = $resultkeys[$i];
 			$code .= ", \$ret['$theValue']";
-		};
-		
+		}
+		;
+
 		$code .= ");";
-		if (!eval($code)) { 
-			return NULL; 
-		};
-		
+		if (!eval ($code)) {
+			return NULL;
+		}
+		;
+
 		// This should advance the "$stmt" cursor.
-		if (!mysqli_stmt_fetch($result->stmt)) { 
-			return NULL; 
-		};
+		if (!mysqli_stmt_fetch($result->stmt)) {
+			return NULL;
+		}
+		;
 
 		// Return the array we built.
 		return $ret;
@@ -106,27 +107,25 @@ class QPDatabase {
 	function Query($querystring, $arg1, $arg2) {
 		$stmt = $this->conn->prepare($querystring);
 		if ($arg1 != "" && $arg2 == "") {
-			$stmt->bind_param("s", $arg1); 
+			$stmt->bind_param("s", $arg1);
+		} elseif ($arg1 != "" && $arg2 != "") {
+			$stmt->bind_param("ss", $arg1, $arg2);
 		}
-		elseif ($arg1 != "" && $arg2 != "") {
-			$stmt->bind_param("ss", $arg1, $arg2); 
-		};
+		;
 
-		$stmt->execute(); 
-		$stmt->store_result(); 
-		//$result = $stmt->get_result(); //lack of sqlnd on sourceforge servers prevents us using this. Really tough luck!	
+		$stmt->execute();
+		$stmt->store_result(); // Add this line
 		$iilastqueryresult = $this->iimysqli_get_result($stmt);
-		$this->iilastqueryresult = $iilastqueryresult; 
-		if ( mysqli_error($this->conn) != "" ) {
-      $this->lasterror = mysqli_error($this->conn);
-      $this->lasterrno = mysqli_errno($this->conn);
+		$this->iilastqueryresult = $iilastqueryresult;
+
+		if (mysqli_error($this->conn) != "") {
+			$this->lasterror = mysqli_error($this->conn);
+			$this->lasterrno = mysqli_errno($this->conn);
 			$stmt->close();
 			return 0;
-    }
-		else
-			//$stmt->close();	//TODO:since we can't get_result, we can't close the statment now, we need lots more info from it
+		} else
 			return 1;
-  }
+	}
 
 	function Num_Rows() {
 		return $this->iilastqueryresult->stmt->num_rows;
@@ -141,7 +140,7 @@ class QPDatabase {
 	}
 
   function Fetch_Full_Array() {
-    $allrows = array();
+		$allrows = [];
     while ( $currentrow = $this->iimysqli_result_fetch_array($this->iilastqueryresult) ) {
        array_push($allrows, $currentrow);
     }
@@ -167,7 +166,7 @@ class QPDatabase {
   function Close() {
     mysqli_close($this->conn);
   }
-  
+
   function WikiPageExists($pagename) {
     $query = "SELECT p_name FROM pages WHERE p_name=(?)";
     if ($this->Query($query, $pagename, "") == 1) {
@@ -180,9 +179,9 @@ class QPDatabase {
       //the query failed return false
       return false;
     }
-    
+
   }
-  
+
   function WikiGetPage($pagename) {
     $query = "SELECT * FROM pages WHERE p_name=(?)";
     if ($this->Query($query, $pagename, "") == 1) {

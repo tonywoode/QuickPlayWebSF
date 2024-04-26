@@ -1,27 +1,27 @@
 <?php
 
 function clean($input, $maxlength = -1){
-  
+
   if($maxlength != -1)
-    $input = substr($input, 0, $maxlength);
-	
+    $input = substr((string) $input, 0, $maxlength);
+
   $input = EscapeShellCmd($input);
   return($input);
 }
 
   class Jlogin{
 
-    var $id, $name, $pwd, $authorised;
+    public $id, $name, $pwd, $authorised;
 
     //constructor
-    function Jlogin($db){
+    function __construct($db){
 
       $this->authorised = false;
 
       if(  (isset($_POST['userid'])) && (isset($_POST['pwd'])) ){
         //cleaning of data here 
-        $this->name = addslashes(clean($_POST['userid'], 20)); 
-        $this->pwd = addslashes(crypt(clean($_POST['pwd'],20), '$5$' . substr($this->name, 0, 2)));
+        $this->name = addslashes((string) clean($_POST['userid'], 20)); 
+        $this->pwd = addslashes(crypt((string) clean($_POST['pwd'],20), '$5$' . substr($this->name, 0, 2)));
       }
       if(  (isset($_COOKIE['userid'])) && (isset($_COOKIE['pwd'])) ){
         //cleaning of data here
@@ -36,8 +36,8 @@ function clean($input, $maxlength = -1){
         if($db->Num_Rows() == 1){
 
               if(  (!isset($_COOKIE['userid'])) && (!isset($_COOKIE['pwd']))  ){
-                setcookie("userid", $this->name, time()+(60*60*24*7));
-                setcookie("pwd", $this->pwd, time()+(60*60*24*7));
+                setcookie("userid", (string) $this->name, ['expires' => time()+(60*60*24*7)]);
+                setcookie("pwd", (string) $this->pwd, ['expires' => time()+(60*60*24*7)]);
               }
               $this->authorised = true;
               $result = $db->Fetch_Full_Array();
@@ -53,9 +53,9 @@ function clean($input, $maxlength = -1){
       }
       else
         die ("Database error - unable to retrieve user names");
-        
+
       }
-      
+
     }
 
     function LogOut(){
@@ -68,7 +68,7 @@ function clean($input, $maxlength = -1){
     function GetID(){
       return $this->id;
     }
-    
+
     function GetName(){
       return $this->name;
     }

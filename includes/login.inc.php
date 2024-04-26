@@ -8,7 +8,7 @@
   <body>
     <h2>Login</h2>
       
-      <form name="loginfrm" method="post" action="<?= basename($_SERVER["PHP_SELF"]) ."?title=" . $_GET['title']?>">
+      <form name="loginfrm" method="post" action="<?= basename((string) $_SERVER["PHP_SELF"]) ."?title=" . $_GET['title']?>">
         
         <div>
           UserName <input name="userid" type="text" id="userid" size="20" maxlength="20">

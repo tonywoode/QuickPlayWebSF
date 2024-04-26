@@ -27,7 +27,7 @@
     echo $row['changes'];           
     echo "</div>\n";
     echo "<div class=\"newsfooter\">\nPosted by {$row['name']} on ";
-    echo date("d-m-Y", strtotime($row['date_posted']));
+    echo date("d-m-Y", strtotime((string) $row['date_posted']));
     echo "\n</div>\n";
 
   }

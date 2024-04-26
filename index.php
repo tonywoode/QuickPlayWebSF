@@ -20,16 +20,12 @@ function rewrite($body)
     $content = $body;
     $terms="!-=+\\\"$%^\(\)@ \w";
     $content=preg_replace (
-      array (
-              "/\[([$terms]+)\]/",
-              "/\[([$terms]+)\|([$terms]+)\]/"),
-      array (
-              "<a href=\"index.php?title=\\1\">\\1</a>",
-              "<a href=\"index.php?title=\\2\">\\1</a>"), $content);
+      ["/\[([$terms]+)\]/", "/\[([$terms]+)\|([$terms]+)\]/"],
+      ["<a href=\"index.php?title=\\1\">\\1</a>", "<a href=\"index.php?title=\\2\">\\1</a>"], (string) $content);
 
     return $content;
   }
-  
+
 /*
  * Content is buffered so that [foo|bar] links can be parsed afterwards.
  */
@@ -41,7 +37,7 @@ require "includes/header.inc.php"; // Includes sidebar
 if(isset($_GET['logout'])){
   $auth->LogOut();
   }
-    
+
 // If it's an admin user, add the admin menu
 if ( $auth->IsLoggedOn() ){
   echo "<h3>Welcome " . $auth->GetName() . "</h3>";
@@ -109,10 +105,10 @@ if ( $auth->IsLoggedOn() ){
       </div>
     </div>
     ";
-  
+
   }
 
- 
+
   if ($title=='login'){
     $auth->GenerateLogin();
   }
@@ -136,15 +132,15 @@ if ( $auth->IsLoggedOn() ){
       $pgrec = $DBo->WikiGetPage($title); // Holds page id, name, and body
       if ($pgrec != False)
       {
-        $text = StripSlashes($pgrec[0]['p_body']); // For escaped characters
+        $text = StripSlashes((string) $pgrec[0]['p_body']); // For escaped characters
         $text = html_entity_decode($text, ENT_QUOTES); // Because the editor converts HTML to character entities
-      
+
         ob_start(); // Buffering this eval circumvents the issue of double SQL output.
         eval("?> <div class=fenix-content>".$imageHeader.$text.$imageFooter."</div><?"); // Short tag used, as <?php throws errors.
           $eval_buffer = ob_get_contents();
         ob_end_clean();
         $body = $eval_buffer;
-        
+
         echo $body;//change to $text to spit out the db calls made into the page
       }
       else
@@ -157,7 +153,7 @@ if ( $auth->IsLoggedOn() ){
       echo "<div>This page does not exist. Return to the <a href=\"index.php\">index</a>.</div>";
     }
   }
-  
+
 if (!$auth->IsLoggedOn() ) { 
   if ($title!='login') { 
     require("includes/footer.inc.php");
