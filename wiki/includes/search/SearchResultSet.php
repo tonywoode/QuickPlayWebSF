@@ -24,26 +24,53 @@
 /**
  * @ingroup Search
  */
-class SearchResultSet {
+class SearchResultSet extends BaseSearchResultSet {
+	use SearchResultSetTrait;
+
 	protected $containedSyntax = false;
 
-	public function __construct( $containedSyntax = false ) {
-		$this->containedSyntax = $containedSyntax;
-	}
+	/**
+	 * Cache of titles.
+	 * Lists titles of the result set, in the same order as results.
+	 * @var Title[]
+	 */
+	private $titles;
 
 	/**
-	 * Fetch an array of regular expression fragments for matching
-	 * the search terms as parsed by this engine in a text extract.
-	 * STUB
-	 *
-	 * @return array
+	 * Cache of results - serialization of the result iterator
+	 * as an array.
+	 * @var SearchResult[]
 	 */
-	function termMatches() {
-		return array();
+	protected $results;
+
+	/**
+	 * @var boolean True when there are more pages of search results available.
+	 */
+	private $hasMoreResults;
+
+	/**
+	 * @param bool $containedSyntax True when query is not requesting a simple
+	 *  term match
+	 * @param bool $hasMoreResults True when there are more pages of search
+	 *  results available.
+	 */
+	public function __construct( $containedSyntax = false, $hasMoreResults = false ) {
+		if ( static::class === self::class ) {
+			// This class will eventually be abstract. SearchEngine implementations
+			// already have to extend this class anyways to provide the actual
+			// search results.
+			wfDeprecated( __METHOD__, '1.32' );
+		}
+		$this->containedSyntax = $containedSyntax;
+		$this->hasMoreResults = $hasMoreResults;
 	}
 
-	function numRows() {
-		return 0;
+	public function numRows() {
+		return $this->count();
+	}
+
+	final public function count(): int {
+		return count( $this->extractResults() );
 	}
 
 	/**
@@ -56,18 +83,18 @@ class SearchResultSet {
 	 *
 	 * @return int
 	 */
-	function getTotalHits() {
+	public function getTotalHits() {
 		return null;
 	}
 
 	/**
 	 * Some search modes will run an alternative query that it thinks gives
 	 * a better result than the provided search. Returns true if this has
-	 * occured.
+	 * occurred.
 	 *
 	 * @return bool
 	 */
-	function hasRewrittenQuery() {
+	public function hasRewrittenQuery() {
 		return false;
 	}
 
@@ -75,15 +102,16 @@ class SearchResultSet {
 	 * @return string|null The search the query was internally rewritten to,
 	 *  or null when the result of the original query was returned.
 	 */
-	function getQueryAfterRewrite() {
+	public function getQueryAfterRewrite() {
 		return null;
 	}
 
 	/**
-	 * @return string|null Same as self::getQueryAfterRewrite(), but in HTML
-	 *  and with changes highlighted. Null when the query was not rewritten.
+	 * @return HtmlArmor|string|null Same as self::getQueryAfterRewrite(), but
+	 *  with changes highlighted if HtmlArmor is returned. Null when the query
+	 *  was not rewritten.
 	 */
-	function getQueryAfterRewriteSnippet() {
+	public function getQueryAfterRewriteSnippet() {
 		return null;
 	}
 
@@ -93,57 +121,42 @@ class SearchResultSet {
 	 *
 	 * @return bool
 	 */
-	function hasSuggestion() {
+	public function hasSuggestion() {
 		return false;
 	}
 
 	/**
-	 * @return string Suggested query, null if none
+	 * @return string|null Suggested query, null if none
 	 */
-	function getSuggestionQuery() {
+	public function getSuggestionQuery() {
 		return null;
 	}
 
 	/**
-	 * @return string HTML highlighted suggested query, '' if none
+	 * @return HtmlArmor|string HTML highlighted suggested query, '' if none
 	 */
-	function getSuggestionSnippet() {
+	public function getSuggestionSnippet() {
 		return '';
 	}
 
 	/**
 	 * Return a result set of hits on other (multiple) wikis associated with this one
 	 *
-	 * @return SearchResultSet
+	 * @param int $type
+	 * @return ISearchResultSet[]
 	 */
-	function getInterwikiResults() {
+	public function getInterwikiResults( $type = self::SECONDARY_RESULTS ) {
 		return null;
 	}
 
 	/**
 	 * Check if there are results on other wikis
 	 *
+	 * @param int $type
 	 * @return bool
 	 */
-	function hasInterwikiResults() {
-		return $this->getInterwikiResults() != null;
-	}
-
-	/**
-	 * Fetches next search result, or false.
-	 * STUB
-	 *
-	 * @return SearchResult
-	 */
-	function next() {
+	public function hasInterwikiResults( $type = self::SECONDARY_RESULTS ) {
 		return false;
-	}
-
-	/**
-	 * Frees the result set, if applicable.
-	 */
-	function free() {
-		// ...
 	}
 
 	/**
@@ -155,90 +168,73 @@ class SearchResultSet {
 	public function searchContainedSyntax() {
 		return $this->containedSyntax;
 	}
-}
-
-/**
- * This class is used for different SQL-based search engines shipped with MediaWiki
- * @ingroup Search
- */
-class SqlSearchResultSet extends SearchResultSet {
-	protected $resultSet;
-	protected $terms;
-	protected $totalHits;
-
-	function __construct( $resultSet, $terms, $total = null ) {
-		$this->resultSet = $resultSet;
-		$this->terms = $terms;
-		$this->totalHits = $total;
-	}
-
-	function termMatches() {
-		return $this->terms;
-	}
-
-	function numRows() {
-		if ( $this->resultSet === false ) {
-			return false;
-		}
-
-		return $this->resultSet->numRows();
-	}
-
-	function next() {
-		if ( $this->resultSet === false ) {
-			return false;
-		}
-
-		$row = $this->resultSet->fetchObject();
-		if ( $row === false ) {
-			return false;
-		}
-
-		return SearchResult::newFromTitle(
-			Title::makeTitle( $row->page_namespace, $row->page_title )
-		);
-	}
-
-	function free() {
-		if ( $this->resultSet === false ) {
-			return false;
-		}
-
-		$this->resultSet->free();
-	}
-
-	function getTotalHits() {
-		if ( !is_null( $this->totalHits ) ) {
-			return $this->totalHits;
-		} else {
-			// Special:Search expects a number here.
-			return $this->numRows();
-		}
-	}
-}
-
-/**
- * A SearchResultSet wrapper for SearchEngine::getNearMatch
- */
-class SearchNearMatchResultSet extends SearchResultSet {
-	private $fetched = false;
 
 	/**
-	 * @param Title|null $match Title if matched, else null
+	 * @return bool True when there are more pages of search results available.
 	 */
-	public function __construct( $match ) {
-		$this->result = $match;
+	public function hasMoreResults() {
+		return $this->hasMoreResults;
 	}
 
-	public function numRows() {
-		return $this->result ? 1 : 0;
-	}
-
-	public function next() {
-		if ( $this->fetched || !$this->result ) {
-			return false;
+	/**
+	 * @param int $limit Shrink result set to $limit and flag
+	 *  if more results are available.
+	 */
+	public function shrink( $limit ) {
+		if ( $this->count() > $limit ) {
+			$this->hasMoreResults = true;
+			// shrinking result set for implementations that
+			// have not implemented extractResults and use
+			// the default cache location. Other implementations
+			// must override this as well.
+			if ( is_array( $this->results ) ) {
+				$this->results = array_slice( $this->results, 0, $limit );
+				$this->titles = null;
+			} else {
+				throw new \UnexpectedValueException(
+					"When overriding result store extending classes must "
+					. " also override " . __METHOD__ );
+			}
 		}
-		$this->fetched = true;
-		return SearchResult::newFromTitle( $this->result );
+	}
+
+	/**
+	 * Extract all the results in the result set as array.
+	 * @return SearchResult[]
+	 */
+	public function extractResults() {
+		if ( $this->results === null ) {
+			$this->results = [];
+			if ( $this->numRows() == 0 ) {
+				// Don't bother if we've got empty result
+				return $this->results;
+			}
+			$this->rewind();
+			while ( ( $result = $this->next() ) != false ) {
+				$this->results[] = $result;
+			}
+			$this->rewind();
+		}
+		return $this->results;
+	}
+
+	/**
+	 * Extract all the titles in the result set.
+	 * @return Title[]
+	 */
+	public function extractTitles() {
+		if ( $this->titles === null ) {
+			if ( $this->numRows() == 0 ) {
+				// Don't bother if we've got empty result
+				$this->titles = [];
+			} else {
+				$this->titles = array_map(
+					function ( SearchResult $result ) {
+						return $result->getTitle();
+					},
+					$this->extractResults() );
+			}
+		}
+		return $this->titles;
 	}
 }

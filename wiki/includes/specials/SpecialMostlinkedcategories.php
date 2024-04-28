@@ -24,31 +24,34 @@
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
 
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IResultWrapper;
+
 /**
  * A querypage to show categories ordered in descending order by the pages in them
  *
  * @ingroup SpecialPage
  */
-class MostlinkedCategoriesPage extends QueryPage {
-	function __construct( $name = 'Mostlinkedcategories' ) {
+class SpecialMostLinkedCategories extends QueryPage {
+	public function __construct( $name = 'Mostlinkedcategories' ) {
 		parent::__construct( $name );
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
 	public function getQueryInfo() {
-		return array(
-			'tables' => array( 'category' ),
-			'fields' => array( 'title' => 'cat_title',
+		return [
+			'tables' => [ 'category' ],
+			'fields' => [ 'title' => 'cat_title',
 				'namespace' => NS_CATEGORY,
-				'value' => 'cat_pages' ),
-			'conds' => array( 'cat_pages > 0' ),
-		);
+				'value' => 'cat_pages' ],
+			'conds' => [ 'cat_pages > 0' ],
+		];
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return true;
 	}
 
@@ -56,21 +59,10 @@ class MostlinkedCategoriesPage extends QueryPage {
 	 * Fetch user page links and cache their existence
 	 *
 	 * @param IDatabase $db
-	 * @param ResultWrapper $res
+	 * @param IResultWrapper $res
 	 */
-	function preprocessResults( $db, $res ) {
-		if ( !$res->numRows() ) {
-			return;
-		}
-
-		$batch = new LinkBatch;
-		foreach ( $res as $row ) {
-			$batch->add( NS_CATEGORY, $row->title );
-		}
-		$batch->execute();
-
-		// Back to start for display
-		$res->seek( 0 );
+	public function preprocessResults( $db, $res ) {
+		$this->executeLBFromResultWrapper( $res );
 	}
 
 	/**
@@ -78,14 +70,12 @@ class MostlinkedCategoriesPage extends QueryPage {
 	 * @param object $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
-		global $wgContLang;
-
+	public function formatResult( $skin, $result ) {
 		$nt = Title::makeTitleSafe( NS_CATEGORY, $result->title );
 		if ( !$nt ) {
 			return Html::element(
 				'span',
-				array( 'class' => 'mw-invalidtitle' ),
+				[ 'class' => 'mw-invalidtitle' ],
 				Linker::getInvalidTitleDescription(
 					$this->getContext(),
 					NS_CATEGORY,
@@ -93,8 +83,9 @@ class MostlinkedCategoriesPage extends QueryPage {
 			);
 		}
 
-		$text = $wgContLang->convert( $nt->getText() );
-		$plink = Linker::link( $nt, htmlspecialchars( $text ) );
+		$text = $this->getLanguageConverter()->convertHtml( $nt->getText() );
+
+		$plink = $this->getLinkRenderer()->makeLink( $nt, new HtmlArmor( $text ) );
 		$nlinks = $this->msg( 'nmembers' )->numParams( $result->value )->escaped();
 
 		return $this->getLanguage()->specialList( $plink, $nlinks );

@@ -20,7 +20,10 @@
  * @file
  * @ingroup Maintenance
  */
+
 require_once __DIR__ . '/Maintenance.php';
+
+use MediaWiki\MediaWikiServices;
 
 /**
  * Maintenance script to wrap all passwords of a certain type in a specified layered
@@ -32,95 +35,114 @@ require_once __DIR__ . '/Maintenance.php';
 class WrapOldPasswords extends Maintenance {
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription = "Wrap all passwords of a certain type in a new layered type";
+		$this->addDescription( 'Wrap all passwords of a certain type in a new layered type. '
+					. 'The script runs in dry-run mode by default (use --update to update rows)' );
 		$this->addOption( 'type',
 			'Password type to wrap passwords in (must inherit LayeredParameterizedPassword)', true, true );
 		$this->addOption( 'verbose', 'Enables verbose output', false, false, 'v' );
+		$this->addOption( 'update', 'Actually wrap passwords', false, false, 'u' );
 		$this->setBatchSize( 100 );
 	}
 
 	public function execute() {
-		global $wgAuth;
-
-		if ( !$wgAuth->allowSetLocalPassword() ) {
-			$this->error( '$wgAuth does not allow local passwords. Aborting.', true );
-		}
-
-		$passwordFactory = new PasswordFactory();
-		$passwordFactory->init( RequestContext::getMain()->getConfig() );
+		$passwordFactory = MediaWikiServices::getInstance()->getPasswordFactory();
 
 		$typeInfo = $passwordFactory->getTypes();
 		$layeredType = $this->getOption( 'type' );
 
 		// Check that type exists and is a layered type
 		if ( !isset( $typeInfo[$layeredType] ) ) {
-			$this->error( 'Undefined password type', true );
+			$this->fatalError( 'Undefined password type' );
 		}
 
 		$passObj = $passwordFactory->newFromType( $layeredType );
 		if ( !$passObj instanceof LayeredParameterizedPassword ) {
-			$this->error( 'Layered parameterized password type must be used.', true );
+			$this->fatalError( 'Layered parameterized password type must be used.' );
 		}
 
 		// Extract the first layer type
 		$typeConfig = $typeInfo[$layeredType];
 		$firstType = $typeConfig['types'][0];
 
+		$update = $this->hasOption( 'update' );
+
 		// Get a list of password types that are applicable
 		$dbw = $this->getDB( DB_MASTER );
 		$typeCond = 'user_password' . $dbw->buildLike( ":$firstType:", $dbw->anyString() );
 
+		$count = 0;
 		$minUserId = 0;
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 		do {
-			$dbw->begin();
+			if ( $update ) {
+				$this->beginTransaction( $dbw, __METHOD__ );
+			}
 
 			$res = $dbw->select( 'user',
-				array( 'user_id', 'user_name', 'user_password' ),
-				array(
+				[ 'user_id', 'user_name', 'user_password' ],
+				[
 					'user_id > ' . $dbw->addQuotes( $minUserId ),
 					$typeCond
-				),
+				],
 				__METHOD__,
-				array(
+				[
 					'ORDER BY' => 'user_id',
-					'LIMIT' => $this->mBatchSize,
+					'LIMIT' => $this->getBatchSize(),
 					'LOCK IN SHARE MODE',
-				)
+				]
 			);
 
 			/** @var User[] $updateUsers */
-			$updateUsers = array();
+			$updateUsers = [];
 			foreach ( $res as $row ) {
-				if ( $this->hasOption( 'verbose' ) ) {
-					$this->output( "Updating password for user {$row->user_name} ({$row->user_id}).\n" );
-				}
-
 				$user = User::newFromId( $row->user_id );
 				/** @var ParameterizedPassword $password */
 				$password = $passwordFactory->newFromCiphertext( $row->user_password );
+				'@phan-var ParameterizedPassword $password';
 				/** @var LayeredParameterizedPassword $layeredPassword */
 				$layeredPassword = $passwordFactory->newFromType( $layeredType );
+				'@phan-var LayeredParameterizedPassword $layeredPassword';
 				$layeredPassword->partialCrypt( $password );
 
-				$updateUsers[] = $user;
-				$dbw->update( 'user',
-					array( 'user_password' => $layeredPassword->toString() ),
-					array( 'user_id' => $row->user_id ),
-					__METHOD__
-				);
+				if ( $this->hasOption( 'verbose' ) ) {
+					$this->output(
+						"Updating password for user {$row->user_name} ({$row->user_id}) from " .
+						"type {$password->getType()} to {$layeredPassword->getType()}.\n"
+					);
+				}
+
+				$count++;
+				if ( $update ) {
+					$updateUsers[] = $user;
+					$dbw->update( 'user',
+						[ 'user_password' => $layeredPassword->toString() ],
+						[ 'user_id' => $row->user_id ],
+						__METHOD__
+					);
+				}
 
 				$minUserId = $row->user_id;
 			}
 
-			$dbw->commit();
+			if ( $update ) {
+				$this->commitTransaction( $dbw, __METHOD__ );
+				$lbFactory->waitForReplication();
 
-			// Clear memcached so old passwords are wiped out
-			foreach ( $updateUsers as $user ) {
-				$user->clearSharedCache();
+				// Clear memcached so old passwords are wiped out
+				foreach ( $updateUsers as $user ) {
+					$user->clearSharedCache( 'refresh' );
+				}
 			}
 		} while ( $res->numRows() );
+
+		if ( $update ) {
+			$this->output( "$count users rows updated.\n" );
+		} else {
+			$this->output( "$count user rows found using old password formats. "
+					. "Run script again with --update to update these rows.\n" );
+		}
 	}
 }
 
-$maintClass = "WrapOldPasswords";
+$maintClass = WrapOldPasswords::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

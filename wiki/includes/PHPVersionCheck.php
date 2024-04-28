@@ -1,9 +1,5 @@
 <?php
 /**
- * Check PHP Version, as well as for composer dependencies in entry points,
- * and display something vaguely comprehensible in the event of a totally
- * unrecoverable error.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -22,82 +18,247 @@
  * @file
  */
 
+// phpcs:disable Generic.Arrays.DisallowLongArraySyntax,PSR2.Classes.PropertyDeclaration,MediaWiki.Usage.DirUsage
+// phpcs:disable Squiz.Scope.MemberVarScope.Missing,Squiz.Scope.MethodScope.Missing
 /**
- * Check php version and that external dependencies are installed, and
- * display an informative error if either condition is not satisfied.
+ * Check PHP Version, as well as for composer dependencies in entry points,
+ * and display something vaguely comprehensible in the event of a totally
+ * unrecoverable error.
  *
- * @note Since we can't rely on anything, the minimum PHP versions and MW current
- * version are hardcoded here
+ * @note Since we can't rely on anything external, the minimum PHP versions
+ * and MW current version are hardcoded in this class.
+ *
+ * @note This class uses setter methods instead of a constructor so that
+ * it can be compatible with PHP 4, PHP 5 and PHP 7 (without warnings).
  */
-function wfEntryPointCheck( $entryPoint ) {
-	$mwVersion = '1.26';
-	$minimumVersionPHP = '5.3.3';
-	$phpVersion = PHP_VERSION;
+class PHPVersionCheck {
+	/** @var string The number of the MediaWiki version used. If you're updating MW_VERSION in Defines.php, you must also update this value. */
+	var $mwVersion = '1.35';
 
-	if ( !function_exists( 'version_compare' )
-		|| version_compare( $phpVersion, $minimumVersionPHP ) < 0
-	) {
-		wfPHPVersionError( $entryPoint, $mwVersion, $minimumVersionPHP, $phpVersion );
+	/* @var array A mapping of PHP functions to PHP extensions. */
+	var $functionsExtensionsMapping = array(
+		'mb_substr'   => 'mbstring',
+		'xml_parser_create' => 'xml',
+		'ctype_digit' => 'ctype',
+		'json_decode' => 'json',
+		'iconv'       => 'iconv',
+		'mime_content_type' => 'fileinfo',
+	);
+
+	/**
+	 * @var string The format used for errors. One of "text" or "html"
+	 */
+	var $format = 'text';
+
+	/**
+	 * @var string $scriptPath
+	 */
+	var $scriptPath = '/';
+
+	/**
+	 * Set the format used for errors.
+	 *
+	 * @param string $format One of "text" or "html"
+	 */
+	function setFormat( $format ) {
+		$this->format = $format;
 	}
 
-	if ( !file_exists( dirname( __FILE__ ) . '/../vendor/autoload.php' ) ) {
-		wfMissingVendorError( $entryPoint, $mwVersion );
+	/**
+	 * Set the script path used for images in HTML-formatted errors.
+	 *
+	 * @param string $scriptPath
+	 */
+	function setScriptPath( $scriptPath ) {
+		$this->scriptPath = $scriptPath;
 	}
-}
 
-/**
- * Display something vaguely comprehensible in the event of a totally unrecoverable error.
- * Does not assume access to *anything*; no globals, no autoloader, no database, no localisation.
- * Safe for PHP4 (and putting this here means that WebStart.php and GlobalSettings.php
- * no longer need to be).
- *
- * Calling this function kills execution immediately.
- *
- * @param string $type Which entry point we are protecting. One of:
- *   - index.php
- *   - load.php
- *   - api.php
- *   - mw-config/index.php
- *   - cli
- * @param string $mwVersion The number of the MediaWiki version used
- * @param string $title HTML code to be put within an <h2> tag
- * @param string $shortText
- * @param string $longText
- * @param string $longHtml
- */
-function wfGenericError( $type, $mwVersion, $title, $shortText, $longText, $longHtml ) {
-	$protocol = isset( $_SERVER['SERVER_PROTOCOL'] ) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0';
+	/**
+	 * Displays an error, if the installed PHP version does not meet the minimum requirement.
+	 */
+	function checkRequiredPHPVersion() {
+		$minimumVersion = '7.3.19';
 
-	if ( $type == 'cli' ) {
-		$finalOutput = $longText;
-	} else {
+		/**
+		 * This is a list of known-bad ranges of PHP versions. Syntax is like SemVer – either:
+		 *
+		 *  - '1.2.3' to prohibit a single version of PHP, or
+		 *  - '1.2.3 – 1.2.5' to block a range, inclusive.
+		 *
+		 * Whitespace will be ignored.
+		 *
+		 * The key is not shown to users; use it to prompt future developers as to why this was
+		 * chosen, ideally one or more Phabricator task references.
+		 *
+		 * Remember to drop irrelevant ranges when bumping $minimumVersion.
+		 */
+		$knownBad = array(
+			// https://bugs.php.net/bug.php?id=79174 as a regression from https://bugs.php.net/bug.php?id=78929
+			'T243667, T291127' => '7.4.0 - 7.4.2'
+		);
+
+		$passes = version_compare( PHP_VERSION, $minimumVersion, '>=' );
+
+		$versionString = "PHP $minimumVersion or higher";
+
+		// Left as a programmatic check to make it easier to update.
+		if ( count( $knownBad ) ) {
+			$versionString .= ' (and not ' . implode( ', ', array_values( $knownBad ) ) . ')';
+
+			foreach ( $knownBad as $task => $range ) {
+				// As we don't have composer at this point, we have to do our own version range checking.
+				if ( strpos( $range, '-' ) ) {
+					$passes = $passes && !(
+						version_compare( PHP_VERSION, trim( strstr( $range, '-', true ) ), '>=' )
+						&& version_compare( PHP_VERSION, trim( substr( strstr( $range, '-', false ), 1 ) ), '<' )
+					);
+				} else {
+					$passes = $passes && version_compare( PHP_VERSION, trim( $range ), '<>' );
+				}
+			}
+		}
+
+		if ( !$passes ) {
+			$cliText = "Error: You are using an unsupported PHP version (PHP " . PHP_VERSION . ").\n"
+			. "MediaWiki $this->mwVersion needs $versionString.\n\nCheck if you might have a newer "
+			. "PHP executable with a different name.\n\n";
+
+			$web = array();
+			$web['intro'] = "MediaWiki $this->mwVersion requires $versionString; you are using PHP "
+				. PHP_VERSION . ".";
+
+			$web['longTitle'] = "Supported PHP versions";
+			// phpcs:disable Generic.Files.LineLength
+			$web['longHtml'] = <<<HTML
+		<p>
+			Please consider <a href="https://www.php.net/downloads.php">upgrading your copy of PHP</a>.
+			PHP versions less than v7.3.0 are no longer supported by the PHP Group and will not receive
+			security or bugfix updates.
+		</p>
+		<p>
+			If for some reason you are unable to upgrade your PHP version, you will need to
+			<a href="https://www.mediawiki.org/wiki/Download">download</a> an older version of
+			MediaWiki from our website. See our
+			<a href="https://www.mediawiki.org/wiki/Compatibility#PHP">compatibility page</a>
+			for details of which versions are compatible with prior versions of PHP.
+		</p>
+HTML;
+			// phpcs:enable Generic.Files.LineLength
+			$this->triggerError(
+				$web,
+				$cliText
+			);
+		}
+	}
+
+	/**
+	 * Displays an error, if the vendor/autoload.php file could not be found.
+	 */
+	function checkVendorExistence() {
+		if ( !file_exists( dirname( __FILE__ ) . '/../vendor/autoload.php' ) ) {
+			$cliText = "Error: You are missing some external dependencies. \n"
+				. "MediaWiki also has some external dependencies that need to be installed\n"
+				. "via composer or from a separate git repo. Please see\n"
+				. "https://www.mediawiki.org/wiki/Download_from_Git#Fetch_external_libraries\n"
+				. "for help on installing the required components.";
+
+			$web = array();
+			$web['intro'] = "Installing some external dependencies (e.g. via composer) is required.";
+			$web['longTitle'] = 'External dependencies';
+			// phpcs:disable Generic.Files.LineLength
+			$web['longHtml'] = <<<HTML
+		<p>
+		MediaWiki also has some external dependencies that need to be installed via
+		composer or from a separate git repo. Please see the
+		<a href="https://www.mediawiki.org/wiki/Download_from_Git#Fetch_external_libraries">instructions
+		for installing libraries</a> on mediawiki.org for help on installing the required components.
+		</p>
+HTML;
+			// phpcs:enable Generic.Files.LineLength
+
+			$this->triggerError( $web, $cliText );
+		}
+	}
+
+	/**
+	 * Displays an error, if a PHP extension does not exist.
+	 */
+	function checkExtensionExistence() {
+		$missingExtensions = array();
+		foreach ( $this->functionsExtensionsMapping as $function => $extension ) {
+			if ( !function_exists( $function ) ) {
+				$missingExtensions[] = $extension;
+			}
+		}
+
+		if ( $missingExtensions ) {
+			$missingExtText = '';
+			$missingExtHtml = '';
+			$baseUrl = 'https://www.php.net';
+			foreach ( $missingExtensions as $ext ) {
+				$missingExtText .= " * $ext <$baseUrl/$ext>\n";
+				$missingExtHtml .= "<li><b>$ext</b> "
+					. "(<a href=\"$baseUrl/$ext\">more information</a>)</li>";
+			}
+
+			$cliText = "Error: Missing one or more required components of PHP.\n"
+				. "You are missing a required extension to PHP that MediaWiki needs.\n"
+				. "Please install:\n" . $missingExtText;
+
+			$web = array();
+			$web['intro'] = "Installing some PHP extensions is required.";
+			$web['longTitle'] = 'Required components';
+			$web['longHtml'] = <<<HTML
+		<p>
+		You are missing a required extension to PHP that MediaWiki
+		requires to run. Please install:
+		</p>
+		<ul>
+		$missingExtHtml
+		</ul>
+HTML;
+
+			$this->triggerError( $web, $cliText );
+		}
+	}
+
+	/**
+	 * Output headers that prevents error pages to be cached.
+	 */
+	function outputHTMLHeader() {
+		$protocol = isset( $_SERVER['SERVER_PROTOCOL'] ) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0';
+
 		header( "$protocol 500 MediaWiki configuration Error" );
-		// Don't cache error pages!  They cause no end of trouble...
+		// Don't cache error pages! They cause no end of trouble...
 		header( 'Cache-control: none' );
 		header( 'Pragma: no-cache' );
+	}
 
-		if ( $type == 'index.php' || $type == 'mw-config/index.php' ) {
-			$pathinfo = pathinfo( $_SERVER['SCRIPT_NAME'] );
-			if ( $type == 'mw-config/index.php' ) {
-				$dirname = dirname( $pathinfo['dirname'] );
-			} else {
-				$dirname = $pathinfo['dirname'];
-			}
-			$encLogo = htmlspecialchars(
-				str_replace( '//', '/', $dirname . '/' ) .
-				'resources/assets/mediawiki.png'
-			);
-			$shortHtml = htmlspecialchars( $shortText );
+	/**
+	 * Returns an error page, which is suitable for output to the end user via a web browser.
+	 *
+	 * @param string $introText
+	 * @param string $longTitle
+	 * @param string $longHtml
+	 * @return string
+	 */
+	function getIndexErrorOutput( $introText, $longTitle, $longHtml ) {
+		$encLogo =
+			htmlspecialchars( str_replace( '//', '/', $this->scriptPath . '/' ) .
+				'resources/assets/mediawiki.png' );
 
-			header( 'Content-type: text/html; charset=UTF-8' );
+		$introHtml = htmlspecialchars( $introText );
+		$longTitleHtml = htmlspecialchars( $longTitle );
 
-			$finalOutput = <<<HTML
+		header( 'Content-type: text/html; charset=UTF-8' );
+
+		$finalOutput = <<<HTML
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
 	<head>
 		<meta charset="UTF-8" />
-		<title>MediaWiki {$mwVersion}</title>
-		<style media='screen'>
+		<title>MediaWiki {$this->mwVersion}</title>
+		<style media="screen">
 			body {
 				color: #000;
 				background-color: #fff;
@@ -105,7 +266,7 @@ function wfGenericError( $type, $mwVersion, $title, $shortText, $longText, $long
 				padding: 2em;
 				text-align: center;
 			}
-			p, img, h1, h2 {
+			p, img, h1, h2, ul {
 				text-align: left;
 				margin: 0.5em 0 1em;
 			}
@@ -118,82 +279,65 @@ function wfGenericError( $type, $mwVersion, $title, $shortText, $longText, $long
 		</style>
 	</head>
 	<body>
-		<img src="{$encLogo}" alt='The MediaWiki logo' />
-		<h1>MediaWiki {$mwVersion} internal error</h1>
-		<div class='error'>
+		<img src="{$encLogo}" alt="The MediaWiki logo" />
+		<h1>MediaWiki {$this->mwVersion} internal error</h1>
 		<p>
-			{$shortHtml}
+			{$introHtml}
 		</p>
-		<h2>{$title}</h2>
-		<p>
-			{$longHtml}
-		</p>
-		</div>
+		<h2>{$longTitleHtml}</h2>
+		{$longHtml}
 	</body>
 </html>
 HTML;
-		// Handle everything that's not index.php
-		} else {
-			// So nothing thinks this is JS or CSS
-			$finalOutput = ( $type == 'load.php' ) ? "/* $shortText */" : $shortText;
-		}
+
+		return $finalOutput;
 	}
-	echo "$finalOutput\n";
-	die( 1 );
+
+	/**
+	 * Display something vaguely comprehensible in the event of a totally unrecoverable error.
+	 * Does not assume access to *anything*; no globals, no autoloader, no database, no localisation.
+	 * Safe for PHP4 (and putting this here means that WebStart.php and GlobalSettings.php
+	 * no longer need to be).
+	 *
+	 * This function immediately terminates the PHP process.
+	 *
+	 * @param string[] $web
+	 *  - (string) intro: Short error message, displayed on top.
+	 *  - (string) longTitle: Title for the longer message.
+	 *  - (string) longHtml: The longer message, as raw HTML.
+	 * @param string $cliText
+	 */
+	function triggerError( $web, $cliText ) {
+		if ( $this->format === 'html' ) {
+			// Used by index.php and mw-config/index.php
+			$this->outputHTMLHeader();
+			$finalOutput = $this->getIndexErrorOutput(
+				$web['intro'],
+				$web['longTitle'],
+				$web['longHtml']
+			);
+		} else {
+			// Used by Maintenance.php (CLI)
+			$finalOutput = $cliText;
+		}
+
+		echo "$finalOutput\n";
+		die( 1 );
+	}
 }
 
 /**
- * Display an error for the minimum PHP version requirement not being satisfied.
+ * Check PHP version and that external dependencies are installed, and
+ * display an informative error if either condition is not satisfied.
  *
- * @param string $type See wfGenericError
- * @param string $mwVersion See wfGenericError
- * @param string $minimumVersionPHP The minimum PHP version supported by MediaWiki
- * @param string $phpVersion The current PHP version
+ * @param string $format One of "text" or "html"
+ * @param string $scriptPath Used when an error is formatted as HTML.
  */
-function wfPHPVersionError( $type, $mwVersion, $minimumVersionPHP, $phpVersion ) {
-	$shortText = "MediaWiki $mwVersion requires at least "
-		. "PHP version $minimumVersionPHP, you are using PHP $phpVersion.";
-
-	$longText = "Error: You might be using on older PHP version. \n"
-		. "MediaWiki $mwVersion needs PHP $minimumVersionPHP or higher.\n\n"
-		. "Check if you have a newer php executable with a different name, such as php5.\n\n";
-
-	$longHtml = <<<HTML
-			Please consider <a href="http://www.php.net/downloads.php">upgrading your copy of PHP</a>.
-			PHP versions less than 5.3.0 are no longer supported by the PHP Group and will not receive
-			security or bugfix updates.
-		</p>
-		<p>
-			If for some reason you are unable to upgrade your PHP version, you will need to
-			<a href="https://www.mediawiki.org/wiki/Download">download</a> an older version
-			of MediaWiki from our website.  See our
-			<a href="https://www.mediawiki.org/wiki/Compatibility#PHP">compatibility page</a>
-			for details of which versions are compatible with prior versions of PHP.
-HTML;
-	wfGenericError( $type, $mwVersion, 'Supported PHP versions', $shortText, $longText, $longHtml );
-}
-
-/**
- * Display an error for the vendor/autoload.php file not being found.
- *
- * @param string $type See wfGenericError
- * @param string $mwVersion See wfGenericError
- */
-function wfMissingVendorError( $type, $mwVersion ) {
-	$shortText = "Installing some external dependencies (e.g. via composer) is required.";
-
-	$longText = "Error: You are missing some external dependencies. \n"
-		. "MediaWiki now also has some external dependencies that need to be installed\n"
-		. "via composer or from a separate git repo. Please see\n"
-		. "https://www.mediawiki.org/wiki/Download_from_Git#Fetch_external_libraries\n"
-		. "for help on installing the required components.";
-
-	$longHtml = <<<HTML
-			MediaWiki now also has some external dependencies that need to be installed via
-			composer or from a separate git repo. Please see
-			<a href="https://www.mediawiki.org/wiki/Download_from_Git#Fetch_external_libraries">mediawiki.org</a>
-			for help on installing the required components.
-HTML;
-
-	wfGenericError( $type, $mwVersion, 'External dependencies', $shortText, $longText, $longHtml );
+function wfEntryPointCheck( $format = 'text', $scriptPath = '/' ) {
+	$phpVersionCheck = new PHPVersionCheck();
+	$phpVersionCheck->setFormat( $format );
+	$phpVersionCheck->setScriptPath( $scriptPath );
+	$phpVersionCheck->checkRequiredPHPVersion();
+	$phpVersionCheck->checkVendorExistence();
+	$phpVersionCheck->checkExtensionExistence();
 }

@@ -21,14 +21,18 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IResultWrapper;
+
 /**
  * Special page for listing the articles with the fewest revisions.
  *
  * @ingroup SpecialPage
  * @author Martin Drashkov
  */
-class FewestrevisionsPage extends QueryPage {
-	function __construct( $name = 'Fewestrevisions' ) {
+class SpecialFewestRevisions extends QueryPage {
+	public function __construct( $name = 'Fewestrevisions' ) {
 		parent::__construct( $name );
 	}
 
@@ -36,35 +40,31 @@ class FewestrevisionsPage extends QueryPage {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
 	public function getQueryInfo() {
-		return array(
-			'tables' => array( 'revision', 'page' ),
-			'fields' => array(
+		return [
+			'tables' => [ 'revision', 'page' ],
+			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
 				'value' => 'COUNT(*)',
-				'redirect' => 'page_is_redirect'
-			),
-			'conds' => array(
-				'page_namespace' => MWNamespace::getContentNamespaces(),
-				'page_id = rev_page' ),
-			'options' => array(
-				'HAVING' => 'COUNT(*) > 1',
-				// ^^^ This was probably here to weed out redirects.
-				// Since we mark them as such now, it might be
-				// useful to remove this. People _do_ create pages
-				// and never revise them, they aren't necessarily
-				// redirects.
-				'GROUP BY' => array( 'page_namespace', 'page_title', 'page_is_redirect' )
-			)
-		);
+			],
+			'conds' => [
+				'page_namespace' => MediaWikiServices::getInstance()->getNamespaceInfo()->
+					getContentNamespaces(),
+				'page_id = rev_page',
+				'page_is_redirect = 0',
+			],
+			'options' => [
+				'GROUP BY' => [ 'page_namespace', 'page_title' ]
+			]
+		];
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
 	}
 
@@ -73,14 +73,12 @@ class FewestrevisionsPage extends QueryPage {
 	 * @param object $result Database row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
-		global $wgContLang;
-
+	public function formatResult( $skin, $result ) {
 		$nt = Title::makeTitleSafe( $result->namespace, $result->title );
 		if ( !$nt ) {
 			return Html::element(
 				'span',
-				array( 'class' => 'mw-invalidtitle' ),
+				[ 'class' => 'mw-invalidtitle' ],
 				Linker::getInvalidTitleDescription(
 					$this->getContext(),
 					$result->namespace,
@@ -88,21 +86,32 @@ class FewestrevisionsPage extends QueryPage {
 				)
 			);
 		}
+		$linkRenderer = $this->getLinkRenderer();
 
-		$text = htmlspecialchars( $wgContLang->convert( $nt->getPrefixedText() ) );
-		$plink = Linker::linkKnown( $nt, $text );
+		$text = $this->getLanguageConverter()->convertHtml( $nt->getPrefixedText() );
+		$plink = $linkRenderer->makeLink( $nt, new HtmlArmor( $text ) );
 
-		$nl = $this->msg( 'nrevisions' )->numParams( $result->value )->escaped();
+		$nl = $this->msg( 'nrevisions' )->numParams( $result->value )->text();
 		$redirect = isset( $result->redirect ) && $result->redirect ?
 			' - ' . $this->msg( 'isredirect' )->escaped() : '';
-		$nlink = Linker::linkKnown(
+		$nlink = $linkRenderer->makeKnownLink(
 			$nt,
 			$nl,
-			array(),
-			array( 'action' => 'history' )
+			[],
+			[ 'action' => 'history' ]
 		) . $redirect;
 
 		return $this->getLanguage()->specialList( $plink, $nlink );
+	}
+
+	/**
+	 * Cache page existence for performance
+	 *
+	 * @param IDatabase $db
+	 * @param IResultWrapper $res
+	 */
+	protected function preprocessResults( $db, $res ) {
+		$this->executeLBFromResultWrapper( $res );
 	}
 
 	protected function getGroupName() {

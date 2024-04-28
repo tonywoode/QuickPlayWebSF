@@ -1,66 +1,59 @@
 <?php
 
-class HooksTest extends MediaWikiTestCase {
+use MediaWiki\MediaWikiServices;
+use Wikimedia\ScopedCallback;
 
-	function setUp() {
+class HooksTest extends MediaWikiIntegrationTestCase {
+
+	protected function setUp() : void {
 		global $wgHooks;
 		parent::setUp();
-		Hooks::clear( 'MediaWikiHooksTest001' );
 		unset( $wgHooks['MediaWikiHooksTest001'] );
 	}
 
 	public static function provideHooks() {
 		$i = new NothingClass();
 
-		return array(
-			array(
+		return [
+			[
 				'Object and method',
-				array( $i, 'someNonStatic' ),
+				[ $i, 'someNonStatic' ],
 				'changed-nonstatic',
 				'changed-nonstatic'
-			),
-			array( 'Object and no method', array( $i ), 'changed-onevent', 'original' ),
-			array(
+			],
+			[ 'Object and no method', [ $i ], 'changed-onevent', 'original' ],
+			[
 				'Object and method with data',
-				array( $i, 'someNonStaticWithData', 'data' ),
+				[ $i, 'someNonStaticWithData', 'data' ],
 				'data',
 				'original'
-			),
-			array( 'Object and static method', array( $i, 'someStatic' ), 'changed-static', 'original' ),
-			array(
+			],
+			[ 'Object and static method', [ $i, 'someStatic' ], 'changed-static', 'original' ],
+			[
 				'Class::method static call',
-				array( 'NothingClass::someStatic' ),
+				[ 'NothingClass::someStatic' ],
 				'changed-static',
 				'original'
-			),
-			array( 'Global function', array( 'NothingFunction' ), 'changed-func', 'original' ),
-			array( 'Global function with data', array( 'NothingFunctionData', 'data' ), 'data', 'original' ),
-			array( 'Closure', array( function ( &$foo, $bar ) {
+			],
+			[
+				'Class::method static call as array',
+				[ [ 'NothingClass::someStatic' ] ],
+				'changed-static',
+				'original'
+			],
+			[ 'Global function', [ 'NothingFunction' ], 'changed-func', 'original' ],
+			[ 'Global function with data', [ 'NothingFunctionData', 'data' ], 'data', 'original' ],
+			[ 'Closure', [ function ( &$foo, $bar ) {
 				$foo = 'changed-closure';
 
 				return true;
-			} ), 'changed-closure', 'original' ),
-			array( 'Closure with data', array( function ( $data, &$foo, $bar ) {
+			} ], 'changed-closure', 'original' ],
+			[ 'Closure with data', [ function ( $data, &$foo, $bar ) {
 				$foo = $data;
 
 				return true;
-			}, 'data' ), 'data', 'original' )
-		);
-	}
-
-	/**
-	 * @dataProvider provideHooks
-	 * @covers ::wfRunHooks
-	 */
-	public function testOldStyleHooks( $msg, array $hook, $expectedFoo, $expectedBar ) {
-		global $wgHooks;
-		$foo = $bar = 'original';
-
-		$wgHooks['MediaWikiHooksTest001'][] = $hook;
-		wfRunHooks( 'MediaWikiHooksTest001', array( &$foo, &$bar ) );
-
-		$this->assertSame( $expectedFoo, $foo, $msg );
-		$this->assertSame( $expectedBar, $bar, $msg );
+			}, 'data' ], 'data', 'original' ]
+		];
 	}
 
 	/**
@@ -70,22 +63,63 @@ class HooksTest extends MediaWikiTestCase {
 	 */
 	public function testNewStyleHooks( $msg, $hook, $expectedFoo, $expectedBar ) {
 		$foo = $bar = 'original';
-
-		Hooks::register( 'MediaWikiHooksTest001', $hook );
-		Hooks::run( 'MediaWikiHooksTest001', array( &$foo, &$bar ) );
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', $hook );
+		Hooks::run( 'MediaWikiHooksTest001', [ &$foo, &$bar ] );
 
 		$this->assertSame( $expectedFoo, $foo, $msg );
 		$this->assertSame( $expectedBar, $bar, $msg );
 	}
 
 	/**
+	 * @covers Hooks::getHandlers
+	 */
+	public function testGetHandlers() {
+		global $wgHooks;
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+
+		$this->assertSame(
+			[],
+			Hooks::getHandlers( 'MediaWikiHooksTest001' ),
+			'No hooks registered'
+		);
+
+		$a = new NothingClass();
+		$b = new NothingClass();
+
+		$wgHooks['MediaWikiHooksTest001'][] = $a;
+
+		$this->assertSame(
+			[ $a ],
+			Hooks::getHandlers( 'MediaWikiHooksTest001' ),
+			'Hook registered by $wgHooks'
+		);
+		$reset = $hookContainer->scopedRegister( 'MediaWikiHooksTest001', $b );
+		$this->assertSame(
+			[ $b, $a ],
+			Hooks::getHandlers( 'MediaWikiHooksTest001' ),
+			'Hooks::getHandlers() should return hooks registered via wgHooks as well as Hooks::register'
+		);
+
+		ScopedCallback::consume( $reset );
+		unset( $wgHooks['MediaWikiHooksTest001'] );
+
+		$hookContainer->register( 'MediaWikiHooksTest001', $b );
+		$this->assertSame(
+			[ $b ],
+			Hooks::getHandlers( 'MediaWikiHooksTest001' ),
+			'Hook registered by Hook::register'
+		);
+	}
+
+	/**
 	 * @covers Hooks::isRegistered
 	 * @covers Hooks::register
-	 * @covers Hooks::getHandlers
 	 * @covers Hooks::run
 	 */
 	public function testNewStyleHookInteraction() {
 		global $wgHooks;
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
 
 		$a = new NothingClass();
 		$b = new NothingClass();
@@ -96,23 +130,21 @@ class HooksTest extends MediaWikiTestCase {
 			'Hook registered via $wgHooks should be noticed by Hooks::isRegistered'
 		);
 
-		Hooks::register( 'MediaWikiHooksTest001', $b );
-		$this->assertEquals(
-			2,
-			count( Hooks::getHandlers( 'MediaWikiHooksTest001' ) ),
+		$hookContainer->register( 'MediaWikiHooksTest001', $b );
+		$this->assertCount( 2, Hooks::getHandlers( 'MediaWikiHooksTest001' ),
 			'Hooks::getHandlers() should return hooks registered via wgHooks as well as Hooks::register'
 		);
 
 		$foo = 'quux';
 		$bar = 'qaax';
 
-		Hooks::run( 'MediaWikiHooksTest001', array( &$foo, &$bar ) );
-		$this->assertEquals(
+		Hooks::run( 'MediaWikiHooksTest001', [ &$foo, &$bar ] );
+		$this->assertSame(
 			1,
 			$a->calls,
 			'Hooks::run() should run hooks registered via wgHooks as well as Hooks::register'
 		);
-		$this->assertEquals(
+		$this->assertSame(
 			1,
 			$b->calls,
 			'Hooks::run() should run hooks registered via wgHooks as well as Hooks::register'
@@ -120,40 +152,140 @@ class HooksTest extends MediaWikiTestCase {
 	}
 
 	/**
-	 * @expectedException MWException
 	 * @covers Hooks::run
 	 */
 	public function testUncallableFunction() {
-		Hooks::register( 'MediaWikiHooksTest001', 'ThisFunctionDoesntExist' );
-		Hooks::run( 'MediaWikiHooksTest001', array() );
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', 'ThisFunctionDoesntExist' );
+		$this->expectExceptionMessage( 'Call to undefined function ThisFunctionDoesntExist' );
+		Hooks::run( 'MediaWikiHooksTest001', [] );
 	}
 
 	/**
 	 * @covers Hooks::run
 	 */
 	public function testFalseReturn() {
-		Hooks::register( 'MediaWikiHooksTest001', function ( &$foo ) {
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$foo ) {
 			return false;
 		} );
-		Hooks::register( 'MediaWikiHooksTest001', function ( &$foo ) {
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$foo ) {
+			$foo = 'test';
+			return true;
+		} );
+		$foo = 'original';
+		Hooks::run( 'MediaWikiHooksTest001', [ &$foo ] );
+		$this->assertSame( 'original', $foo, 'Hooks abort after a false return.' );
+	}
+
+	/**
+	 * @covers Hooks::run
+	 */
+	public function testNullReturn() {
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$foo ) {
+			return;
+		} );
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$foo ) {
 			$foo = 'test';
 
 			return true;
 		} );
 		$foo = 'original';
-		Hooks::run( 'MediaWikiHooksTest001', array( &$foo ) );
-		$this->assertSame( 'original', $foo, 'Hooks continued processing after a false return.' );
+		Hooks::run( 'MediaWikiHooksTest001', [ &$foo ] );
+		$this->assertSame( 'test', $foo, 'Hooks continue after a null return.' );
 	}
 
 	/**
-	 * @expectedException FatalError
+	 * @covers Hooks::run
+	 */
+	public function testCallHook_FalseHook() {
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', false );
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$foo ) {
+			$foo = 'test';
+
+			return true;
+		} );
+		$foo = 'original';
+		Hooks::run( 'MediaWikiHooksTest001', [ &$foo ] );
+		$this->assertSame( 'test', $foo, 'Hooks that are falsey are skipped.' );
+	}
+
+	/**
+	 * @covers Hooks::run
+	 */
+	public function testCallHook_UnknownDatatype() {
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', 12345 );
+		$this->expectException( UnexpectedValueException::class );
+		Hooks::run( 'MediaWikiHooksTest001' );
+	}
+
+	/**
+	 * @covers Hooks::run
+	 */
+	public function testCallHook_Deprecated() {
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', 'NothingClass::someStatic' );
+		$this->expectDeprecation();
+		Hooks::run( 'MediaWikiHooksTest001', [], '1.31' );
+	}
+
+	/**
+	 * @covers Hooks::runWithoutAbort
+	 */
+	public function testRunWithoutAbort() {
+		$list = [];
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$list ) {
+			$list[] = 1;
+			return true; // Explicit true
+		} );
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$list ) {
+			$list[] = 2;
+			return; // Implicit null
+		} );
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$list ) {
+			$list[] = 3;
+			// No return
+		} );
+
+		Hooks::runWithoutAbort( 'MediaWikiHooksTest001', [ &$list ] );
+		$this->assertSame( [ 1, 2, 3 ], $list, 'All hooks ran.' );
+	}
+
+	/**
+	 * @covers Hooks::runWithoutAbort
+	 */
+	public function testRunWithoutAbortWarning() {
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$foo ) {
+			return false;
+		} );
+		$hookContainer->register( 'MediaWikiHooksTest001', function ( &$foo ) {
+			$foo = 'test';
+			return true;
+		} );
+		$foo = 'original';
+
+		$this->expectException( UnexpectedValueException::class );
+		$this->expectExceptionMessage( 'Invalid return from hook-MediaWikiHooksTest001-closure for ' .
+			'unabortable MediaWikiHooksTest001'
+		);
+		Hooks::runWithoutAbort( 'MediaWikiHooksTest001', [ &$foo ] );
+	}
+
+	/**
 	 * @covers Hooks::run
 	 */
 	public function testFatalError() {
-		Hooks::register( 'MediaWikiHooksTest001', function () {
+		$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
+		$hookContainer->register( 'MediaWikiHooksTest001', function () {
 			return 'test';
 		} );
-		Hooks::run( 'MediaWikiHooksTest001', array() );
+		$this->expectDeprecation();
+		Hooks::run( 'MediaWikiHooksTest001', [] );
 	}
 }
 

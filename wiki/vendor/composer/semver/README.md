@@ -46,7 +46,7 @@ The `Composer\Semver\Comparator` class provides the following methods for compar
 * equalTo($v1, $v2)
 * notEqualTo($v1, $v2)
 
-Each function takes two version strings as arguments. For example:
+Each function takes two version strings as arguments and returns a boolean. For example:
 
 ```php
 use Composer\Semver\Comparator;
@@ -56,10 +56,10 @@ Comparator::greaterThan('1.25.0', '1.24.0'); // 1.25.0 > 1.24.0
 
 ### Semver
 
-The `Composer\Semver\Semver` class providers the following methods:
+The `Composer\Semver\Semver` class provides the following methods:
 
 * satisfies($version, $constraints)
-* satisfiedBy($constraint, array $versions)
+* satisfiedBy(array $versions, $constraint)
 * sort($versions)
 * rsort($versions)
 

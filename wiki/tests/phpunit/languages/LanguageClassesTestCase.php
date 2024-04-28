@@ -1,4 +1,7 @@
 <?php
+
+use MediaWiki\MediaWikiServices;
+
 /**
  * Helping class to run tests using a clean language instance.
  *
@@ -18,7 +21,7 @@
  * }
  * @endcode
  */
-abstract class LanguageClassesTestCase extends MediaWikiTestCase {
+abstract class LanguageClassesTestCase extends MediaWikiIntegrationTestCase {
 	/**
 	 * Internal language object
 	 *
@@ -45,9 +48,9 @@ abstract class LanguageClassesTestCase extends MediaWikiTestCase {
 	/**
 	 * Create a new language object before each test.
 	 */
-	protected function setUp() {
+	protected function setUp() : void {
 		parent::setUp();
-		$found = preg_match( '/Language(.+)Test/', get_called_class(), $m );
+		$found = preg_match( '/Language(.+)Test/', static::class, $m );
 		if ( $found ) {
 			# Normalize language code since classes uses underscores
 			$m[1] = strtolower( str_replace( '_', '-', $m[1] ) );
@@ -55,19 +58,20 @@ abstract class LanguageClassesTestCase extends MediaWikiTestCase {
 			# Fallback to english language
 			$m[1] = 'en';
 			wfDebug(
-				__METHOD__ . " could not extract a language name "
-					. "out of " . get_called_class() . " failling back to 'en'\n"
+				__METHOD__ . ' could not extract a language name '
+					. 'out of ' . static::class . " failling back to 'en'"
 			);
 		}
 		// @todo validate $m[1] which should be a valid language code
-		$this->languageObject = Language::factory( $m[1] );
+		$this->languageObject = MediaWikiServices::getInstance()->getLanguageFactory()
+			->getLanguage( $m[1] );
 	}
 
 	/**
 	 * Delete the internal language object so each test start
 	 * out with a fresh language instance.
 	 */
-	protected function tearDown() {
+	protected function tearDown() : void {
 		unset( $this->languageObject );
 		parent::tearDown();
 	}

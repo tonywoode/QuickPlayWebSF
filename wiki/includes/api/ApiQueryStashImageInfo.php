@@ -20,6 +20,8 @@
  * @file
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * A query action to get image information from temporarily stashed files.
  *
@@ -32,6 +34,10 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 	}
 
 	public function execute() {
+		if ( !$this->getUser()->isLoggedIn() ) {
+			$this->dieWithError( 'apierror-mustbeloggedin-uploadstash', 'notloggedin' );
+		}
+
 		$params = $this->extractRequestParams();
 		$modulePrefix = $this->getModulePrefix();
 
@@ -41,89 +47,111 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 
 		$result = $this->getResult();
 
-		if ( !$params['filekey'] && !$params['sessionkey'] ) {
-			$this->dieUsage( "One of filekey or sessionkey must be supplied", 'nofilekey' );
-		}
+		$this->requireAtLeastOneParameter( $params, 'filekey', 'sessionkey' );
 
 		// Alias sessionkey to filekey, but give an existing filekey precedence.
 		if ( !$params['filekey'] && $params['sessionkey'] ) {
-			$this->logFeatureUsage( 'prop=stashimageinfo&siisessionkey' );
 			$params['filekey'] = $params['sessionkey'];
 		}
 
 		try {
-			$stash = RepoGroup::singleton()->getLocalRepo()->getUploadStash( $this->getUser() );
+			$stash = MediaWikiServices::getInstance()->getRepoGroup()
+				->getLocalRepo()->getUploadStash( $this->getUser() );
 
 			foreach ( $params['filekey'] as $filekey ) {
 				$file = $stash->getFile( $filekey );
 				$finalThumbParam = $this->mergeThumbParams( $file, $scale, $params['urlparam'] );
 				$imageInfo = ApiQueryImageInfo::getInfo( $file, $prop, $result, $finalThumbParam );
-				$result->addValue( array( 'query', $this->getModuleName() ), null, $imageInfo );
-				$result->addIndexedTagName( array( 'query', $this->getModuleName() ), $modulePrefix );
+				$result->addValue( [ 'query', $this->getModuleName() ], null, $imageInfo );
+				$result->addIndexedTagName( [ 'query', $this->getModuleName() ], $modulePrefix );
 			}
 		// @todo Update exception handling here to understand current getFile exceptions
 		} catch ( UploadStashFileNotFoundException $e ) {
-			$this->dieUsage( "File not found: " . $e->getMessage(), "invalidsessiondata" );
+			$this->dieWithException( $e, [ 'wrap' => 'apierror-stashedfilenotfound' ] );
 		} catch ( UploadStashBadPathException $e ) {
-			$this->dieUsage( "Bad path: " . $e->getMessage(), "invalidsessiondata" );
+			$this->dieWithException( $e, [ 'wrap' => 'apierror-stashpathinvalid' ] );
 		}
 	}
 
-	private $propertyFilter = array(
+	private static $propertyFilter = [
 		'user', 'userid', 'comment', 'parsedcomment',
 		'mediatype', 'archivename', 'uploadwarning',
-	);
+	];
+
+	/**
+	 * Returns all possible parameters to siiprop
+	 *
+	 * @param array|null $filter List of properties to filter out
+	 * @return array
+	 */
+	public static function getPropertyNames( $filter = null ) {
+		if ( $filter === null ) {
+			$filter = self::$propertyFilter;
+		}
+		return parent::getPropertyNames( $filter );
+	}
+
+	/**
+	 * Returns messages for all possible parameters to siiprop
+	 *
+	 * @param array|null $filter List of properties to filter out
+	 * @return array
+	 */
+	public static function getPropertyMessages( $filter = null ) {
+		if ( $filter === null ) {
+			$filter = self::$propertyFilter;
+		}
+		return parent::getPropertyMessages( $filter );
+	}
 
 	public function getAllowedParams() {
-		return array(
-			'filekey' => array(
+		return [
+			'filekey' => [
 				ApiBase::PARAM_ISMULTI => true,
-				ApiBase::PARAM_DFLT => null
-			),
-			'sessionkey' => array(
+			],
+			'sessionkey' => [
 				ApiBase::PARAM_ISMULTI => true,
 				ApiBase::PARAM_DEPRECATED => true,
-				ApiBase::PARAM_DFLT => null
-			),
-			'prop' => array(
+			],
+			'prop' => [
 				ApiBase::PARAM_ISMULTI => true,
 				ApiBase::PARAM_DFLT => 'timestamp|url',
-				ApiBase::PARAM_TYPE => self::getPropertyNames( $this->propertyFilter ),
+				ApiBase::PARAM_TYPE => self::getPropertyNames(),
 				ApiBase::PARAM_HELP_MSG => 'apihelp-query+imageinfo-param-prop',
-				ApiBase::PARAM_HELP_MSG_PER_VALUE => self::getPropertyMessages( $this->propertyFilter )
-			),
-			'urlwidth' => array(
+				ApiBase::PARAM_HELP_MSG_PER_VALUE => self::getPropertyMessages()
+			],
+			'urlwidth' => [
 				ApiBase::PARAM_TYPE => 'integer',
 				ApiBase::PARAM_DFLT => -1,
-				ApiBase::PARAM_HELP_MSG => array(
+				ApiBase::PARAM_HELP_MSG => [
 					'apihelp-query+imageinfo-param-urlwidth',
 					ApiQueryImageInfo::TRANSFORM_LIMIT,
-				),
-			),
-			'urlheight' => array(
+				],
+			],
+			'urlheight' => [
 				ApiBase::PARAM_TYPE => 'integer',
 				ApiBase::PARAM_DFLT => -1,
 				ApiBase::PARAM_HELP_MSG => 'apihelp-query+imageinfo-param-urlheight',
-			),
-			'urlparam' => array(
+			],
+			'urlparam' => [
 				ApiBase::PARAM_TYPE => 'string',
 				ApiBase::PARAM_DFLT => '',
 				ApiBase::PARAM_HELP_MSG => 'apihelp-query+imageinfo-param-urlparam',
-			),
-		);
+			],
+		];
 	}
 
 	protected function getExamplesMessages() {
-		return array(
+		return [
 			'action=query&prop=stashimageinfo&siifilekey=124sd34rsdf567'
 				=> 'apihelp-query+stashimageinfo-example-simple',
 			'action=query&prop=stashimageinfo&siifilekey=b34edoe3|bceffd4&' .
 				'siiurlwidth=120&siiprop=url'
 				=> 'apihelp-query+stashimageinfo-example-params',
-		);
+		];
 	}
 
 	public function getHelpUrls() {
-		return 'https://www.mediawiki.org/wiki/API:Stashimageinfo';
+		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Stashimageinfo';
 	}
 }

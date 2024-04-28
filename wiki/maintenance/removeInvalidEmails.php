@@ -2,6 +2,8 @@
 
 require_once __DIR__ . '/Maintenance.php';
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * A script to remove emails that are invalid from
  * the user_email column of the user table. Emails
@@ -21,25 +23,27 @@ class RemoveInvalidEmails extends Maintenance {
 		$this->addOption( 'commit', 'Whether to actually update the database', false, false );
 		$this->setBatchSize( 500 );
 	}
+
 	public function execute() {
 		$this->commit = $this->hasOption( 'commit' );
-		$dbr = $this->getDB( DB_SLAVE );
+		$dbr = $this->getDB( DB_REPLICA );
 		$dbw = $this->getDB( DB_MASTER );
 		$lastId = 0;
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 		do {
 			$rows = $dbr->select(
 				'user',
-				array( 'user_id', 'user_email' ),
-				array(
+				[ 'user_id', 'user_email' ],
+				[
 					'user_id > ' . $dbr->addQuotes( $lastId ),
-					'user_email != ""',
+					'user_email != ' . $dbr->addQuotes( '' ),
 					'user_email_authenticated IS NULL'
-				),
+				],
 				__METHOD__,
-				array( 'LIMIT' => $this->mBatchSize )
+				[ 'LIMIT' => $this->getBatchSize() ]
 			);
 			$count = $rows->numRows();
-			$badIds = array();
+			$badIds = [];
 			foreach ( $rows as $row ) {
 				if ( !Sanitizer::validateEmail( trim( $row->user_email ) ) ) {
 					$this->output( "Found bad email: {$row->user_email} for user #{$row->user_id}\n" );
@@ -56,14 +60,14 @@ class RemoveInvalidEmails extends Maintenance {
 					$this->output( "Removing $badCount emails from the database.\n" );
 					$dbw->update(
 						'user',
-						array( 'user_email' => '' ),
-						array( 'user_id' => $badIds ),
+						[ 'user_email' => '' ],
+						[ 'user_id' => $badIds ],
 						__METHOD__
 					);
 					foreach ( $badIds as $badId ) {
 						User::newFromId( $badId )->invalidateCache();
 					}
-					wfWaitForSlaves();
+					$lbFactory->waitForReplication();
 				} else {
 					$this->output( "Would have removed $badCount emails from the database.\n" );
 
@@ -74,5 +78,5 @@ class RemoveInvalidEmails extends Maintenance {
 	}
 }
 
-$maintClass = 'RemoveInvalidEmails';
+$maintClass = RemoveInvalidEmails::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

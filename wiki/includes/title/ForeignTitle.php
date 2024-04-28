@@ -30,11 +30,11 @@ class ForeignTitle {
 	 * @var int|null
 	 * Null if we don't know the namespace ID (e.g. interwiki links)
 	 */
-	protected $namespaceId;
+	private $namespaceId;
 	/** @var string */
-	protected $namespaceName;
+	private $namespaceName;
 	/** @var string */
-	protected $pageName;
+	private $pageName;
 
 	/**
 	 * Creates a new ForeignTitle object.
@@ -45,7 +45,7 @@ class ForeignTitle {
 	 * @param string $pageName
 	 */
 	public function __construct( $namespaceId, $namespaceName, $pageName ) {
-		if ( is_null( $namespaceId ) ) {
+		if ( $namespaceId === null ) {
 			$this->namespaceId = null;
 		} else {
 			$this->namespaceId = intval( $namespaceId );
@@ -59,7 +59,7 @@ class ForeignTitle {
 	 * @return bool
 	 */
 	public function isNamespaceIdKnown() {
-		return !is_null( $this->namespaceId );
+		return $this->namespaceId !== null;
 	}
 
 	/**
@@ -68,7 +68,7 @@ class ForeignTitle {
 	 * sense to call this function.
 	 */
 	public function getNamespaceId() {
-		if ( is_null( $this->namespaceId ) ) {
+		if ( $this->namespaceId === null ) {
 			throw new MWException(
 				"Attempted to call getNamespaceId when the namespace ID is not known" );
 		}

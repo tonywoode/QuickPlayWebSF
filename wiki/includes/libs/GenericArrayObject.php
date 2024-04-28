@@ -29,7 +29,7 @@
  *
  * @file
  *
- * @license GNU GPL v2+
+ * @license GPL-2.0-or-later
  * @author Jeroen De Dauw < jeroendedauw@gmail.com >
  */
 abstract class GenericArrayObject extends ArrayObject {
@@ -45,7 +45,7 @@ abstract class GenericArrayObject extends ArrayObject {
 	/**
 	 * @see SiteList::getNewOffset()
 	 * @since 1.20
-	 * @var integer
+	 * @var int
 	 */
 	protected $indexOffset = 0;
 
@@ -56,7 +56,7 @@ abstract class GenericArrayObject extends ArrayObject {
 	 *
 	 * @since 1.20
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	protected function getNewOffset() {
 		while ( $this->offsetExists( $this->indexOffset ) ) {
@@ -67,7 +67,6 @@ abstract class GenericArrayObject extends ArrayObject {
 	}
 
 	/**
-	 * Constructor.
 	 * @see ArrayObject::__construct
 	 *
 	 * @since 1.20
@@ -77,9 +76,9 @@ abstract class GenericArrayObject extends ArrayObject {
 	 * @param string $iterator_class
 	 */
 	public function __construct( $input = null, $flags = 0, $iterator_class = 'ArrayIterator' ) {
-		parent::__construct( array(), $flags, $iterator_class );
+		parent::__construct( [], $flags, $iterator_class );
 
-		if ( !is_null( $input ) ) {
+		if ( $input !== null ) {
 			foreach ( $input as $offset => $value ) {
 				$this->offsetSet( $offset, $value );
 			}
@@ -93,7 +92,7 @@ abstract class GenericArrayObject extends ArrayObject {
 	 *
 	 * @param mixed $value
 	 */
-	public function append( $value ) {
+	public function append( $value ): void {
 		$this->setElement( null, $value );
 	}
 
@@ -105,7 +104,7 @@ abstract class GenericArrayObject extends ArrayObject {
 	 * @param mixed $index
 	 * @param mixed $value
 	 */
-	public function offsetSet( $index, $value ) {
+	public function offsetSet( $index, $value ): void {
 		$this->setElement( $index, $value );
 	}
 
@@ -144,11 +143,11 @@ abstract class GenericArrayObject extends ArrayObject {
 		if ( !$this->hasValidType( $value ) ) {
 			throw new InvalidArgumentException(
 				'Can only add '	. $this->getObjectType() . ' implementing objects to '
-				. get_called_class() . '.'
+				. static::class . '.'
 			);
 		}
 
-		if ( is_null( $index ) ) {
+		if ( $index === null ) {
 			$index = $this->getNewOffset();
 		}
 
@@ -168,7 +167,7 @@ abstract class GenericArrayObject extends ArrayObject {
 	 *
 	 * @since 1.20
 	 *
-	 * @param integer|string $index
+	 * @param int|string $index
 	 * @param mixed $value
 	 *
 	 * @return bool
@@ -184,8 +183,19 @@ abstract class GenericArrayObject extends ArrayObject {
 	 *
 	 * @return string
 	 */
-	public function serialize() {
-		return serialize( $this->getSerializationData() );
+	public function serialize(): string {
+		return serialize( $this->__serialize() );
+	}
+
+	/**
+	 * @see Serializable::serialize
+	 *
+	 * @since 1.35.6
+	 *
+	 * @return array
+	 */
+	public function __serialize(): array {
+		return $this->getSerializationData();
 	}
 
 	/**
@@ -198,10 +208,10 @@ abstract class GenericArrayObject extends ArrayObject {
 	 * @return array
 	 */
 	protected function getSerializationData() {
-		return array(
+		return [
 			'data' => $this->getArrayCopy(),
 			'index' => $this->indexOffset,
-		);
+		];
 	}
 
 	/**
@@ -210,12 +220,19 @@ abstract class GenericArrayObject extends ArrayObject {
 	 * @since 1.20
 	 *
 	 * @param string $serialization
-	 *
-	 * @return array
 	 */
-	public function unserialize( $serialization ) {
-		$serializationData = unserialize( $serialization );
+	public function unserialize( $serialization ): void {
+		$this->__unserialize( unserialize( $serialization ) );
+	}
 
+	/**
+	 * @see Serializable::unserialize
+	 *
+	 * @since 1.35.6
+	 *
+	 * @param array $serializationData
+	 */
+	public function __unserialize( $serializationData ): void {
 		foreach ( $serializationData['data'] as $offset => $value ) {
 			// Just set the element, bypassing checks and offset resolving,
 			// as these elements have already gone through this.
@@ -223,8 +240,6 @@ abstract class GenericArrayObject extends ArrayObject {
 		}
 
 		$this->indexOffset = $serializationData['index'];
-
-		return $serializationData;
 	}
 
 	/**

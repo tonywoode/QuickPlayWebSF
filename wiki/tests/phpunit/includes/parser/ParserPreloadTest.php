@@ -1,9 +1,27 @@
 <?php
+
+use MediaWiki\MediaWikiServices;
+
 /**
  * Basic tests for Parser::getPreloadText
  * @author Antoine Musso
+ *
+ * @covers Parser
+ * @covers StripState
+ *
+ * @covers Preprocessor_Hash
+ * @covers PPDStack_Hash
+ * @covers PPDStackElement_Hash
+ * @covers PPDPart_Hash
+ * @covers PPFrame_Hash
+ * @covers PPTemplateFrame_Hash
+ * @covers PPCustomFrame_Hash
+ * @covers PPNode_Hash_Tree
+ * @covers PPNode_Hash_Text
+ * @covers PPNode_Hash_Array
+ * @covers PPNode_Hash_Attr
  */
-class ParserPreloadTest extends MediaWikiTestCase {
+class ParserPreloadTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @var Parser
 	 */
@@ -17,52 +35,44 @@ class ParserPreloadTest extends MediaWikiTestCase {
 	 */
 	private $title;
 
-	protected function setUp() {
-		global $wgContLang;
-
+	protected function setUp() : void {
 		parent::setUp();
-		$this->testParserOptions = ParserOptions::newFromUserAndLang( new User, $wgContLang );
+		$services = MediaWikiServices::getInstance();
 
-		$this->testParser = new Parser();
-		$this->testParser->Options( $this->testParserOptions );
+		$this->testParserOptions = ParserOptions::newFromUserAndLang( new User,
+			MediaWikiServices::getInstance()->getContentLanguage() );
+
+		$this->testParser = $services->getParserFactory()->create();
+		$this->testParser->setOptions( $this->testParserOptions );
 		$this->testParser->clearState();
 
 		$this->title = Title::newFromText( 'Preload Test' );
 	}
 
-	protected function tearDown() {
+	protected function tearDown() : void {
 		parent::tearDown();
 
 		unset( $this->testParser );
 		unset( $this->title );
 	}
 
-	/**
-	 * @covers Parser::getPreloadText
-	 */
 	public function testPreloadSimpleText() {
 		$this->assertPreloaded( 'simple', 'simple' );
 	}
 
-	/**
-	 * @covers Parser::getPreloadText
-	 */
 	public function testPreloadedPreIsUnstripped() {
 		$this->assertPreloaded(
 			'<pre>monospaced</pre>',
 			'<pre>monospaced</pre>',
-			'<pre> in preloaded text must be unstripped (bug 27467)'
+			'<pre> in preloaded text must be unstripped (T29467)'
 		);
 	}
 
-	/**
-	 * @covers Parser::getPreloadText
-	 */
 	public function testPreloadedNowikiIsUnstripped() {
 		$this->assertPreloaded(
 			'<nowiki>[[Dummy title]]</nowiki>',
 			'<nowiki>[[Dummy title]]</nowiki>',
-			'<nowiki> in preloaded text must be unstripped (bug 27467)'
+			'<nowiki> in preloaded text must be unstripped (T29467)'
 		);
 	}
 

@@ -20,6 +20,8 @@
  * @file
  */
 
+use MediaWiki\Logger\LegacyLogger;
+
 /**
  * New debugger system that outputs a toolbar on page view.
  *
@@ -34,21 +36,21 @@ class MWDebug {
 	 *
 	 * @var array $log
 	 */
-	protected static $log = array();
+	protected static $log = [];
 
 	/**
 	 * Debug messages from wfDebug().
 	 *
 	 * @var array $debug
 	 */
-	protected static $debug = array();
+	protected static $debug = [];
 
 	/**
 	 * SQL statements of the database queries.
 	 *
 	 * @var array $query
 	 */
-	protected static $query = array();
+	protected static $query = [];
 
 	/**
 	 * Is the debugger enabled?
@@ -63,7 +65,36 @@ class MWDebug {
 	 *
 	 * @var array $deprecationWarnings
 	 */
-	protected static $deprecationWarnings = array();
+	protected static $deprecationWarnings = [];
+
+	/**
+	 * @var string[] Deprecation filter regexes
+	 */
+	protected static $deprecationFilters = [];
+
+	/**
+	 * @internal For use by Setup.php only.
+	 */
+	public static function setup() {
+		global $wgDebugToolbar,
+			$wgUseCdn, $wgUseFileCache, $wgCommandLineMode;
+
+		if (
+			// Easy to forget to falsify $wgDebugToolbar for static caches.
+			// If file cache or CDN cache is on, just disable this (DWIMD).
+			$wgUseCdn ||
+			$wgUseFileCache ||
+			// Keep MWDebug off on CLI. This prevents MWDebug from eating up
+			// all the memory for logging SQL queries in maintenance scripts.
+			$wgCommandLineMode
+		) {
+			return;
+		}
+
+		if ( $wgDebugToolbar ) {
+			self::init();
+		}
+	}
 
 	/**
 	 * Enabled the debugger and load resource module.
@@ -76,6 +107,15 @@ class MWDebug {
 	}
 
 	/**
+	 * Disable the debugger.
+	 *
+	 * @since 1.28
+	 */
+	public static function deinit() {
+		self::$enabled = false;
+	}
+
+	/**
 	 * Add ResourceLoader modules to the OutputPage object if debugging is
 	 * enabled.
 	 *
@@ -84,28 +124,28 @@ class MWDebug {
 	 */
 	public static function addModules( OutputPage $out ) {
 		if ( self::$enabled ) {
-			$out->addModules( 'mediawiki.debug.init' );
+			$out->addModules( 'mediawiki.debug' );
 		}
 	}
 
 	/**
 	 * Adds a line to the log
 	 *
-	 * @todo Add support for passing objects
-	 *
 	 * @since 1.19
-	 * @param string $str
+	 * @param mixed $str
 	 */
 	public static function log( $str ) {
 		if ( !self::$enabled ) {
 			return;
 		}
-
-		self::$log[] = array(
+		if ( !is_string( $str ) ) {
+			$str = print_r( $str, true );
+		}
+		self::$log[] = [
 			'msg' => htmlspecialchars( $str ),
 			'type' => 'log',
 			'caller' => wfGetCaller(),
-		);
+		];
 	}
 
 	/**
@@ -122,8 +162,8 @@ class MWDebug {
 	 * @since 1.19
 	 */
 	public static function clearLog() {
-		self::$log = array();
-		self::$deprecationWarnings = array();
+		self::$log = [];
+		self::$deprecationWarnings = [];
 	}
 
 	/**
@@ -136,8 +176,6 @@ class MWDebug {
 	 * @param string $log 'production' will always trigger a php error, 'auto'
 	 *    will trigger an error if $wgDevelopmentWarnings is true, and 'debug'
 	 *    will only write to the debug log(s).
-	 *
-	 * @return mixed
 	 */
 	public static function warning( $msg, $callerOffset = 1, $level = E_USER_NOTICE, $log = 'auto' ) {
 		global $wgDevelopmentWarnings;
@@ -152,14 +190,17 @@ class MWDebug {
 
 		$callerDescription = self::getCallerDescription( $callerOffset );
 
-		self::sendMessage( $msg, $callerDescription, 'warning', $level );
+		self::sendMessage(
+			self::formatCallerDescription( $msg, $callerDescription ),
+			'warning',
+			$level );
 
 		if ( self::$enabled ) {
-			self::$log[] = array(
+			self::$log[] = [
 				'msg' => htmlspecialchars( $msg ),
 				'type' => 'warn',
 				'caller' => $callerDescription['func'],
-			);
+			];
 		}
 	}
 
@@ -174,9 +215,9 @@ class MWDebug {
 	 *
 	 * @since 1.19
 	 * @param string $function Function that is deprecated.
-	 * @param string|bool $version Version in which the function was deprecated.
+	 * @param string|false $version Version in which the function was deprecated.
 	 * @param string|bool $component Component to which the function belongs.
-	 *    If false, it is assumbed the function is in MediaWiki core.
+	 *    If false, it is assumed the function is in MediaWiki core.
 	 * @param int $callerOffset How far up the callstack is the original
 	 *    caller. 2 = function that called the function that called
 	 *    MWDebug::deprecated() (Added in 1.20).
@@ -184,15 +225,53 @@ class MWDebug {
 	public static function deprecated( $function, $version = false,
 		$component = false, $callerOffset = 2
 	) {
-		$callerDescription = self::getCallerDescription( $callerOffset );
-		$callerFunc = $callerDescription['func'];
+		if ( $version ) {
+			$component = $component ?: 'MediaWiki';
+			$msg = "Use of $function was deprecated in $component $version.";
+		} else {
+			$msg = "Use of $function is deprecated.";
+		}
+		self::deprecatedMsg( $msg, $version, $component, $callerOffset + 1 );
+	}
+
+	/**
+	 * Log a deprecation warning with arbitrary message text. A caller
+	 * description will be appended. If the message has already been sent for
+	 * this caller, it won't be sent again.
+	 *
+	 * Although there are component and version parameters, they are not
+	 * automatically appended to the message. The message text should include
+	 * information about when the thing was deprecated.
+	 *
+	 * @since 1.35
+	 *
+	 * @param string $msg The message
+	 * @param string|false $version Version of MediaWiki that the function
+	 *    was deprecated in.
+	 * @param string|bool $component Component to which the function belongs.
+	 *    If false, it is assumed the function is in MediaWiki core.
+	 * @param int|false $callerOffset How far up the call stack is the original
+	 *    caller. 2 = function that called the function that called us. If false,
+	 *    the caller description will not be appended.
+	 */
+	public static function deprecatedMsg( $msg, $version = false,
+		$component = false, $callerOffset = 2
+	) {
+		if ( $callerOffset === false ) {
+			$callerFunc = '';
+			$rawMsg = $msg;
+		} else {
+			$callerDescription = self::getCallerDescription( $callerOffset );
+			$callerFunc = $callerDescription['func'];
+			$rawMsg = self::formatCallerDescription( $msg, $callerDescription );
+		}
 
 		$sendToLog = true;
 
 		// Check to see if there already was a warning about this function
-		if ( isset( self::$deprecationWarnings[$function][$callerFunc] ) ) {
+		if ( isset( self::$deprecationWarnings[$msg][$callerFunc] ) ) {
 			return;
-		} elseif ( isset( self::$deprecationWarnings[$function] ) ) {
+		} elseif ( isset( self::$deprecationWarnings[$msg] ) ) {
 			if ( self::$enabled ) {
 				$sendToLog = false;
 			} else {
@@ -200,11 +279,13 @@ class MWDebug {
 			}
 		}
 
-		self::$deprecationWarnings[$function][$callerFunc] = true;
+		self::$deprecationWarnings[$msg][$callerFunc] = true;
 
 		if ( $version ) {
 			global $wgDeprecationReleaseLimit;
-			if ( $wgDeprecationReleaseLimit && $component === false ) {
+
+			$component = $component ?: 'MediaWiki';
+			if ( $wgDeprecationReleaseLimit && $component === 'MediaWiki' ) {
 				# Strip -* off the end of $version so that branches can use the
 				# format #.##-branchname to avoid issues if the branch is merged into
 				# a version of MediaWiki later than what it was branched from
@@ -216,18 +297,39 @@ class MWDebug {
 					$sendToLog = false;
 				}
 			}
+		}
 
-			$component = $component === false ? 'MediaWiki' : $component;
-			$msg = "Use of $function was deprecated in $component $version.";
-		} else {
-			$msg = "Use of $function is deprecated.";
+		self::sendRawDeprecated(
+			$rawMsg,
+			$sendToLog,
+			$callerFunc
+		);
+	}
+
+	/**
+	 * Send a raw deprecation message to the log and the debug toolbar,
+	 * without filtering of duplicate messages. A caller description will
+	 * not be appended.
+	 *
+	 * @param string $msg The complete message including relevant caller information.
+	 * @param bool $sendToLog If true, the message will be sent to the debug
+	 *   toolbar, the debug log, and raised as a warning if indicated by
+	 *   $wgDevelopmentWarnings. If false, the message will only be sent to
+	 *   the debug toolbar.
+	 * @param string $callerFunc The caller, for display in the debug toolbar's
+	 *   caller column.
+	 */
+	public static function sendRawDeprecated( $msg, $sendToLog = true, $callerFunc = '' ) {
+		foreach ( self::$deprecationFilters as $filter ) {
+			if ( preg_match( $filter, $msg ) ) {
+				return;
+			}
 		}
 
 		if ( $sendToLog ) {
 			global $wgDevelopmentWarnings; // we could have a more specific $wgDeprecationWarnings setting.
 			self::sendMessage(
 				$msg,
-				$callerDescription,
 				'deprecated',
 				$wgDevelopmentWarnings ? E_USER_DEPRECATED : false
 			);
@@ -235,16 +337,36 @@ class MWDebug {
 
 		if ( self::$enabled ) {
 			$logMsg = htmlspecialchars( $msg ) .
-				Html::rawElement( 'div', array( 'class' => 'mw-debug-backtrace' ),
-					Html::element( 'span', array(), 'Backtrace:' ) . wfBacktrace()
+				Html::rawElement( 'div', [ 'class' => 'mw-debug-backtrace' ],
+					Html::element( 'span', [], 'Backtrace:' ) . wfBacktrace()
 				);
 
-			self::$log[] = array(
+			self::$log[] = [
 				'msg' => $logMsg,
 				'type' => 'deprecated',
 				'caller' => $callerFunc,
-			);
+			];
 		}
+	}
+
+	/**
+	 * Deprecation messages matching the supplied regex will be suppressed.
+	 * Use this to filter deprecation warnings when testing deprecated code.
+	 *
+	 * @param string $regex
+	 */
+	public static function filterDeprecationForTest( $regex ) {
+		if ( !defined( 'MW_PHPUNIT_TEST' ) && !defined( 'MW_PARSER_TEST' ) ) {
+			throw new RuntimeException( __METHOD__ . ' can only be used in tests' );
+		}
+		self::$deprecationFilters[] = $regex;
+	}
+
+	/**
+	 * Clear all deprecation filters.
+	 */
+	public static function clearDeprecationFilters() {
+		self::$deprecationFilters = [];
 	}
 
 	/**
@@ -281,7 +403,18 @@ class MWDebug {
 			$func = 'unknown';
 		}
 
-		return array( 'file' => $file, 'func' => $func );
+		return [ 'file' => $file, 'func' => $func ];
+	}
+
+	/**
+	 * Append a caller description to an error message
+	 *
+	 * @param string $msg
+	 * @param array $caller Caller description from getCallerDescription()
+	 * @return string
+	 */
+	private static function formatCallerDescription( $msg, $caller ) {
+		return $msg . ' [Called from ' . $caller['func'] . ' in ' . $caller['file'] . ']';
 	}
 
 	/**
@@ -289,18 +422,15 @@ class MWDebug {
 	 * error, depending on the $level argument.
 	 *
 	 * @param string $msg Message to send
-	 * @param array $caller Caller description get from getCallerDescription()
 	 * @param string $group Log group on which to send the message
 	 * @param int|bool $level Error level to use; set to false to not trigger an error
 	 */
-	private static function sendMessage( $msg, $caller, $group, $level ) {
-		$msg .= ' [Called from ' . $caller['func'] . ' in ' . $caller['file'] . ']';
-
+	private static function sendMessage( $msg, $group, $level ) {
 		if ( $level !== false ) {
 			trigger_error( $msg, $level );
 		}
 
-		wfDebugLog( $group, $msg, 'log' );
+		wfDebugLog( $group, $msg );
 	}
 
 	/**
@@ -311,7 +441,7 @@ class MWDebug {
 	 * @param string $str
 	 * @param array $context
 	 */
-	public static function debugMsg( $str, $context = array() ) {
+	public static function debugMsg( $str, $context = [] ) {
 		global $wgDebugComments, $wgShowDebug;
 
 		if ( self::$enabled || $wgDebugComments || $wgShowDebug ) {
@@ -325,6 +455,7 @@ class MWDebug {
 				if ( isset( $context['seconds_elapsed'] ) && isset( $context['memory_used'] ) ) {
 					$prefix .= "{$context['seconds_elapsed']} {$context['memory_used']}  ";
 				}
+				$str = LegacyLogger::interpolate( $str, $context );
 				$str = $prefix . $str;
 			}
 			self::$debug[] = rtrim( UtfNormal\Validator::cleanUp( $str ) );
@@ -337,13 +468,13 @@ class MWDebug {
 	 * @since 1.19
 	 * @param string $sql
 	 * @param string $function
-	 * @param bool $isMaster
-	 * @return int ID number of the query to pass to queryTime or -1 if the
-	 *  debugger is disabled
+	 * @param float $runTime Query run time
+	 * @param string $dbhost
+	 * @return bool True if debugger is enabled, false otherwise
 	 */
-	public static function query( $sql, $function, $isMaster ) {
+	public static function query( $sql, $function, $runTime, $dbhost ) {
 		if ( !self::$enabled ) {
-			return -1;
+			return false;
 		}
 
 		// Replace invalid UTF-8 chars with a square UTF-8 character
@@ -359,7 +490,7 @@ class MWDebug {
 				| [\xF0-\xF4](?![\x80-\xBF]{3}) # Invalid UTF-8 Sequence Start
 				| (?<=[\x0-\x7F\xF5-\xFF])[\x80-\xBF] # Invalid UTF-8 Sequence Middle
 				| (?<![\xC2-\xDF]|[\xE0-\xEF]|[\xE0-\xEF][\x80-\xBF]|[\xF0-\xF4]
-				   |[\xF0-\xF4][\x80-\xBF]|[\xF0-\xF4][\x80-\xBF]{2})[\x80-\xBF] # Overlong Sequence
+					| [\xF0-\xF4][\x80-\xBF]|[\xF0-\xF4][\x80-\xBF]{2})[\x80-\xBF] # Overlong Sequence
 				| (?<=[\xE0-\xEF])[\x80-\xBF](?![\x80-\xBF]) # Short 3 byte sequence
 				| (?<=[\xF0-\xF4])[\x80-\xBF](?![\x80-\xBF]{2}) # Short 4 byte sequence
 				| (?<=[\xF0-\xF4][\x80-\xBF])[\x80-\xBF](?![\x80-\xBF]) # Short 4 byte sequence (2)
@@ -368,30 +499,16 @@ class MWDebug {
 			$sql
 		);
 
-		self::$query[] = array(
-			'sql' => $sql,
+		// last check for invalid utf8
+		$sql = UtfNormal\Validator::cleanUp( $sql );
+
+		self::$query[] = [
+			'sql' => "$dbhost: $sql",
 			'function' => $function,
-			'master' => (bool)$isMaster,
-			'time' => 0.0,
-			'_start' => microtime( true ),
-		);
+			'time' => $runTime,
+		];
 
-		return count( self::$query ) - 1;
-	}
-
-	/**
-	 * Calculates how long a query took.
-	 *
-	 * @since 1.19
-	 * @param int $id
-	 */
-	public static function queryTime( $id ) {
-		if ( $id === -1 || !self::$enabled ) {
-			return;
-		}
-
-		self::$query[$id]['time'] = microtime( true ) - self::$query[$id]['_start'];
-		unset( self::$query[$id]['_start'] );
+		return true;
 	}
 
 	/**
@@ -402,13 +519,13 @@ class MWDebug {
 	 */
 	protected static function getFilesIncluded( IContextSource $context ) {
 		$files = get_included_files();
-		$fileList = array();
+		$fileList = [];
 		foreach ( $files as $file ) {
 			$size = filesize( $file );
-			$fileList[] = array(
+			$fileList[] = [
 				'name' => $file,
 				'size' => $context->getLanguage()->formatSize( $size ),
-			);
+			];
 		}
 
 		return $fileList;
@@ -427,19 +544,20 @@ class MWDebug {
 		$html = '';
 
 		if ( self::$enabled ) {
-			MWDebug::log( 'MWDebug output complete' );
+			self::log( 'MWDebug output complete' );
 			$debugInfo = self::getDebugInfo( $context );
 
 			// Cannot use OutputPage::addJsConfigVars because those are already outputted
 			// by the time this method is called.
 			$html = ResourceLoader::makeInlineScript(
-				ResourceLoader::makeConfigSetScript( array( 'debugInfo' => $debugInfo ) )
+				ResourceLoader::makeConfigSetScript( [ 'debugInfo' => $debugInfo ] ),
+				$context->getOutput()->getCSP()->getNonce()
 			);
 		}
 
 		if ( $wgDebugComments ) {
 			$html .= "<!-- Debug output:\n" .
-				htmlspecialchars( implode( "\n", self::$debug ) ) .
+				htmlspecialchars( implode( "\n", self::$debug ), ENT_NOQUOTES ) .
 				"\n\n-->";
 		}
 
@@ -455,59 +573,21 @@ class MWDebug {
 	 * @return string HTML fragment
 	 */
 	public static function getHTMLDebugLog() {
-		global $wgDebugTimestamps, $wgShowDebug;
+		global $wgShowDebug;
 
 		if ( !$wgShowDebug ) {
 			return '';
 		}
 
-		$curIdent = 0;
-		$ret = "\n<hr />\n<strong>Debug data:</strong><ul id=\"mw-debug-html\">\n<li>";
+		$ret = "\n<hr />\n<strong>Debug data:</strong><ul id=\"mw-debug-html\">\n";
 
 		foreach ( self::$debug as $line ) {
-			$pre = '';
-			if ( $wgDebugTimestamps ) {
-				$matches = array();
-				if ( preg_match( '/^(\d+\.\d+ {1,3}\d+.\dM\s{2})/', $line, $matches ) ) {
-					$pre = $matches[1];
-					$line = substr( $line, strlen( $pre ) );
-				}
-			}
-			$display = ltrim( $line );
-			$ident = strlen( $line ) - strlen( $display );
-			$diff = $ident - $curIdent;
+			$display = nl2br( htmlspecialchars( trim( $line ) ) );
 
-			$display = $pre . $display;
-			if ( $display == '' ) {
-				$display = "\xc2\xa0";
-			}
-
-			if ( !$ident
-				&& $diff < 0
-				&& substr( $display, 0, 9 ) != 'Entering '
-				&& substr( $display, 0, 8 ) != 'Exiting '
-			) {
-				$ident = $curIdent;
-				$diff = 0;
-				$display = '<span style="background:yellow;">' .
-					nl2br( htmlspecialchars( $display ) ) . '</span>';
-			} else {
-				$display = nl2br( htmlspecialchars( $display ) );
-			}
-
-			if ( $diff < 0 ) {
-				$ret .= str_repeat( "</li></ul>\n", -$diff ) . "</li><li>\n";
-			} elseif ( $diff == 0 ) {
-				$ret .= "</li><li>\n";
-			} else {
-				$ret .= str_repeat( "<ul><li>\n", $diff );
-			}
-			$ret .= "<code>$display</code>\n";
-
-			$curIdent = $ident;
+			$ret .= "<li><code>$display</code></li>\n";
 		}
 
-		$ret .= str_repeat( '</li></ul>', $curIdent ) . "</li>\n</ul>\n";
+		$ret .= '</ul>' . "\n";
 
 		return $ret;
 	}
@@ -535,7 +615,7 @@ class MWDebug {
 			}
 		}
 
-		MWDebug::log( 'MWDebug output complete' );
+		self::log( 'MWDebug output complete' );
 		$debugInfo = self::getDebugInfo( $context );
 
 		ApiResult::setIndexedTagName( $debugInfo, 'debuginfo' );
@@ -554,38 +634,38 @@ class MWDebug {
 	 */
 	public static function getDebugInfo( IContextSource $context ) {
 		if ( !self::$enabled ) {
-			return array();
+			return [];
 		}
 
-		global $wgVersion, $wgRequestTime;
 		$request = $context->getRequest();
 
-		// HHVM's reported memory usage from memory_get_peak_usage()
-		// is not useful when passing false, but we continue passing
-		// false for consistency of historical data in zend.
-		// see: https://github.com/facebook/hhvm/issues/2257#issuecomment-39362246
-		$realMemoryUsage = wfIsHHVM();
+		$branch = GitInfo::currentBranch();
+		if ( GitInfo::isSHA1( $branch ) ) {
+			// If it's a detached HEAD, the SHA1 will already be
+			// included in the MW version, so don't show it.
+			$branch = false;
+		}
 
-		return array(
-			'mwVersion' => $wgVersion,
-			'phpEngine' => wfIsHHVM() ? 'HHVM' : 'PHP',
-			'phpVersion' => wfIsHHVM() ? HHVM_VERSION : PHP_VERSION,
+		return [
+			'mwVersion' => MW_VERSION,
+			'phpEngine' => 'PHP',
+			'phpVersion' => PHP_VERSION,
 			'gitRevision' => GitInfo::headSHA1(),
-			'gitBranch' => GitInfo::currentBranch(),
+			'gitBranch' => $branch,
 			'gitViewUrl' => GitInfo::headViewUrl(),
-			'time' => microtime( true ) - $wgRequestTime,
+			'time' => $request->getElapsedTime(),
 			'log' => self::$log,
 			'debugLog' => self::$debug,
 			'queries' => self::$query,
-			'request' => array(
+			'request' => [
 				'method' => $request->getMethod(),
 				'url' => $request->getRequestURL(),
 				'headers' => $request->getAllHeaders(),
 				'params' => $request->getValues(),
-			),
-			'memory' => $context->getLanguage()->formatSize( memory_get_usage( $realMemoryUsage ) ),
-			'memoryPeak' => $context->getLanguage()->formatSize( memory_get_peak_usage( $realMemoryUsage ) ),
+			],
+			'memory' => $context->getLanguage()->formatSize( memory_get_usage() ),
+			'memoryPeak' => $context->getLanguage()->formatSize( memory_get_peak_usage() ),
 			'includes' => self::getFilesIncluded( $context ),
-		);
+		];
 	}
 }

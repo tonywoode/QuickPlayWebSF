@@ -1,5 +1,8 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+use Wikimedia\ObjectFactory;
+
 /**
  * @covers ApiModuleManager
  *
@@ -7,12 +10,13 @@
  * @group Database
  * @group medium
  */
-class ApiModuleManagerTest extends MediaWikiTestCase {
+class ApiModuleManagerTest extends MediaWikiIntegrationTestCase {
 
 	private function getModuleManager() {
 		$request = new FauxRequest();
 		$main = new ApiMain( $request );
-		return new ApiModuleManager( $main );
+
+		return new ApiModuleManager( $main, MediaWikiServices::getInstance()->getObjectFactory() );
 	}
 
 	public function newApiLogin( $main, $action ) {
@@ -20,74 +24,105 @@ class ApiModuleManagerTest extends MediaWikiTestCase {
 	}
 
 	public function addModuleProvider() {
-		return array(
-			'plain class' => array(
+		return [
+			'plain class' => [
 				'login',
 				'action',
-				'ApiLogin',
+				ApiLogin::class,
 				null,
-			),
+			],
 
-			'with factory' => array(
+			'with class and factory' => [
 				'login',
 				'action',
-				'ApiLogin',
-				array( $this, 'newApiLogin' ),
-			),
+				ApiLogin::class,
+				[ $this, 'newApiLogin' ],
+			],
 
-			'with closure' => array(
+			'with spec (class only)' => [
+				'login',
+				'action',
+				[
+					'class' => ApiLogin::class
+				],
+				null,
+			],
+
+			'with spec' => [
+				'login',
+				'action',
+				[
+					'class' => ApiLogin::class,
+					'factory' => [ $this, 'newApiLogin' ],
+				],
+				null,
+			],
+
+			'with spec (using services)' => [
 				'logout',
 				'action',
-				'ApiLogout',
-				function ( ApiMain $main, $action ) {
-					return new ApiLogout( $main, $action );
-				},
-			),
-		);
+				[
+					'class' => ApiLogout::class,
+					'factory' => function ( ApiMain $main, $action, ObjectFactory $objectFactory ) {
+						return new ApiLogout( $main, $action );
+					},
+					'services' => [
+						'ObjectFactory'
+					],
+				],
+				null,
+			]
+		];
 	}
 
 	/**
 	 * @dataProvider addModuleProvider
 	 */
-	public function testAddModule( $name, $group, $class, $factory = null ) {
+	public function testAddModule( $name, $group, $spec, $factory ) {
+		if ( $factory ) {
+			$this->hideDeprecated(
+				ApiModuleManager::class . '::addModule with $class and $factory'
+			);
+		}
+
 		$moduleManager = $this->getModuleManager();
-		$moduleManager->addModule( $name, $group, $class, $factory );
+		$moduleManager->addModule( $name, $group, $spec, $factory );
 
 		$this->assertTrue( $moduleManager->isDefined( $name, $group ), 'isDefined' );
 		$this->assertNotNull( $moduleManager->getModule( $name, $group, true ), 'getModule' );
 	}
 
 	public function addModulesProvider() {
-		return array(
-			'empty' => array(
-				array(),
+		return [
+			'empty' => [
+				[],
 				'action',
-			),
+			],
 
-			'simple' => array(
-				array(
-					'login' => 'ApiLogin',
-					'logout' => 'ApiLogout',
-				),
+			'simple' => [
+				[
+					'login' => ApiLogin::class,
+					'logout' => ApiLogout::class,
+				],
 				'action',
-			),
+			],
 
-			'with factories' => array(
-				array(
-					'login' => array(
-						'class' => 'ApiLogin',
-						'factory' => array( $this, 'newApiLogin' ),
-					),
-					'logout' => array(
-						'class' => 'ApiLogout',
+			'with factories' => [
+				[
+					'login' => [
+						'class' => ApiLogin::class,
+						'factory' => [ $this, 'newApiLogin' ],
+					],
+					'logout' => [
+						'class' => ApiLogout::class,
 						'factory' => function ( ApiMain $main, $action ) {
 							return new ApiLogout( $main, $action );
 						},
-					),
-				),
+					],
+				],
 				'action',
-			),
-		);
+			],
+		];
 	}
 
 	/**
@@ -106,46 +141,46 @@ class ApiModuleManagerTest extends MediaWikiTestCase {
 	}
 
 	public function getModuleProvider() {
-		$modules = array(
-			'feedrecentchanges' => 'ApiFeedRecentChanges',
-			'feedcontributions' => array( 'class' => 'ApiFeedContributions' ),
-			'login' => array(
-				'class' => 'ApiLogin',
-				'factory' => array( $this, 'newApiLogin' ),
-			),
-			'logout' => array(
-				'class' => 'ApiLogout',
+		$modules = [
+			'feedrecentchanges' => ApiFeedRecentChanges::class,
+			'feedcontributions' => [ 'class' => ApiFeedContributions::class ],
+			'login' => [
+				'class' => ApiLogin::class,
+				'factory' => [ $this, 'newApiLogin' ],
+			],
+			'logout' => [
+				'class' => ApiLogout::class,
 				'factory' => function ( ApiMain $main, $action ) {
 					return new ApiLogout( $main, $action );
 				},
-			),
-		);
+			],
+		];
 
-		return array(
-			'legacy entry' => array(
+		return [
+			'legacy entry' => [
 				$modules,
 				'feedrecentchanges',
-				'ApiFeedRecentChanges',
-			),
+				ApiFeedRecentChanges::class,
+			],
 
-			'just a class' => array(
+			'just a class' => [
 				$modules,
 				'feedcontributions',
-				'ApiFeedContributions',
-			),
+				ApiFeedContributions::class,
+			],
 
-			'with factory' => array(
+			'with factory' => [
 				$modules,
 				'login',
-				'ApiLogin',
-			),
+				ApiLogin::class,
+			],
 
-			'with closure' => array(
+			'with closure' => [
 				$modules,
 				'logout',
-				'ApiLogout',
-			),
-		);
+				ApiLogout::class,
+			],
+		];
 	}
 
 	/**
@@ -177,10 +212,10 @@ class ApiModuleManagerTest extends MediaWikiTestCase {
 	 * @covers ApiModuleManager::getModule
 	 */
 	public function testGetModule_null() {
-		$modules = array(
-			'login' => 'ApiLogin',
-			'logout' => 'ApiLogout',
-		);
+		$modules = [
+			'login' => ApiLogin::class,
+			'logout' => ApiLogout::class,
+		];
 
 		$moduleManager = $this->getModuleManager();
 		$moduleManager->addModules( $modules, 'test' );
@@ -193,15 +228,15 @@ class ApiModuleManagerTest extends MediaWikiTestCase {
 	 * @covers ApiModuleManager::getNames
 	 */
 	public function testGetNames() {
-		$fooModules = array(
-			'login' => 'ApiLogin',
-			'logout' => 'ApiLogout',
-		);
+		$fooModules = [
+			'login' => ApiLogin::class,
+			'logout' => ApiLogout::class,
+		];
 
-		$barModules = array(
-			'feedcontributions' => array( 'class' => 'ApiFeedContributions' ),
-			'feedrecentchanges' => array( 'class' => 'ApiFeedRecentChanges' ),
-		);
+		$barModules = [
+			'feedcontributions' => [ 'class' => ApiFeedContributions::class ],
+			'feedrecentchanges' => [ 'class' => ApiFeedRecentChanges::class ],
+		];
 
 		$moduleManager = $this->getModuleManager();
 		$moduleManager->addModules( $fooModules, 'foo' );
@@ -219,15 +254,15 @@ class ApiModuleManagerTest extends MediaWikiTestCase {
 	 * @covers ApiModuleManager::getNamesWithClasses
 	 */
 	public function testGetNamesWithClasses() {
-		$fooModules = array(
-			'login' => 'ApiLogin',
-			'logout' => 'ApiLogout',
-		);
+		$fooModules = [
+			'login' => ApiLogin::class,
+			'logout' => ApiLogout::class,
+		];
 
-		$barModules = array(
-			'feedcontributions' => array( 'class' => 'ApiFeedContributions' ),
-			'feedrecentchanges' => array( 'class' => 'ApiFeedRecentChanges' ),
-		);
+		$barModules = [
+			'feedcontributions' => [ 'class' => ApiFeedContributions::class ],
+			'feedrecentchanges' => [ 'class' => ApiFeedRecentChanges::class ],
+		];
 
 		$moduleManager = $this->getModuleManager();
 		$moduleManager->addModules( $fooModules, 'foo' );
@@ -237,10 +272,10 @@ class ApiModuleManagerTest extends MediaWikiTestCase {
 		$this->assertArrayEquals( $fooModules, $fooNamesWithClasses );
 
 		$allNamesWithClasses = $moduleManager->getNamesWithClasses();
-		$allModules = array_merge( $fooModules, array(
-			'feedcontributions' => 'ApiFeedContributions',
-			'feedrecentchanges' => 'ApiFeedRecentChanges',
-		) );
+		$allModules = array_merge( $fooModules, [
+			'feedcontributions' => ApiFeedContributions::class,
+			'feedrecentchanges' => ApiFeedRecentChanges::class,
+		] );
 		$this->assertArrayEquals( $allModules, $allNamesWithClasses );
 	}
 
@@ -248,15 +283,15 @@ class ApiModuleManagerTest extends MediaWikiTestCase {
 	 * @covers ApiModuleManager::getModuleGroup
 	 */
 	public function testGetModuleGroup() {
-		$fooModules = array(
-			'login' => 'ApiLogin',
-			'logout' => 'ApiLogout',
-		);
+		$fooModules = [
+			'login' => ApiLogin::class,
+			'logout' => ApiLogout::class,
+		];
 
-		$barModules = array(
-			'feedcontributions' => array( 'class' => 'ApiFeedContributions' ),
-			'feedrecentchanges' => array( 'class' => 'ApiFeedRecentChanges' ),
-		);
+		$barModules = [
+			'feedcontributions' => [ 'class' => ApiFeedContributions::class ],
+			'feedrecentchanges' => [ 'class' => ApiFeedRecentChanges::class ],
+		];
 
 		$moduleManager = $this->getModuleManager();
 		$moduleManager->addModules( $fooModules, 'foo' );
@@ -271,48 +306,76 @@ class ApiModuleManagerTest extends MediaWikiTestCase {
 	 * @covers ApiModuleManager::getGroups
 	 */
 	public function testGetGroups() {
-		$fooModules = array(
-			'login' => 'ApiLogin',
-			'logout' => 'ApiLogout',
-		);
+		$fooModules = [
+			'login' => ApiLogin::class,
+			'logout' => ApiLogout::class,
+		];
 
-		$barModules = array(
-			'feedcontributions' => array( 'class' => 'ApiFeedContributions' ),
-			'feedrecentchanges' => array( 'class' => 'ApiFeedRecentChanges' ),
-		);
+		$barModules = [
+			'feedcontributions' => [ 'class' => ApiFeedContributions::class ],
+			'feedrecentchanges' => [ 'class' => ApiFeedRecentChanges::class ],
+		];
 
 		$moduleManager = $this->getModuleManager();
 		$moduleManager->addModules( $fooModules, 'foo' );
 		$moduleManager->addModules( $barModules, 'bar' );
 
 		$groups = $moduleManager->getGroups();
-		$this->assertArrayEquals( array( 'foo', 'bar' ), $groups );
+		$this->assertArrayEquals( [ 'foo', 'bar' ], $groups );
 	}
 
 	/**
 	 * @covers ApiModuleManager::getClassName
 	 */
 	public function testGetClassName() {
-		$fooModules = array(
-			'login' => 'ApiLogin',
-			'logout' => 'ApiLogout',
-		);
+		$fooModules = [
+			'login' => ApiLogin::class,
+			'logout' => ApiLogout::class,
+		];
 
-		$barModules = array(
-			'feedcontributions' => array( 'class' => 'ApiFeedContributions' ),
-			'feedrecentchanges' => array( 'class' => 'ApiFeedRecentChanges' ),
-		);
+		$barModules = [
+			'feedcontributions' => [ 'class' => ApiFeedContributions::class ],
+			'feedrecentchanges' => [ 'class' => ApiFeedRecentChanges::class ],
+		];
 
 		$moduleManager = $this->getModuleManager();
 		$moduleManager->addModules( $fooModules, 'foo' );
 		$moduleManager->addModules( $barModules, 'bar' );
 
-		$this->assertEquals( 'ApiLogin', $moduleManager->getClassName( 'login' ) );
-		$this->assertEquals( 'ApiLogout', $moduleManager->getClassName( 'logout' ) );
-		$this->assertEquals( 'ApiFeedContributions', $moduleManager->getClassName( 'feedcontributions' ) );
-		$this->assertEquals( 'ApiFeedRecentChanges', $moduleManager->getClassName( 'feedrecentchanges' ) );
-		$this->assertFalse( $moduleManager->getClassName( 'nonexistentmodule' ) );
+		$this->assertEquals(
+			ApiLogin::class,
+			$moduleManager->getClassName( 'login' )
+		);
+		$this->assertEquals(
+			ApiLogout::class,
+			$moduleManager->getClassName( 'logout' )
+		);
+		$this->assertEquals(
+			ApiFeedContributions::class,
+			$moduleManager->getClassName( 'feedcontributions' )
+		);
+		$this->assertEquals(
+			ApiFeedRecentChanges::class,
+			$moduleManager->getClassName( 'feedrecentchanges' )
+		);
+		$this->assertFalse(
+			$moduleManager->getClassName( 'nonexistentmodule' )
+		);
 	}
 
+	public function testAddModuleWithIncompleteSpec() {
+		$moduleManager = $this->getModuleManager();
 
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessage( '$spec must define a class name' );
+		$moduleManager->addModule(
+			'logout',
+			'action',
+			[
+				'factory' => function ( ApiMain $main, $action ) {
+					return new ApiLogout( $main, $action );
+				},
+			]
+		);
+	}
 }

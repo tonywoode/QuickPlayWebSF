@@ -1,3 +1,47 @@
+/* stylelint-disable selector-class-pattern */
+body {
+	background-color: #f7f7f7;
+	margin: 0;
+	font-family: sans-serif;
+}
+
+#mw-page-base {
+	height: 3.5em;
+}
+
+#mw-head-base {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 100%;
+}
+
+#mw-panel {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 10em;
+}
+
+#content {
+	background: #fff;
+	margin-left: 11em;
+	border: 1px solid #aaa;
+	padding: 1.25em 1.5em 1.5em 1.5em;
+}
+
+.portal {
+	margin: 0 0.6em 0 0.7em;
+	padding: 0.25em 0;
+}
+
+.portal ul {
+	list-style: none none;
+	margin: 0 0.5em;
+	font-size: 0.813em;
+	line-height: 1.4;
+}
+
 .env-check {
 	font-size: 90%;
 	margin: 1em 0 1em 2.5em;
@@ -10,18 +54,18 @@
 .config-block {
 	margin-top: 2em;
 	display: block;
-
 }
 
 .config-block-label {
 	display: block;
-	margin-bottom: .2em;
+	margin-bottom: 0.2em;
 }
 
-.config-block-label label, .config-label {
+.config-block-label label,
+.config-label {
 	font-weight: bold;
-	padding-right: .5em;
-	padding-top: .2em;
+	padding-right: 0.5em;
+	padding-top: 0.2em;
 }
 
 .config-block-elements {
@@ -34,7 +78,6 @@
 
 .config-input {
 	clear: left;
-	zoom: 100%; /* IE hack */
 }
 
 .config-page-wrapper {
@@ -84,7 +127,7 @@
 	display: list-item;
 	line-height: 1.5em;
 	/* @embed */
-	list-style-image: url(images/bullet.gif);
+	list-style-image: url( images/bullet.gif );
 	list-style-type: square;
 }
 
@@ -114,7 +157,7 @@
 }
 
 .error {
-	color: red;
+	color: #f00;
 	background-color: #fff;
 	font-weight: bold;
 	left: 1em;
@@ -131,17 +174,13 @@
 .btn-install {
 	font-weight: bold;
 	font-size: 110%;
-	padding: .2em .3em;
+	padding: 0.2em 0.3em;
 }
 
 .success-message {
 	font-weight: bold;
 	font-size: 110%;
-	color: green;
-}
-
-.success-box {
-	font-size: 130%;
+	color: #008000;
 }
 
 .config-cc-wrapper {
@@ -151,8 +190,8 @@
 }
 
 .config-plainlink a {
-	background: none !important;
-	padding: 0 !important;
+	background: none !important; /* stylelint-disable-line declaration-no-important */
+	padding: 0 !important; /* stylelint-disable-line declaration-no-important */
 }
 
 .config-download-link {
@@ -161,7 +200,7 @@
 }
 
 .config-download-link a {
-	background: url(images/download-32.png) no-repeat center left;
+	background: url( images/download-32.png ) no-repeat center left;
 	padding-left: 40px; /* 32 px for the image (above), plus some breathing room */
 	height: 32px; /* provide enough vertical room for the image */
 	display: inline-block; /* allow the height property (above) to work */
@@ -173,31 +212,60 @@
 	min-width: 20em;
 }
 
+/* Hide empty live-log textarea */
+#config-live-log textarea:empty {
+	display: none;
+}
+
+.config-help-field-checkbox {
+	display: none;
+}
+
 /* tooltip styles */
 .config-help-field-hint {
-	display: none;
 	margin-left: 2px;
-	margin-bottom: -8px;
 	padding: 0 0 0 15px;
 	/* @embed */
-	background-image: url(images/help-question.gif);
+	background-image: url( images/help-question.gif );
 	background-position: left center;
 	background-repeat: no-repeat;
 	cursor: pointer;
-	font-size: .8em;
+	font-size: 0.8em;
 	text-decoration: underline;
 	color: #0645ad;
 }
 
 .config-help-field-hint:hover {
 	/* @embed */
-	background-image: url(images/help-question-hover.gif);
+	background-image: url( images/help-question-hover.gif );
 }
 
 .config-help-field-data {
 	display: block;
+	overflow: hidden;
+	min-width: min-content;
 	background-color: #d6f3ff;
 	padding: 5px 8px 4px 8px;
 	border: 1px solid #5dc9f4;
 	margin-left: 20px;
+}
+
+.config-help-field-checkbox:not( :checked ) ~ .config-help-field-data {
+	display: none;
+}
+
+#p-logo {
+	width: 10em;
+	height: 160px;
+	margin: 0 0 0 0.6em;
+}
+
+#p-logo a {
+	background-position: center center;
+	background-repeat: no-repeat;
+	display: block;
+	width: 10em;
+	height: 160px;
+	text-decoration: none;
+	background-image: url( images/installer-logo.png );
 }

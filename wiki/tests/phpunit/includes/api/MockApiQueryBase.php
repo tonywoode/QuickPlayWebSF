@@ -1,4 +1,5 @@
 <?php
+
 class MockApiQueryBase extends ApiQueryBase {
 	private $name;
 
@@ -11,5 +12,9 @@ class MockApiQueryBase extends ApiQueryBase {
 
 	public function getModuleName() {
 		return $this->name;
+	}
+
+	public function getModulePath() {
+		return 'query+' . $this->getModuleName();
 	}
 }

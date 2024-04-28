@@ -24,10 +24,12 @@
 /**
  * Special handling for category description pages, showing pages,
  * subcategories and file that belong to the category
+ *
+ * @method WikiCategoryPage getPage() Set by overwritten newPage() in this class
  */
 class CategoryPage extends Article {
 	# Subclasses can change this to override the viewer class.
-	protected $mCategoryViewerClass = 'CategoryViewer';
+	protected $mCategoryViewerClass = CategoryViewer::class;
 
 	/**
 	 * @param Title $title
@@ -38,19 +40,7 @@ class CategoryPage extends Article {
 		return new WikiCategoryPage( $title );
 	}
 
-	/**
-	 * Constructor from a page id
-	 * @param int $id Article ID to load
-	 * @return CategoryPage|null
-	 */
-	public static function newFromID( $id ) {
-		$t = Title::newFromID( $id );
-		# @todo FIXME: Doesn't inherit right
-		return $t == null ? null : new self( $t );
-		# return $t == null ? null : new static( $t ); // PHP 5.3
-	}
-
-	function view() {
+	public function view() {
 		$request = $this->getContext()->getRequest();
 		$diff = $request->getVal( 'diff' );
 		$diffOnly = $request->getBool( 'diffonly',
@@ -61,27 +51,34 @@ class CategoryPage extends Article {
 			return;
 		}
 
-		if ( !Hooks::run( 'CategoryPageView', array( &$this ) ) ) {
+		if ( !$this->getHookRunner()->onCategoryPageView( $this ) ) {
 			return;
 		}
 
 		$title = $this->getTitle();
-		if ( NS_CATEGORY == $title->getNamespace() ) {
+		if ( $title->inNamespace( NS_CATEGORY ) ) {
 			$this->openShowCategory();
 		}
 
 		parent::view();
 
-		if ( NS_CATEGORY == $title->getNamespace() ) {
+		if ( $title->inNamespace( NS_CATEGORY ) ) {
 			$this->closeShowCategory();
 		}
+
+		# Use adaptive TTLs for CDN so delayed/failed purges are noticed less often
+		$outputPage = $this->getContext()->getOutput();
+		$outputPage->adaptCdnTTL(
+			$this->getPage()->getTouched(),
+			IExpiringStore::TTL_MINUTE
+		);
 	}
 
-	function openShowCategory() {
+	public function openShowCategory() {
 		# For overloading
 	}
 
-	function closeShowCategory() {
+	public function closeShowCategory() {
 		// Use these as defaults for back compat --catrope
 		$request = $this->getContext()->getRequest();
 		$oldFrom = $request->getVal( 'from' );
@@ -89,8 +86,8 @@ class CategoryPage extends Article {
 
 		$reqArray = $request->getValues();
 
-		$from = $until = array();
-		foreach ( array( 'page', 'subcat', 'file' ) as $type ) {
+		$from = $until = [];
+		foreach ( [ 'page', 'subcat', 'file' ] as $type ) {
 			$from[$type] = $request->getVal( "{$type}from", $oldFrom );
 			$until[$type] = $request->getVal( "{$type}until", $oldUntil );
 
@@ -116,5 +113,21 @@ class CategoryPage extends Article {
 		$out = $this->getContext()->getOutput();
 		$out->addHTML( $viewer->getHTML() );
 		$this->addHelpLink( 'Help:Categories' );
+	}
+
+	/**
+	 * @deprecated since 1.35
+	 */
+	public function getCategoryViewerClass() {
+		wfDeprecated( __METHOD__, '1.35' );
+		return $this->mCategoryViewerClass;
+	}
+
+	/**
+	 * @deprecated since 1.35
+	 */
+	public function setCategoryViewerClass( $class ) {
+		wfDeprecated( __METHOD__, '1.35' );
+		$this->mCategoryViewerClass = $class;
 	}
 }

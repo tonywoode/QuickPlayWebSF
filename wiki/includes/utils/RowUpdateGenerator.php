@@ -17,6 +17,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
+ * @stable to implement
+ *
  * @file
  * @ingroup Maintenance
  */
@@ -26,10 +28,10 @@ interface RowUpdateGenerator {
 	 * updated value within the database row.
 	 *
 	 * Sample Response:
-	 *   return array(
+	 *   return [
 	 *       'some_col' => 'new value',
 	 *       'other_col' => 99,
-	 *   );
+	 *   ];
 	 *
 	 * @param stdClass $row A row from the database
 	 * @return array Map of column names to updated value within the

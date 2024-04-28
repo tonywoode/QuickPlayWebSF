@@ -1,8 +1,5 @@
 <?php
 /**
- * An object to represent a path to a JavaScript/CSS file, along with a remote
- * and local base path, for use with ResourceLoaderFileModule.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -24,50 +21,56 @@
 /**
  * An object to represent a path to a JavaScript/CSS file, along with a remote
  * and local base path, for use with ResourceLoaderFileModule.
+ *
+ * @ingroup ResourceLoader
+ * @since 1.17
  */
 class ResourceLoaderFilePath {
-	/* Protected Members */
-
 	/** @var string Local base path */
 	protected $localBasePath;
 
 	/** @var string Remote base path */
 	protected $remoteBasePath;
 
-	/**
-	 * @var string Path to the file */
+	/** @var string Path to the file */
 	protected $path;
-
-	/* Methods */
 
 	/**
 	 * @param string $path Path to the file.
 	 * @param string $localBasePath Base path to prepend when generating a local path.
 	 * @param string $remoteBasePath Base path to prepend when generating a remote path.
 	 */
-	public function __construct( $path, $localBasePath, $remoteBasePath ) {
+	public function __construct( $path, $localBasePath = '', $remoteBasePath = '' ) {
 		$this->path = $path;
 		$this->localBasePath = $localBasePath;
 		$this->remoteBasePath = $remoteBasePath;
 	}
 
-	/**
-	 * @return string
-	 */
+	/** @return string */
 	public function getLocalPath() {
-		return "{$this->localBasePath}/{$this->path}";
+		return $this->localBasePath === '' ?
+			$this->path :
+			"{$this->localBasePath}/{$this->path}";
 	}
 
-	/**
-	 * @return string
-	 */
+	/** @return string */
 	public function getRemotePath() {
-		return "{$this->remoteBasePath}/{$this->path}";
+		return $this->remoteBasePath === '' ?
+			$this->path :
+			"{$this->remoteBasePath}/{$this->path}";
 	}
 
-	/**
-	 * @return string
-	 */
+	/** @return string */
+	public function getLocalBasePath() {
+		return $this->localBasePath;
+	}
+
+	/** @return string */
+	public function getRemoteBasePath() {
+		return $this->remoteBasePath;
+	}
+
+	/** @return string */
 	public function getPath() {
 		return $this->path;
 	}

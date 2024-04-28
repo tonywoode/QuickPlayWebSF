@@ -20,6 +20,8 @@
  * @file
  */
 
+use Wikimedia\Rdbms\IDatabase;
+
 /**
  * The "CategoryFinder" class takes a list of articles, creates an internal
  * representation of all their parent categories (as well as parents of
@@ -33,54 +35,67 @@
  *
  *     $cf = new CategoryFinder;
  *     $cf->seed(
- *         array( 12345 ),
- *         array( 'Category 1', 'Category 2' ),
+ *         [ 12345 ],
+ *         [ 'Category 1', 'Category 2' ],
  *         'AND'
  *     );
  *     $a = $cf->run();
  *     print implode( ',' , $a );
  * @endcode
  *
+ * @deprecated since 1.31
  */
 class CategoryFinder {
 	/** @var int[] The original article IDs passed to the seed function */
-	protected $articles = array();
+	protected $articles = [];
 
 	/** @var array Array of DBKEY category names for categories that don't have a page */
-	protected $deadend = array();
+	protected $deadend = [];
 
-	/** @var array Array of [ID => array()] */
-	protected $parents = array();
+	/** @var array Array of [ ID => [] ] */
+	protected $parents = [];
 
 	/** @var array Array of article/category IDs */
-	protected $next = array();
+	protected $next = [];
+
+	/** @var int Max layer depth */
+	protected $maxdepth = -1;
 
 	/** @var array Array of DBKEY category names */
-	protected $targets = array();
+	protected $targets = [];
 
 	/** @var array */
-	protected $name2id = array();
+	protected $name2id = [];
 
 	/** @var string "AND" or "OR" */
 	protected $mode;
 
-	/** @var DatabaseBase Read-DB slave */
+	/** @var IDatabase Read-DB replica DB */
 	protected $dbr;
+
+	public function __construct() {
+		wfDeprecated( __METHOD__, '1.31' );
+	}
 
 	/**
 	 * Initializes the instance. Do this prior to calling run().
 	 * @param array $articleIds Array of article IDs
 	 * @param array $categories FIXME
 	 * @param string $mode FIXME, default 'AND'.
+	 * @param int $maxdepth Maximum layer depth. Where:
+	 * 	-1 means deep recursion (default);
+	 * 	 0 means no-parents;
+	 * 	 1 means one parent layer, etc.
 	 * @todo FIXME: $categories/$mode
 	 */
-	public function seed( $articleIds, $categories, $mode = 'AND' ) {
+	public function seed( $articleIds, $categories, $mode = 'AND', $maxdepth = -1 ) {
 		$this->articles = $articleIds;
 		$this->next = $articleIds;
 		$this->mode = $mode;
+		$this->maxdepth = $maxdepth;
 
 		# Set the list of target categories; convert them to DBKEY form first
-		$this->targets = array();
+		$this->targets = [];
 		foreach ( $categories as $c ) {
 			$ct = Title::makeTitleSafe( NS_CATEGORY, $c );
 			if ( $ct ) {
@@ -96,13 +111,22 @@ class CategoryFinder {
 	 * @return array Array of page_ids (those given to seed() that match the conditions)
 	 */
 	public function run() {
-		$this->dbr = wfGetDB( DB_SLAVE );
-		while ( count( $this->next ) > 0 ) {
+		$this->dbr = wfGetDB( DB_REPLICA );
+
+		$i = 0;
+		$dig = true;
+		while ( count( $this->next ) && $dig ) {
 			$this->scanNextLayer();
+
+			// Is there any depth limit?
+			if ( $this->maxdepth !== -1 ) {
+				$dig = $i < $this->maxdepth;
+				$i++;
+			}
 		}
 
 		# Now check if this applies to the individual articles
-		$ret = array();
+		$ret = [];
 
 		foreach ( $this->articles as $article ) {
 			$conds = $this->targets;
@@ -125,11 +149,11 @@ class CategoryFinder {
 	/**
 	 * This functions recurses through the parent representation, trying to match the conditions
 	 * @param int $id The article/category to check
-	 * @param array $conds The array of categories to match
+	 * @param array &$conds The array of categories to match
 	 * @param array $path Used to check for recursion loops
 	 * @return bool Does this match the conditions?
 	 */
-	private function check( $id, &$conds, $path = array() ) {
+	private function check( $id, &$conds, $path = [] ) {
 		// Check for loops and stop!
 		if ( in_array( $id, $path ) ) {
 			return false;
@@ -155,7 +179,7 @@ class CategoryFinder {
 				# This key is in the category list!
 				if ( $this->mode == 'OR' ) {
 					# One found, that's enough!
-					$conds = array();
+					$conds = [];
 					return true;
 				} else {
 					# Assuming "AND" as default
@@ -185,23 +209,22 @@ class CategoryFinder {
 	 * Scans a "parent layer" of the articles/categories in $this->next
 	 */
 	private function scanNextLayer() {
-
 		# Find all parents of the article currently in $this->next
-		$layer = array();
+		$layer = [];
 		$res = $this->dbr->select(
 			/* FROM   */ 'categorylinks',
-			/* SELECT */ '*',
-			/* WHERE  */ array( 'cl_from' => $this->next ),
+			/* SELECT */ [ 'cl_to', 'cl_from' ],
+			/* WHERE  */ [ 'cl_from' => $this->next ],
 			__METHOD__ . '-1'
 		);
-		foreach ( $res as $o ) {
-			$k = $o->cl_to;
+		foreach ( $res as $row ) {
+			$k = $row->cl_to;
 
 			# Update parent tree
-			if ( !isset( $this->parents[$o->cl_from] ) ) {
-				$this->parents[$o->cl_from] = array();
+			if ( !isset( $this->parents[$row->cl_from] ) ) {
+				$this->parents[$row->cl_from] = [];
 			}
-			$this->parents[$o->cl_from][$k] = $o;
+			$this->parents[$row->cl_from][$k] = $row;
 
 			# Ignore those we already have
 			if ( in_array( $k, $this->deadend ) ) {
@@ -216,19 +239,19 @@ class CategoryFinder {
 			$layer[$k] = $k;
 		}
 
-		$this->next = array();
+		$this->next = [];
 
 		# Find the IDs of all category pages in $layer, if they exist
 		if ( count( $layer ) > 0 ) {
 			$res = $this->dbr->select(
 				/* FROM   */ 'page',
-				/* SELECT */ array( 'page_id', 'page_title' ),
-				/* WHERE  */ array( 'page_namespace' => NS_CATEGORY, 'page_title' => $layer ),
+				/* SELECT */ [ 'page_id', 'page_title' ],
+				/* WHERE  */ [ 'page_namespace' => NS_CATEGORY, 'page_title' => $layer ],
 				__METHOD__ . '-2'
 			);
-			foreach ( $res as $o ) {
-				$id = $o->page_id;
-				$name = $o->page_title;
+			foreach ( $res as $row ) {
+				$id = $row->page_id;
+				$name = $row->page_title;
 				$this->name2id[$name] = $id;
 				$this->next[] = $id;
 				unset( $layer[$name] );

@@ -22,15 +22,14 @@
  */
 
 /**
- *
  * @ingroup SpecialPage
  */
-class LongPagesPage extends ShortPagesPage {
-	function __construct( $name = 'Longpages' ) {
+class SpecialLongPages extends SpecialShortPages {
+	public function __construct( $name = 'Longpages' ) {
 		parent::__construct( $name );
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return true;
 	}
 

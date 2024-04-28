@@ -73,12 +73,13 @@ $wgEnotifUserTalk = true; # UPO
 $wgEnotifWatchlist = true; # UPO
 $wgEmailAuthentication = true;
 
+$wgServer = "http://quickplay.sourceforge.net/wiki";
 ## note when upgrading mediawiki I had to change wgDBServer from "locahost" to "127.0.0.1:8889"
-$wgDBserver         = "";
-$wgDBname           = "";
-$wgDBuser           = "";
-$wgDBpassword       = "";
-$wgDBprefix         = "";
+$wgDBserver = "";
+$wgDBname = "";
+$wgDBuser = "";
+$wgDBpassword = "";
+$wgDBprefix = "";
 //$wgDBtype           = "";
 
 # Experimental charset support for MySQL 4.1/5.0.
@@ -146,6 +147,7 @@ $wgDiff3 = "/usr/bin/diff3";
 # sure that cached pages are cleared.
 $configdate = gmdate( 'YmdHis', @filemtime( __FILE__ ) );
 $wgCacheEpoch = max( $wgCacheEpoch, $configdate );
+$wgShowExceptionDetails = true;
 
 ?>
 <?php
@@ -153,3 +155,4 @@ $wgCacheEpoch = max( $wgCacheEpoch, $configdate );
 $wgGroupPermissions['*']['createaccount'] = false;
 $wgGroupPermissions['*']['edit'] = false;
 ?>
+

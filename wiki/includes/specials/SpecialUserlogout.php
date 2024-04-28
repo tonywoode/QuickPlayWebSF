@@ -26,43 +26,108 @@
  *
  * @ingroup SpecialPage
  */
-class SpecialUserlogout extends UnlistedSpecialPage {
-	function __construct() {
+class SpecialUserLogout extends FormSpecialPage {
+	/**
+	 * @var string
+	 */
+	private $oldUserName;
+
+	public function __construct() {
 		parent::__construct( 'Userlogout' );
 	}
 
-	function execute( $par ) {
-		/**
-		 * Some satellite ISPs use broken precaching schemes that log people out straight after
-		 * they're logged in (bug 17790). Luckily, there's a way to detect such requests.
-		 */
-		if ( isset( $_SERVER['REQUEST_URI'] ) && strpos( $_SERVER['REQUEST_URI'], '&amp;' ) !== false ) {
-			wfDebug( "Special:Userlogout request {$_SERVER['REQUEST_URI']} looks suspicious, denying.\n" );
-			throw new HttpError( 400, $this->msg( 'suspicious-userlogout' ), $this->msg( 'loginerror' ) );
+	public function doesWrites() {
+		return true;
+	}
+
+	public function isListed() {
+		return false;
+	}
+
+	protected function getGroupName() {
+		return 'login';
+	}
+
+	protected function getFormFields() {
+		return [];
+	}
+
+	protected function getDisplayFormat() {
+		return 'ooui';
+	}
+
+	public function execute( $par ) {
+		$user = $this->getUser();
+		if ( $user->isAnon() ) {
+			$this->setHeaders();
+			$this->showSuccess();
+			return;
+		}
+		$this->oldUserName = $user->getName();
+
+		parent::execute( $par );
+	}
+
+	public function alterForm( HTMLForm $form ) {
+		$form->setTokenSalt( 'logoutToken' );
+		$form->addHeaderText( $this->msg( 'userlogout-continue' ) );
+
+		$form->addHiddenFields( $this->getRequest()->getValues( 'returnto', 'returntoquery' ) );
+	}
+
+	/**
+	 * Process the form.  At this point we know that the user passes all the criteria in
+	 * userCanExecute(), and if the data array contains 'Username', etc, then Username
+	 * resets are allowed.
+	 * @param array $data
+	 * @throws MWException
+	 * @throws ThrottledError|PermissionsError
+	 * @return Status
+	 */
+	public function onSubmit( array $data ) {
+		// Make sure it's possible to log out
+		$session = MediaWiki\Session\SessionManager::getGlobalSession();
+		if ( !$session->canSetUser() ) {
+			throw new ErrorPageError(
+				'cannotlogoutnow-title',
+				'cannotlogoutnow-text',
+				[
+					$session->getProvider()->describe( RequestContext::getMain()->getLanguage() )
+				]
+			);
 		}
 
-		$this->setHeaders();
-		$this->outputHeader();
-
 		$user = $this->getUser();
-		$oldName = $user->getName();
-		$user->logout();
 
+		$user->logout();
+		return new Status();
+	}
+
+	public function onSuccess() {
+		$this->showSuccess();
+
+		$out = $this->getOutput();
+		// Hook.
+		$injected_html = '';
+		$this->getHookRunner()->onUserLogoutComplete( $this->getUser(), $injected_html, $this->oldUserName );
+		$out->addHTML( $injected_html );
+	}
+
+	private function showSuccess() {
 		$loginURL = SpecialPage::getTitleFor( 'Userlogin' )->getFullURL(
 			$this->getRequest()->getValues( 'returnto', 'returntoquery' ) );
 
 		$out = $this->getOutput();
 		$out->addWikiMsg( 'logouttext', $loginURL );
 
-		// Hook.
-		$injected_html = '';
-		Hooks::run( 'UserLogoutComplete', array( &$user, &$injected_html, $oldName ) );
-		$out->addHTML( $injected_html );
-
 		$out->returnToMain();
 	}
 
-	protected function getGroupName() {
-		return 'login';
+	/**
+	 * Let blocked users to log out and come back with their sockpuppets
+	 * @return bool
+	 */
+	public function requiresUnblock() {
+		return false;
 	}
 }

@@ -22,7 +22,11 @@
  */
 
 class MockDjVuHandler extends DjVuHandler {
-	function doTransform( $image, $dstPath, $dstUrl, $params, $flags = 0 ) {
+	public function isEnabled() {
+		return true;
+	}
+
+	public function doTransform( $image, $dstPath, $dstUrl, $params, $flags = 0 ) {
 		if ( !$this->normaliseParams( $image, $params ) ) {
 			return new TransformParameterError( $params );
 		}
@@ -38,11 +42,11 @@ class MockDjVuHandler extends DjVuHandler {
 			);
 		}
 
-		$params = array(
+		$params = [
 			'width' => $width,
 			'height' => $height,
 			'page' => $page
-		);
+		];
 
 		return new ThumbnailImage( $image, $dstUrl, $dstPath, $params );
 	}

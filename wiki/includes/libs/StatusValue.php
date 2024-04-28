@@ -37,20 +37,26 @@
  *
  * The use of Message objects should be avoided when serializability is needed.
  *
+ * @newable
  * @since 1.25
  */
 class StatusValue {
+
 	/** @var bool */
 	protected $ok = true;
-	/** @var array */
-	protected $errors = array();
+
+	/** @var array[] */
+	protected $errors = [];
 
 	/** @var mixed */
 	public $value;
-	/** @var array Map of (key => bool) to indicate success of each part of batch operations */
-	public $success = array();
+
+	/** @var bool[] Map of (key => bool) to indicate success of each part of batch operations */
+	public $success = [];
+
 	/** @var int Counter for batch operations */
 	public $successCount = 0;
+
 	/** @var int Counter for batch operations */
 	public $failCount = 0;
 
@@ -58,25 +64,53 @@ class StatusValue {
 	 * Factory function for fatal errors
 	 *
 	 * @param string|MessageSpecifier $message Message key or object
-	 * @return Status
+	 * @param mixed ...$parameters
+	 * @return static
 	 */
-	public static function newFatal( $message /*, parameters...*/ ) {
-		$params = func_get_args();
+	public static function newFatal( $message, ...$parameters ) {
 		$result = new static();
-		call_user_func_array( array( &$result, 'fatal' ), $params );
+		$result->fatal( $message, ...$parameters );
 		return $result;
 	}
 
 	/**
 	 * Factory function for good results
 	 *
-	 * @param mixed $value
-	 * @return Status
+	 * @param mixed|null $value
+	 * @return static
 	 */
 	public static function newGood( $value = null ) {
 		$result = new static();
 		$result->value = $value;
 		return $result;
+	}
+
+	/**
+	 * Splits this StatusValue object into two new StatusValue objects, one which contains only
+	 * the error messages, and one that contains the warnings, only. The returned array is
+	 * defined as:
+	 * [
+	 *     0 => object(StatusValue) # the StatusValue with error messages, only
+	 *     1 => object(StatusValue) # The StatusValue with warning messages, only
+	 * ]
+	 *
+	 * @return static[]
+	 */
+	public function splitByErrorType() {
+		$errorsOnlyStatusValue = static::newGood();
+		$warningsOnlyStatusValue = static::newGood();
+		$warningsOnlyStatusValue->setResult( true, $this->getValue() );
+		$errorsOnlyStatusValue->setResult( $this->isOK(), $this->getValue() );
+
+		foreach ( $this->errors as $item ) {
+			if ( $item['type'] === 'warning' ) {
+				$warningsOnlyStatusValue->errors[] = $item;
+			} else {
+				$errorsOnlyStatusValue->errors[] = $item;
+			}
+		}
+
+		return [ $errorsOnlyStatusValue, $warningsOnlyStatusValue ];
 	}
 
 	/**
@@ -110,7 +144,7 @@ class StatusValue {
 	 *
 	 * Each error is a (message:string or MessageSpecifier,params:array) map
 	 *
-	 * @return array
+	 * @return array[]
 	 */
 	public function getErrors() {
 		return $this->errors;
@@ -126,13 +160,13 @@ class StatusValue {
 	}
 
 	/**
-	 * Change operation resuklt
+	 * Change operation result
 	 *
 	 * @param bool $ok Whether the operation completed
-	 * @param mixed $value
+	 * @param mixed|null $value
 	 */
 	public function setResult( $ok, $value = null ) {
-		$this->ok = $ok;
+		$this->ok = (bool)$ok;
 		$this->value = $value;
 	}
 
@@ -140,13 +174,14 @@ class StatusValue {
 	 * Add a new warning
 	 *
 	 * @param string|MessageSpecifier $message Message key or object
+	 * @param mixed ...$parameters
 	 */
-	public function warning( $message /*, parameters... */ ) {
-		$this->errors[] = array(
+	public function warning( $message, ...$parameters ) {
+		$this->errors[] = [
 			'type' => 'warning',
 			'message' => $message,
-			'params' => array_slice( func_get_args(), 1 )
-		);
+			'params' => $parameters
+		];
 	}
 
 	/**
@@ -154,13 +189,14 @@ class StatusValue {
 	 * This can be used for non-fatal errors
 	 *
 	 * @param string|MessageSpecifier $message Message key or object
+	 * @param mixed ...$parameters
 	 */
-	public function error( $message /*, parameters... */ ) {
-		$this->errors[] = array(
+	public function error( $message, ...$parameters ) {
+		$this->errors[] = [
 			'type' => 'error',
 			'message' => $message,
-			'params' => array_slice( func_get_args(), 1 )
-		);
+			'params' => $parameters
+		];
 	}
 
 	/**
@@ -168,20 +204,21 @@ class StatusValue {
 	 * as a whole was fatal
 	 *
 	 * @param string|MessageSpecifier $message Message key or object
+	 * @param mixed ...$parameters
 	 */
-	public function fatal( $message /*, parameters... */ ) {
-		$this->errors[] = array(
+	public function fatal( $message, ...$parameters ) {
+		$this->errors[] = [
 			'type' => 'error',
 			'message' => $message,
-			'params' => array_slice( func_get_args(), 1 )
-		);
+			'params' => $parameters
+		];
 		$this->ok = false;
 	}
 
 	/**
 	 * Merge another status object into this one
 	 *
-	 * @param Status $other Other Status object
+	 * @param StatusValue $other
 	 * @param bool $overwriteValue Whether to override the "value" member
 	 */
 	public function merge( $other, $overwriteValue = false ) {
@@ -197,13 +234,15 @@ class StatusValue {
 	/**
 	 * Returns a list of status messages of the given type
 	 *
-	 * Each entry is a map of (message:string or MessageSpecifier,params:array))
+	 * Each entry is a map of:
+	 *   - message: string message key or MessageSpecifier
+	 *   - params: array list of parameters
 	 *
 	 * @param string $type
-	 * @return array
+	 * @return array[]
 	 */
 	public function getErrorsByType( $type ) {
-		$result = array();
+		$result = [];
 		foreach ( $this->errors as $error ) {
 			if ( $error['type'] === $type ) {
 				$result[] = $error;
@@ -244,8 +283,8 @@ class StatusValue {
 	 * Note, due to the lack of tools for comparing IStatusMessage objects, this
 	 * function will not work when using such an object as the search parameter.
 	 *
-	 * @param IStatusMessage|string $source Message key or object to search for
-	 * @param IStatusMessage|string $dest Replacement message key or object
+	 * @param MessageSpecifier|string $source Message key or object to search for
+	 * @param MessageSpecifier|string $dest Replacement message key or object
 	 * @return bool Return true if the replacement was done, false otherwise.
 	 */
 	public function replaceMessage( $source, $dest ) {
@@ -298,13 +337,13 @@ class StatusValue {
 					$params = $error['params'];
 				} else {
 					$key = $error['message'];
-					$params = array();
+					$params = [];
 				}
 
 				$out .= sprintf( "| %4d | %-25.25s | %-40.40s |\n",
 					$i,
 					$key,
-					implode( " ", $params )
+					self::flattenParams( $params )
 				);
 				$i += 1;
 			}
@@ -312,5 +351,23 @@ class StatusValue {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * @param array $params Message parameters
+	 * @return string String representation
+	 */
+	private function flattenParams( array $params ) : string {
+		$ret = [];
+		foreach ( $params as $p ) {
+			if ( is_array( $p ) ) {
+				$ret[] = '[ ' . self::flattenParams( $p ) . ' ]';
+			} elseif ( $p instanceof MessageSpecifier ) {
+				$ret[] = '{ ' . $p->getKey() . ': ' . self::flattenParams( $p->getParams() ) . ' }';
+			} else {
+				$ret[] = (string)$p;
+			}
+		}
+		return implode( ' ', $ret );
 	}
 }

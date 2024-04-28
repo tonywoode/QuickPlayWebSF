@@ -1,6 +1,6 @@
 <?php
 /**
- * Benchmark for Squid purge.
+ * Benchmark for CDN purge.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,49 +21,50 @@
  * @ingroup Benchmark
  */
 
-require_once __DIR__ . '/Benchmarker.php';
+require_once __DIR__ . '/../includes/Benchmarker.php';
 
 /**
- * Maintenance script that benchmarks Squid purge.
+ * Maintenance script that benchmarks CDN purge.
  *
  * @ingroup Benchmark
  */
 class BenchmarkPurge extends Benchmarker {
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription = "Benchmark the Squid purge functions.";
+		$this->addDescription( 'Benchmark the CDN purge functions.' );
 	}
 
 	public function execute() {
-		global $wgUseSquid, $wgSquidServers;
-		if ( !$wgUseSquid ) {
-			$this->error( "Squid purge benchmark doesn't do much without squid support on.", true );
+		global $wgUseCdn, $wgCdnServers;
+
+		if ( !$wgUseCdn ) {
+			$this->error( "CDN purge benchmark doesn't do much without CDN support on." );
 		} else {
-			$this->output( "There are " . count( $wgSquidServers ) . " defined squid servers:\n" );
+			$this->output( "There are " . count( $wgCdnServers ) . " defined CDN servers:\n" );
 			if ( $this->hasOption( 'count' ) ) {
-				$lengths = array( intval( $this->getOption( 'count' ) ) );
+				$lengths = [ intval( $this->getOption( 'count' ) ) ];
 			} else {
-				$lengths = array( 1, 10, 100 );
+				$lengths = [ 1, 10, 100 ];
 			}
 			foreach ( $lengths as $length ) {
 				$urls = $this->randomUrlList( $length );
-				$trial = $this->benchSquid( $urls );
+				$trial = $this->benchCdn( $urls );
 				$this->output( $trial . "\n" );
 			}
 		}
 	}
 
 	/**
-	 * Run a bunch of URLs through SquidUpdate::purge()
-	 * to benchmark Squid response times.
+	 * Run a bunch of URLs through CdnCacheUpdate::purge()
+	 * to benchmark CDN response times.
 	 * @param array $urls A bunch of URLs to purge
 	 * @param int $trials How many times to run the test?
 	 * @return string
 	 */
-	private function benchSquid( $urls, $trials = 1 ) {
+	private function benchCdn( $urls, $trials = 1 ) {
 		$start = microtime( true );
 		for ( $i = 0; $i < $trials; $i++ ) {
-			SquidUpdate::purge( $urls );
+			CdnCacheUpdate::purge( $urls );
 		}
 		$delta = microtime( true ) - $start;
 		$pertrial = $delta / $trials;
@@ -79,7 +80,7 @@ class BenchmarkPurge extends Benchmarker {
 	 * @return array
 	 */
 	private function randomUrlList( $length ) {
-		$list = array();
+		$list = [];
 		for ( $i = 0; $i < $length; $i++ ) {
 			$list[] = $this->randomUrl();
 		}
@@ -114,5 +115,5 @@ class BenchmarkPurge extends Benchmarker {
 	}
 }
 
-$maintClass = "BenchmarkPurge";
+$maintClass = BenchmarkPurge::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

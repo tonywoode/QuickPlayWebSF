@@ -21,14 +21,16 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * Implements Special:Ancientpages
  *
  * @ingroup SpecialPage
  */
-class AncientPagesPage extends QueryPage {
+class SpecialAncientPages extends QueryPage {
 
-	function __construct( $name = 'Ancientpages' ) {
+	public function __construct( $name = 'Ancientpages' ) {
 		parent::__construct( $name );
 	}
 
@@ -36,32 +38,50 @@ class AncientPagesPage extends QueryPage {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
 	public function getQueryInfo() {
-		return array(
-			'tables' => array( 'page', 'revision' ),
-			'fields' => array(
+		$tables = [ 'page', 'revision' ];
+		$conds = [
+			'page_namespace' =>
+				MediaWikiServices::getInstance()->getNamespaceInfo()->getContentNamespaces(),
+			'page_is_redirect' => 0
+		];
+		$joinConds = [
+			'revision' => [
+				'JOIN', [
+					'page_latest = rev_id'
+				]
+			],
+		];
+
+		// Allow extensions to modify the query
+		$this->getHookRunner()->onAncientPagesQuery( $tables, $conds, $joinConds );
+
+		return [
+			'tables' => $tables,
+			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
 				'value' => 'rev_timestamp'
-			),
-			'conds' => array(
-				'page_namespace' => MWNamespace::getContentNamespaces(),
-				'page_is_redirect' => 0,
-				'page_latest=rev_id'
-			)
-		);
+			],
+			'conds' => $conds,
+			'join_conds' => $joinConds
+		];
 	}
 
 	public function usesTimestamps() {
 		return true;
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
+	}
+
+	public function preprocessResults( $db, $res ) {
+		$this->executeLBFromResultWrapper( $res );
 	}
 
 	/**
@@ -69,14 +89,14 @@ class AncientPagesPage extends QueryPage {
 	 * @param object $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
-		global $wgContLang;
-
+	public function formatResult( $skin, $result ) {
 		$d = $this->getLanguage()->userTimeAndDate( $result->value, $this->getUser() );
 		$title = Title::makeTitle( $result->namespace, $result->title );
-		$link = Linker::linkKnown(
+		$linkRenderer = $this->getLinkRenderer();
+
+		$link = $linkRenderer->makeKnownLink(
 			$title,
-			htmlspecialchars( $wgContLang->convert( $title->getPrefixedText() ) )
+			new HtmlArmor( $this->getLanguageConverter()->convertHtml( $title->getPrefixedText() ) )
 		);
 
 		return $this->getLanguage()->specialList( $link, htmlspecialchars( $d ) );

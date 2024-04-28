@@ -16,8 +16,9 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @license GPL 2+
  */
+
+use MediaWiki\MediaWikiServices;
 
 /**
  * A class to convert page titles on a foreign wiki (ForeignTitle objects) into
@@ -32,7 +33,7 @@ class NamespaceImportTitleFactory implements ImportTitleFactory {
 	 * @param int $ns The namespace to use for all pages
 	 */
 	public function __construct( $ns ) {
-		if ( !MWNamespace::exists( $ns ) ) {
+		if ( !MediaWikiServices::getInstance()->getNamespaceInfo()->exists( $ns ) ) {
 			throw new MWException( "Namespace $ns doesn't exist on this wiki" );
 		}
 		$this->ns = $ns;

@@ -1,7 +1,5 @@
 <?php
 /**
- * Context for resource loader modules.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -23,33 +21,43 @@
  */
 
 use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\MediaWikiServices;
 
 /**
- * Object passed around to modules which contains information about the state
- * of a specific loader request
+ * Context object that contains information about the state of a specific
+ * ResourceLoader web request. Passed around to ResourceLoaderModule methods.
+ *
+ * @ingroup ResourceLoader
+ * @since 1.17
  */
-class ResourceLoaderContext {
-	/* Protected Members */
+class ResourceLoaderContext implements MessageLocalizer {
+	public const DEFAULT_LANG = 'qqx';
+	public const DEFAULT_SKIN = 'fallback';
 
 	protected $resourceLoader;
 	protected $request;
-	protected $modules;
-	protected $language;
-	protected $direction;
+	protected $logger;
+
+	// Module content vary
 	protected $skin;
-	protected $user;
+	protected $language;
 	protected $debug;
+	protected $user;
+
+	// Request vary (in addition to cache vary)
+	protected $modules;
 	protected $only;
 	protected $version;
-	protected $hash;
 	protected $raw;
 	protected $image;
 	protected $variant;
 	protected $format;
-	protected $userObj;
-	protected $imageObj;
 
-	/* Methods */
+	protected $direction;
+	protected $hash;
+	protected $userObj;
+	/** @var ResourceLoaderImage|false */
+	protected $imageObj;
 
 	/**
 	 * @param ResourceLoader $resourceLoader
@@ -58,213 +66,215 @@ class ResourceLoaderContext {
 	public function __construct( ResourceLoader $resourceLoader, WebRequest $request ) {
 		$this->resourceLoader = $resourceLoader;
 		$this->request = $request;
+		$this->logger = $resourceLoader->getLogger();
+
+		// Optimisation: Use WebRequest::getRawVal() instead of getVal(). We don't
+		// need the slow Language+UTF logic meant for user input here. (f303bb9360)
 
 		// List of modules
-		$modules = $request->getVal( 'modules' );
-		$this->modules = $modules ? self::expandModuleNames( $modules ) : array();
+		$modules = $request->getRawVal( 'modules' );
+		$this->modules = $modules ? ResourceLoader::expandModuleNames( $modules ) : [];
 
 		// Various parameters
-		$this->user = $request->getVal( 'user' );
-		$this->debug = $request->getFuzzyBool(
-			'debug',
-			$resourceLoader->getConfig()->get( 'ResourceLoaderDebug' )
-		);
-		$this->only = $request->getVal( 'only', null );
-		$this->version = $request->getVal( 'version', null );
+		$this->user = $request->getRawVal( 'user' );
+		$this->debug = $request->getRawVal( 'debug' ) === 'true';
+		$this->only = $request->getRawVal( 'only' );
+		$this->version = $request->getRawVal( 'version' );
 		$this->raw = $request->getFuzzyBool( 'raw' );
 
 		// Image requests
-		$this->image = $request->getVal( 'image' );
-		$this->variant = $request->getVal( 'variant' );
-		$this->format = $request->getVal( 'format' );
+		$this->image = $request->getRawVal( 'image' );
+		$this->variant = $request->getRawVal( 'variant' );
+		$this->format = $request->getRawVal( 'format' );
 
-		$this->skin = $request->getVal( 'skin' );
+		$this->skin = $request->getRawVal( 'skin' );
 		$skinnames = Skin::getSkinNames();
-		// If no skin is specified, or we don't recognize the skin, use the default skin
 		if ( !$this->skin || !isset( $skinnames[$this->skin] ) ) {
-			$this->skin = $resourceLoader->getConfig()->get( 'DefaultSkin' );
+			// The 'skin' parameter is required. (Not yet enforced.)
+			// For requests without a known skin specified,
+			// use MediaWiki's 'fallback' skin for skin-specific decisions.
+			$this->skin = self::DEFAULT_SKIN;
 		}
-	}
-
-	/**
-	 * Expand a string of the form jquery.foo,bar|jquery.ui.baz,quux to
-	 * an array of module names like array( 'jquery.foo', 'jquery.bar',
-	 * 'jquery.ui.baz', 'jquery.ui.quux' )
-	 * @param string $modules Packed module name list
-	 * @return array Array of module names
-	 */
-	public static function expandModuleNames( $modules ) {
-		$retval = array();
-		$exploded = explode( '|', $modules );
-		foreach ( $exploded as $group ) {
-			if ( strpos( $group, ',' ) === false ) {
-				// This is not a set of modules in foo.bar,baz notation
-				// but a single module
-				$retval[] = $group;
-			} else {
-				// This is a set of modules in foo.bar,baz notation
-				$pos = strrpos( $group, '.' );
-				if ( $pos === false ) {
-					// Prefixless modules, i.e. without dots
-					$retval = array_merge( $retval, explode( ',', $group ) );
-				} else {
-					// We have a prefix and a bunch of suffixes
-					$prefix = substr( $group, 0, $pos ); // 'foo'
-					$suffixes = explode( ',', substr( $group, $pos + 1 ) ); // array( 'bar', 'baz' )
-					foreach ( $suffixes as $suffix ) {
-						$retval[] = "$prefix.$suffix";
-					}
-				}
-			}
-		}
-		return $retval;
 	}
 
 	/**
 	 * Return a dummy ResourceLoaderContext object suitable for passing into
 	 * things that don't "really" need a context.
+	 *
+	 * Use cases:
+	 * - Unit tests (deprecated, create empty instance directly or use RLTestCase).
+	 *
 	 * @return ResourceLoaderContext
 	 */
-	public static function newDummyContext() {
+	public static function newDummyContext() : ResourceLoaderContext {
+		// This currently creates a non-empty instance of ResourceLoader (all modules registered),
+		// but that's probably not needed. So once that moves into ServiceWiring, this'll
+		// become more like the EmptyResourceLoader class we have in PHPUnit tests, which
+		// is what this should've had originally. If this turns out to be untrue, change to:
+		// `MediaWikiServices::getInstance()->getResourceLoader()` instead.
 		return new self( new ResourceLoader(
-			ConfigFactory::getDefaultInstance()->makeConfig( 'main' ),
+			MediaWikiServices::getInstance()->getMainConfig(),
 			LoggerFactory::getInstance( 'resourceloader' )
-		), new FauxRequest( array() ) );
+		), new FauxRequest( [] ) );
 	}
 
-	/**
-	 * @return ResourceLoader
-	 */
-	public function getResourceLoader() {
+	public function getResourceLoader() : ResourceLoader {
 		return $this->resourceLoader;
 	}
 
 	/**
-	 * @return WebRequest
+	 * @deprecated since 1.34 Use ResourceLoaderModule::getConfig instead
+	 * inside module methods. Use ResourceLoader::getConfig elsewhere.
+	 * @return Config
+	 * @codeCoverageIgnore
 	 */
-	public function getRequest() {
+	public function getConfig() {
+		wfDeprecated( __METHOD__, '1.34' );
+		return $this->getResourceLoader()->getConfig();
+	}
+
+	public function getRequest() : WebRequest {
 		return $this->request;
 	}
 
 	/**
-	 * @return array
+	 * @deprecated since 1.34 Use ResourceLoaderModule::getLogger instead
+	 * inside module methods. Use ResourceLoader::getLogger elsewhere.
+	 * @since 1.27
+	 * @return \Psr\Log\LoggerInterface
 	 */
-	public function getModules() {
+	public function getLogger() {
+		return $this->logger;
+	}
+
+	public function getModules() : array {
 		return $this->modules;
 	}
 
-	/**
-	 * @return string
-	 */
-	public function getLanguage() {
+	public function getLanguage() : string {
 		if ( $this->language === null ) {
-			// Must be a valid language code after this point (bug 62849)
-			$this->language = RequestContext::sanitizeLangCode( $this->getRequest()->getVal( 'lang' ) );
+			// Must be a valid language code after this point (T64849)
+			// Only support uselang values that follow built-in conventions (T102058)
+			$lang = $this->getRequest()->getRawVal( 'lang', '' );
+			// Stricter version of RequestContext::sanitizeLangCode()
+			$validBuiltinCode = MediaWikiServices::getInstance()->getLanguageNameUtils()
+				->isValidBuiltInCode( $lang );
+			if ( !$validBuiltinCode ) {
+				// The 'lang' parameter is required. (Not yet enforced.)
+				// If omitted, localise with the dummy language code.
+				$lang = self::DEFAULT_LANG;
+			}
+			$this->language = $lang;
 		}
 		return $this->language;
 	}
 
-	/**
-	 * @return string
-	 */
-	public function getDirection() {
+	public function getDirection() : string {
 		if ( $this->direction === null ) {
-			$this->direction = $this->getRequest()->getVal( 'dir' );
-			if ( !$this->direction ) {
-				// Determine directionality based on user language (bug 6100)
-				$this->direction = Language::factory( $this->getLanguage() )->getDir();
+			$direction = $this->getRequest()->getRawVal( 'dir' );
+			if ( $direction === 'ltr' || $direction === 'rtl' ) {
+				$this->direction = $direction;
+			} else {
+				// Determine directionality based on user language (T8100)
+				$this->direction = MediaWikiServices::getInstance()->getLanguageFactory()
+					->getLanguage( $this->getLanguage() )->getDir();
 			}
 		}
 		return $this->direction;
 	}
 
-	/**
-	 * @return string
-	 */
-	public function getSkin() {
+	public function getSkin() : string {
 		return $this->skin;
 	}
 
 	/**
 	 * @return string|null
 	 */
-	public function getUser() {
+	public function getUser() : ?string {
 		return $this->user;
+	}
+
+	/**
+	 * Get a Message object with context set.  See wfMessage for parameters.
+	 *
+	 * @since 1.27
+	 * @param string|string[]|MessageSpecifier $key Message key, or array of keys,
+	 *   or a MessageSpecifier.
+	 * @param mixed ...$params
+	 * @return Message
+	 */
+	public function msg( $key, ...$params ) : Message {
+		return wfMessage( $key, ...$params )
+			->inLanguage( $this->getLanguage() )
+			// Use a dummy title because there is no real title
+			// for this endpoint, and the cache won't vary on it
+			// anyways.
+			->title( Title::newFromText( 'Dwimmerlaik' ) );
 	}
 
 	/**
 	 * Get the possibly-cached User object for the specified username
 	 *
 	 * @since 1.25
-	 * @return User|bool false if a valid object cannot be created
+	 * @return User
 	 */
-	public function getUserObj() {
+	public function getUserObj() : User {
 		if ( $this->userObj === null ) {
 			$username = $this->getUser();
 			if ( $username ) {
-				// Optimize: Avoid loading a new User object if possible
-				global $wgUser;
-				if ( is_object( $wgUser ) && $wgUser->getName() === $username ) {
-					$this->userObj = $wgUser;
-				} else {
-					$this->userObj = User::newFromName( $username );
-				}
+				// Use provided username if valid, fallback to anonymous user
+				$this->userObj = User::newFromName( $username ) ?: new User;
 			} else {
-				$this->userObj = new User; // Anonymous user
+				// Anonymous user
+				$this->userObj = new User;
 			}
 		}
 
 		return $this->userObj;
 	}
 
-	/**
-	 * @return bool
-	 */
-	public function getDebug() {
+	public function getDebug() : bool {
 		return $this->debug;
 	}
 
 	/**
 	 * @return string|null
 	 */
-	public function getOnly() {
+	public function getOnly() : ?string {
 		return $this->only;
 	}
 
 	/**
 	 * @see ResourceLoaderModule::getVersionHash
-	 * @see OutputPage::makeResourceLoaderLink
+	 * @see ResourceLoaderClientHtml::makeLoad
 	 * @return string|null
 	 */
-	public function getVersion() {
+	public function getVersion() : ?string {
 		return $this->version;
 	}
 
-	/**
-	 * @return bool
-	 */
-	public function getRaw() {
+	public function getRaw() : bool {
 		return $this->raw;
 	}
 
 	/**
 	 * @return string|null
 	 */
-	public function getImage() {
+	public function getImage() : ?string {
 		return $this->image;
 	}
 
 	/**
 	 * @return string|null
 	 */
-	public function getVariant() {
+	public function getVariant() : ?string {
 		return $this->variant;
 	}
 
 	/**
 	 * @return string|null
 	 */
-	public function getFormat() {
+	public function getFormat() : ?string {
 		return $this->format;
 	}
 
@@ -304,37 +314,109 @@ class ResourceLoaderContext {
 	}
 
 	/**
-	 * @return bool
+	 * Return the replaced-content mapping callback
+	 *
+	 * When editing a page that's used to generate the scripts or styles of a
+	 * ResourceLoaderWikiModule, a preview should use the to-be-saved version of
+	 * the page rather than the current version in the database. A context
+	 * supporting such previews should return a callback to return these
+	 * mappings here.
+	 *
+	 * @since 1.32
+	 * @return callable|null Signature is `Content|null func( Title $t )`
 	 */
-	public function shouldIncludeScripts() {
+	public function getContentOverrideCallback() {
+		return null;
+	}
+
+	public function shouldIncludeScripts() : bool {
 		return $this->getOnly() === null || $this->getOnly() === 'scripts';
 	}
 
-	/**
-	 * @return bool
-	 */
-	public function shouldIncludeStyles() {
+	public function shouldIncludeStyles() : bool {
 		return $this->getOnly() === null || $this->getOnly() === 'styles';
 	}
 
-	/**
-	 * @return bool
-	 */
-	public function shouldIncludeMessages() {
+	public function shouldIncludeMessages() : bool {
 		return $this->getOnly() === null;
 	}
 
 	/**
+	 * All factors that uniquely identify this request, except 'modules'.
+	 *
+	 * The list of modules is excluded here for legacy reasons as most callers already
+	 * split up handling of individual modules. Including it here would massively fragment
+	 * the cache and decrease its usefulness.
+	 *
+	 * E.g. Used by RequestFileCache to form a cache key for storing the reponse output.
+	 *
 	 * @return string
 	 */
-	public function getHash() {
+	public function getHash() : string {
 		if ( !isset( $this->hash ) ) {
-			$this->hash = implode( '|', array(
-				$this->getLanguage(), $this->getDirection(), $this->getSkin(), $this->getUser(),
-				$this->getImage(), $this->getVariant(), $this->getFormat(),
-				$this->getDebug(), $this->getOnly(), $this->getVersion()
-			) );
+			$this->hash = implode( '|', [
+				// Module content vary
+				$this->getLanguage(),
+				$this->getSkin(),
+				$this->getDebug(),
+				$this->getUser(),
+				// Request vary
+				$this->getOnly(),
+				$this->getVersion(),
+				$this->getRaw(),
+				$this->getImage(),
+				$this->getVariant(),
+				$this->getFormat(),
+			] );
 		}
 		return $this->hash;
+	}
+
+	/**
+	 * Get the request base parameters, omitting any defaults.
+	 *
+	 * @internal For use by ResourceLoaderStartUpModule only
+	 * @return string[]
+	 */
+	public function getReqBase() : array {
+		$reqBase = [];
+		if ( $this->getLanguage() !== self::DEFAULT_LANG ) {
+			$reqBase['lang'] = $this->getLanguage();
+		}
+		if ( $this->getSkin() !== self::DEFAULT_SKIN ) {
+			$reqBase['skin'] = $this->getSkin();
+		}
+		if ( $this->getDebug() ) {
+			$reqBase['debug'] = 'true';
+		}
+		return $reqBase;
+	}
+
+	/**
+	 * Wrapper around json_encode that avoids needless escapes,
+	 * and pretty-prints in debug mode.
+	 *
+	 * @internal
+	 * @param mixed $data
+	 * @return string|false JSON string, false on error
+	 */
+	public function encodeJson( $data ) {
+		// Keep output as small as possible by disabling needless escape modes
+		// that PHP uses by default.
+		// However, while most module scripts are only served on HTTP responses
+		// for JavaScript, some modules can also be embedded in the HTML as inline
+		// scripts. This, and the fact that we sometimes need to export strings
+		// containing user-generated content and labels that may genuinely contain
+		// a sequences like "</script>", we need to encode either '/' or '<'.
+		// By default PHP escapes '/'. Let's escape '<' instead which is less common
+		// and allows URLs to mostly remain readable.
+		$jsonFlags = JSON_UNESCAPED_SLASHES |
+			JSON_UNESCAPED_UNICODE |
+			JSON_HEX_TAG |
+			JSON_HEX_AMP;
+		if ( $this->getDebug() ) {
+			$jsonFlags |= JSON_PRETTY_PRINT;
+		}
+		return json_encode( $data, $jsonFlags );
 	}
 }

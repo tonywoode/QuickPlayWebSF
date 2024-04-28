@@ -1,32 +1,40 @@
 <?php
+
+use PHPUnit\Framework\TestSuite;
+use SebastianBergmann\FileIterator\Facade;
+
 /**
  * This test suite runs unit tests registered by extensions.
  * See https://www.mediawiki.org/wiki/Manual:Hooks/UnitTestsList for details of
  * how to register your tests.
  */
 
-class ExtensionsTestSuite extends PHPUnit_Framework_TestSuite {
+class ExtensionsTestSuite extends TestSuite {
 	public function __construct() {
 		parent::__construct();
-		$paths = array();
+
+		$paths = [];
+		// Autodiscover extension unit tests
+		$registry = ExtensionRegistry::getInstance();
+		foreach ( $registry->getAllThings() as $info ) {
+			$paths[] = dirname( $info['path'] ) . '/tests/phpunit';
+		}
 		// Extensions can return a list of files or directories
-		Hooks::run( 'UnitTestsList', array( &$paths ) );
-		foreach ( $paths as $path ) {
+		Hooks::runner()->onUnitTestsList( $paths );
+		foreach ( array_unique( $paths ) as $path ) {
 			if ( is_dir( $path ) ) {
 				// If the path is a directory, search for test cases.
 				// @since 1.24
-				$suffixes = array(
-					'Test.php',
-				);
-				$fileIterator = new File_Iterator_Facade();
+				$suffixes = [ 'Test.php' ];
+				$fileIterator = new Facade();
 				$matchingFiles = $fileIterator->getFilesAsArray( $path, $suffixes );
 				$this->addTestFiles( $matchingFiles );
-			} else {
+			} elseif ( file_exists( $path ) ) {
 				// Add a single test case or suite class
 				$this->addTestFile( $path );
 			}
 		}
-		if ( !count( $paths ) ) {
+		if ( !$paths ) {
 			$this->addTest( new DummyExtensionsTest( 'testNothing' ) );
 		}
 	}
@@ -40,7 +48,10 @@ class ExtensionsTestSuite extends PHPUnit_Framework_TestSuite {
  * Needed to avoid warnings like 'No tests found in class "ExtensionsTestSuite".'
  * when no extensions with tests are used.
  */
-class DummyExtensionsTest extends MediaWikiTestCase {
+class DummyExtensionsTest extends MediaWikiIntegrationTestCase {
+	/**
+	 * @coversNothing
+	 */
 	public function testNothing() {
 		$this->assertTrue( true );
 	}

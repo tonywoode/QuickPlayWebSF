@@ -5,14 +5,16 @@
  * @file
  */
 
-/** Tests for MediaWiki languages/classes/LanguageTl.php */
+/** Tests for MediaWiki languages/classes/LanguageTl.php
+ * @group Language
+ */
 class LanguageTlTest extends LanguageClassesTestCase {
 	/**
 	 * @dataProvider providePlural
 	 * @covers Language::convertPlural
 	 */
 	public function testPlural( $result, $value ) {
-		$forms = array( 'one', 'other' );
+		$forms = [ 'one', 'other' ];
 		$this->assertEquals( $result, $this->getLang()->convertPlural( $value, $forms ) );
 	}
 
@@ -25,12 +27,12 @@ class LanguageTlTest extends LanguageClassesTestCase {
 	}
 
 	public static function providePlural() {
-		return array(
-			array( 'one', 0 ),
-			array( 'one', 1 ),
-			array( 'one', 2 ),
-			array( 'other', 4 ),
-			array( 'other', 6 ),
-		);
+		return [
+			[ 'one', 0 ],
+			[ 'one', 1 ],
+			[ 'one', 2 ],
+			[ 'other', 4 ],
+			[ 'other', 6 ],
+		];
 	}
 }

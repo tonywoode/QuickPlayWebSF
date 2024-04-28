@@ -1,8 +1,6 @@
 <?php
 /**
- * Created on Feb 25, 2015
- *
- * Copyright © 2015 Brad Jorsch "bjorsch@wikimedia.org"
+ * Copyright © 2015 Wikimedia Foundation and contributors
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +28,8 @@
  *   implemented, as long as the method is provided. This allows for extension
  *   code to maintain compatibility with older MediaWiki while still taking
  *   advantage of this where it exists.
+ *
+ * @stable to implement
  *
  * @ingroup API
  * @since 1.25

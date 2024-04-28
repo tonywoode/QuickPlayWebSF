@@ -1,5 +1,8 @@
 <?php
 
+/**
+ * @covers DeleteLogFormatter
+ */
 class DeleteLogFormatterTest extends LogFormatterTestCase {
 
 	/**
@@ -8,40 +11,40 @@ class DeleteLogFormatterTest extends LogFormatterTestCase {
 	 * Do not change the existing data, just add a new database row
 	 */
 	public static function provideDeleteLogDatabaseRows() {
-		return array(
+		return [
 			// Current format
-			array(
-				array(
+			[
+				[
 					'type' => 'delete',
 					'action' => 'delete',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(),
-				),
-				array(
+					'params' => [],
+				],
+				[
 					'text' => 'User deleted page Page',
-					'api' => array(),
-				),
-			),
+					'api' => [],
+				],
+			],
 
 			// Legacy format
-			array(
-				array(
+			[
+				[
 					'type' => 'delete',
 					'action' => 'delete',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(),
-				),
-				array(
+					'params' => [],
+				],
+				[
 					'legacy' => true,
 					'text' => 'User deleted page Page',
-					'api' => array(),
-				),
-			),
-		);
+					'api' => [],
+				],
+			],
+		];
 	}
 
 	/**
@@ -57,40 +60,66 @@ class DeleteLogFormatterTest extends LogFormatterTestCase {
 	 * Do not change the existing data, just add a new database row
 	 */
 	public static function provideRestoreLogDatabaseRows() {
-		return array(
+		return [
 			// Current format
-			array(
-				array(
+			[
+				[
 					'type' => 'delete',
 					'action' => 'restore',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(),
-				),
-				array(
+					'params' => [
+						':assoc:count' => [
+							'revisions' => 2,
+							'files' => 1,
+						],
+					],
+				],
+				[
+					'text' => 'User restored page Page (2 revisions and 1 file)',
+					'api' => [
+						'count' => [
+							'revisions' => 2,
+							'files' => 1,
+						],
+					],
+				],
+			],
+
+			// Legacy format without counts
+			[
+				[
+					'type' => 'delete',
+					'action' => 'restore',
+					'comment' => 'delete comment',
+					'namespace' => NS_MAIN,
+					'title' => 'Page',
+					'params' => [],
+				],
+				[
 					'text' => 'User restored page Page',
-					'api' => array(),
-				),
-			),
+					'api' => [],
+				],
+			],
 
 			// Legacy format
-			array(
-				array(
+			[
+				[
 					'type' => 'delete',
 					'action' => 'restore',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(),
-				),
-				array(
+					'params' => [],
+				],
+				[
 					'legacy' => true,
 					'text' => 'User restored page Page',
-					'api' => array(),
-				),
-			),
-		);
+					'api' => [],
+				],
+			],
+		];
 	}
 
 	/**
@@ -106,86 +135,86 @@ class DeleteLogFormatterTest extends LogFormatterTestCase {
 	 * Do not change the existing data, just add a new database row
 	 */
 	public static function provideRevisionLogDatabaseRows() {
-		return array(
+		return [
 			// Current format
-			array(
-				array(
+			[
+				[
 					'type' => 'delete',
 					'action' => 'revision',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(
+					'params' => [
 						'4::type' => 'archive',
-						'5::ids' => array( '1', '3', '4' ),
+						'5::ids' => [ '1', '3', '4' ],
 						'6::ofield' => '1',
 						'7::nfield' => '2',
-					),
-				),
-				array(
+					],
+				],
+				[
 					'text' => 'User changed visibility of 3 revisions on page Page: edit summary '
 						. 'hidden and content unhidden',
-					'api' => array(
+					'api' => [
 						'type' => 'archive',
-						'ids' => array( '1', '3', '4' ),
-						'old' => array(
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
 							'bitmask' => 1,
 							'content' => true,
 							'comment' => false,
 							'user' => false,
 							'restricted' => false,
-						),
-						'new' => array(
+						],
+						'new' => [
 							'bitmask' => 2,
 							'content' => false,
 							'comment' => true,
 							'user' => false,
 							'restricted' => false,
-						),
-					),
-				),
-			),
+						],
+					],
+				],
+			],
 
 			// Legacy format
-			array(
-				array(
+			[
+				[
 					'type' => 'delete',
 					'action' => 'revision',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(
+					'params' => [
 						'archive',
 						'1,3,4',
 						'ofield=1',
 						'nfield=2',
-					),
-				),
-				array(
+					],
+				],
+				[
 					'legacy' => true,
 					'text' => 'User changed visibility of 3 revisions on page Page: edit summary '
 						. 'hidden and content unhidden',
-					'api' => array(
+					'api' => [
 						'type' => 'archive',
-						'ids' => array( '1', '3', '4' ),
-						'old' => array(
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
 							'bitmask' => 1,
 							'content' => true,
 							'comment' => false,
 							'user' => false,
 							'restricted' => false,
-						),
-						'new' => array(
+						],
+						'new' => [
 							'bitmask' => 2,
 							'content' => false,
 							'comment' => true,
 							'user' => false,
 							'restricted' => false,
-						),
-					),
-				),
-			),
-		);
+						],
+					],
+				],
+			],
+		];
 	}
 
 	/**
@@ -201,84 +230,84 @@ class DeleteLogFormatterTest extends LogFormatterTestCase {
 	 * Do not change the existing data, just add a new database row
 	 */
 	public static function provideEventLogDatabaseRows() {
-		return array(
+		return [
 			// Current format
-			array(
-				array(
+			[
+				[
 					'type' => 'delete',
 					'action' => 'event',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(
-						'4::ids' => array( '1', '3', '4' ),
+					'params' => [
+						'4::ids' => [ '1', '3', '4' ],
 						'5::ofield' => '1',
 						'6::nfield' => '2',
-					),
-				),
-				array(
+					],
+				],
+				[
 					'text' => 'User changed visibility of 3 log events on Page: edit summary hidden '
 						. 'and content unhidden',
-					'api' => array(
+					'api' => [
 						'type' => 'logging',
-						'ids' => array( '1', '3', '4' ),
-						'old' => array(
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
 							'bitmask' => 1,
 							'content' => true,
 							'comment' => false,
 							'user' => false,
 							'restricted' => false,
-						),
-						'new' => array(
+						],
+						'new' => [
 							'bitmask' => 2,
 							'content' => false,
 							'comment' => true,
 							'user' => false,
 							'restricted' => false,
-						),
-					),
-				),
-			),
+						],
+					],
+				],
+			],
 
 			// Legacy format
-			array(
-				array(
+			[
+				[
 					'type' => 'delete',
 					'action' => 'event',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(
+					'params' => [
 						'1,3,4',
 						'ofield=1',
 						'nfield=2',
-					),
-				),
-				array(
+					],
+				],
+				[
 					'legacy' => true,
 					'text' => 'User changed visibility of 3 log events on Page: edit summary hidden '
 						. 'and content unhidden',
-					'api' => array(
+					'api' => [
 						'type' => 'logging',
-						'ids' => array( '1', '3', '4' ),
-						'old' => array(
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
 							'bitmask' => 1,
 							'content' => true,
 							'comment' => false,
 							'user' => false,
 							'restricted' => false,
-						),
-						'new' => array(
+						],
+						'new' => [
 							'bitmask' => 2,
 							'content' => false,
 							'comment' => true,
 							'user' => false,
 							'restricted' => false,
-						),
-					),
-				),
-			),
-		);
+						],
+					],
+				],
+			],
+		];
 	}
 
 	/**
@@ -294,92 +323,195 @@ class DeleteLogFormatterTest extends LogFormatterTestCase {
 	 * Do not change the existing data, just add a new database row
 	 */
 	public static function provideSuppressRevisionLogDatabaseRows() {
-		return array(
+		return [
 			// Current format
-			array(
-				array(
+			[
+				[
 					'type' => 'suppress',
 					'action' => 'revision',
 					'comment' => 'Suppress comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(
+					'params' => [
 						'4::type' => 'archive',
-						'5::ids' => array( '1', '3', '4' ),
+						'5::ids' => [ '1', '3', '4' ],
 						'6::ofield' => '1',
 						'7::nfield' => '10',
-					),
-				),
-				array(
+					],
+				],
+				[
 					'text' => 'User secretly changed visibility of 3 revisions on page Page: edit '
 						. 'summary hidden, content unhidden and applied restrictions to administrators',
-					'api' => array(
+					'api' => [
 						'type' => 'archive',
-						'ids' => array( '1', '3', '4' ),
-						'old' => array(
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
 							'bitmask' => 1,
 							'content' => true,
 							'comment' => false,
 							'user' => false,
 							'restricted' => false,
-						),
-						'new' => array(
+						],
+						'new' => [
 							'bitmask' => 10,
 							'content' => false,
 							'comment' => true,
 							'user' => false,
 							'restricted' => true,
-						),
-					),
-				),
-			),
+						],
+					],
+				],
+			],
 
 			// Legacy format
-			array(
-				array(
+			[
+				[
 					'type' => 'suppress',
 					'action' => 'revision',
 					'comment' => 'Suppress comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(
+					'params' => [
 						'archive',
 						'1,3,4',
 						'ofield=1',
 						'nfield=10',
-					),
-				),
-				array(
+					],
+				],
+				[
 					'legacy' => true,
 					'text' => 'User secretly changed visibility of 3 revisions on page Page: edit '
 						. 'summary hidden, content unhidden and applied restrictions to administrators',
-					'api' => array(
+					'api' => [
 						'type' => 'archive',
-						'ids' => array( '1', '3', '4' ),
-						'old' => array(
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
 							'bitmask' => 1,
 							'content' => true,
 							'comment' => false,
 							'user' => false,
 							'restricted' => false,
-						),
-						'new' => array(
+						],
+						'new' => [
 							'bitmask' => 10,
 							'content' => false,
 							'comment' => true,
 							'user' => false,
 							'restricted' => true,
-						),
-					),
-				),
-			),
-		);
+						],
+					],
+				],
+			],
+		];
 	}
 
 	/**
 	 * @dataProvider provideSuppressRevisionLogDatabaseRows
 	 */
 	public function testSuppressRevisionLogDatabaseRows( $row, $extra ) {
+		$this->setMwGlobals(
+			'wgGroupPermissions',
+			[
+				'oversight' => [
+					'viewsuppressed' => true,
+					'suppressionlog' => true,
+				],
+			]
+		);
+		$this->doTestLogFormatter( $row, $extra, [ 'oversight' ] );
+	}
+
+	/**
+	 * Provide different rows from the logging table to test
+	 * for backward compatibility.
+	 * Do not change the existing data, just add a new database row
+	 */
+	public static function provideSuppressRevisionLogDatabaseRowsNonPrivileged() {
+		return [
+			// Current format
+			[
+				[
+					'type' => 'suppress',
+					'action' => 'revision',
+					'comment' => 'Suppress comment',
+					'namespace' => NS_MAIN,
+					'title' => 'Page',
+					'params' => [
+						'4::type' => 'archive',
+						'5::ids' => [ '1', '3', '4' ],
+						'6::ofield' => '1',
+						'7::nfield' => '10',
+					],
+				],
+				[
+					'text' => '(username removed) (log details removed)',
+					'api' => [
+						'type' => 'archive',
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
+							'bitmask' => 1,
+							'content' => true,
+							'comment' => false,
+							'user' => false,
+							'restricted' => false,
+						],
+						'new' => [
+							'bitmask' => 10,
+							'content' => false,
+							'comment' => true,
+							'user' => false,
+							'restricted' => true,
+						],
+					],
+				],
+			],
+
+			// Legacy format
+			[
+				[
+					'type' => 'suppress',
+					'action' => 'revision',
+					'comment' => 'Suppress comment',
+					'namespace' => NS_MAIN,
+					'title' => 'Page',
+					'params' => [
+						'archive',
+						'1,3,4',
+						'ofield=1',
+						'nfield=10',
+					],
+				],
+				[
+					'legacy' => true,
+					'text' => '(username removed) (log details removed)',
+					'api' => [
+						'type' => 'archive',
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
+							'bitmask' => 1,
+							'content' => true,
+							'comment' => false,
+							'user' => false,
+							'restricted' => false,
+						],
+						'new' => [
+							'bitmask' => 10,
+							'content' => false,
+							'comment' => true,
+							'user' => false,
+							'restricted' => true,
+						],
+					],
+				],
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider provideSuppressRevisionLogDatabaseRowsNonPrivileged
+	 */
+	public function testSuppressRevisionLogDatabaseRowsNonPrivileged( $row, $extra ) {
+		$this->user = $this->getTestUser()->getUser();
 		$this->doTestLogFormatter( $row, $extra );
 	}
 
@@ -389,90 +521,212 @@ class DeleteLogFormatterTest extends LogFormatterTestCase {
 	 * Do not change the existing data, just add a new database row
 	 */
 	public static function provideSuppressEventLogDatabaseRows() {
-		return array(
+		return [
 			// Current format
-			array(
-				array(
+			[
+				[
 					'type' => 'suppress',
 					'action' => 'event',
 					'comment' => 'Suppress comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(
-						'4::ids' => array( '1', '3', '4' ),
+					'params' => [
+						'4::ids' => [ '1', '3', '4' ],
 						'5::ofield' => '1',
 						'6::nfield' => '10',
-					),
-				),
-				array(
+					],
+				],
+				[
 					'text' => 'User secretly changed visibility of 3 log events on Page: edit '
 						. 'summary hidden, content unhidden and applied restrictions to administrators',
-					'api' => array(
+					'api' => [
 						'type' => 'logging',
-						'ids' => array( '1', '3', '4' ),
-						'old' => array(
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
 							'bitmask' => 1,
 							'content' => true,
 							'comment' => false,
 							'user' => false,
 							'restricted' => false,
-						),
-						'new' => array(
+						],
+						'new' => [
 							'bitmask' => 10,
 							'content' => false,
 							'comment' => true,
 							'user' => false,
 							'restricted' => true,
-						),
-					),
-				),
-			),
+						],
+					],
+				],
+			],
 
-			// Legacy format
-			array(
-				array(
+			// Legacy formats
+			[
+				[
 					'type' => 'suppress',
 					'action' => 'event',
 					'comment' => 'Suppress comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(
+					'params' => [
 						'1,3,4',
 						'ofield=1',
 						'nfield=10',
-					),
-				),
-				array(
+					],
+				],
+				[
 					'legacy' => true,
 					'text' => 'User secretly changed visibility of 3 log events on Page: edit '
 						. 'summary hidden, content unhidden and applied restrictions to administrators',
-					'api' => array(
+					'api' => [
 						'type' => 'logging',
-						'ids' => array( '1', '3', '4' ),
-						'old' => array(
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
 							'bitmask' => 1,
 							'content' => true,
 							'comment' => false,
 							'user' => false,
 							'restricted' => false,
-						),
-						'new' => array(
+						],
+						'new' => [
 							'bitmask' => 10,
 							'content' => false,
 							'comment' => true,
 							'user' => false,
 							'restricted' => true,
-						),
-					),
-				),
-			),
-		);
+						],
+					],
+				],
+			],
+			[
+				[
+					'type' => 'delete',
+					'action' => 'revision',
+					'comment' => 'Old rows might lack ofield/nfield (T224815)',
+					'namespace' => NS_MAIN,
+					'title' => 'Page',
+					'params' => [
+						'oldid',
+						'1234',
+					],
+				],
+				[
+					'legacy' => true,
+					'text' => 'User changed visibility of revisions on page Page',
+					'api' => [
+						'type' => 'oldid',
+						'ids' => [ '1234' ],
+					],
+				],
+			]
+		];
 	}
 
 	/**
 	 * @dataProvider provideSuppressEventLogDatabaseRows
 	 */
 	public function testSuppressEventLogDatabaseRows( $row, $extra ) {
+		$this->setMwGlobals(
+			'wgGroupPermissions',
+			[
+				'oversight' => [
+					'viewsuppressed' => true,
+					'suppressionlog' => true,
+				],
+			]
+		);
+		$this->doTestLogFormatter( $row, $extra, [ 'oversight' ] );
+	}
+
+	/**
+	 * Provide different rows from the logging table to test
+	 * for backward compatibility.
+	 * Do not change the existing data, just add a new database row
+	 */
+	public static function provideSuppressEventLogDatabaseRowsNonPrivileged() {
+		return [
+			// Current format
+			[
+				[
+					'type' => 'suppress',
+					'action' => 'event',
+					'comment' => 'Suppress comment',
+					'namespace' => NS_MAIN,
+					'title' => 'Page',
+					'params' => [
+						'4::ids' => [ '1', '3', '4' ],
+						'5::ofield' => '1',
+						'6::nfield' => '10',
+					],
+				],
+				[
+					'text' => '(username removed) (log details removed)',
+					'api' => [
+						'type' => 'logging',
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
+							'bitmask' => 1,
+							'content' => true,
+							'comment' => false,
+							'user' => false,
+							'restricted' => false,
+						],
+						'new' => [
+							'bitmask' => 10,
+							'content' => false,
+							'comment' => true,
+							'user' => false,
+							'restricted' => true,
+						],
+					],
+				],
+			],
+
+			// Legacy format
+			[
+				[
+					'type' => 'suppress',
+					'action' => 'event',
+					'comment' => 'Suppress comment',
+					'namespace' => NS_MAIN,
+					'title' => 'Page',
+					'params' => [
+						'1,3,4',
+						'ofield=1',
+						'nfield=10',
+					],
+				],
+				[
+					'legacy' => true,
+					'text' => '(username removed) (log details removed)',
+					'api' => [
+						'type' => 'logging',
+						'ids' => [ '1', '3', '4' ],
+						'old' => [
+							'bitmask' => 1,
+							'content' => true,
+							'comment' => false,
+							'user' => false,
+							'restricted' => false,
+						],
+						'new' => [
+							'bitmask' => 10,
+							'content' => false,
+							'comment' => true,
+							'user' => false,
+							'restricted' => true,
+						],
+					],
+				],
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider provideSuppressEventLogDatabaseRowsNonPrivileged
+	 */
+	public function testSuppressEventLogDatabaseRowsNonPrivileged( $row, $extra ) {
+		$this->user = $this->getTestUser()->getUser();
 		$this->doTestLogFormatter( $row, $extra );
 	}
 
@@ -482,46 +736,105 @@ class DeleteLogFormatterTest extends LogFormatterTestCase {
 	 * Do not change the existing data, just add a new database row
 	 */
 	public static function provideSuppressDeleteLogDatabaseRows() {
-		return array(
+		return [
 			// Current format
-			array(
-				array(
+			[
+				[
 					'type' => 'suppress',
 					'action' => 'delete',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(),
-				),
-				array(
+					'params' => [],
+				],
+				[
 					'text' => 'User suppressed page Page',
-					'api' => array(),
-				),
-			),
+					'api' => [],
+				],
+			],
 
 			// Legacy format
-			array(
-				array(
+			[
+				[
 					'type' => 'suppress',
 					'action' => 'delete',
 					'comment' => 'delete comment',
 					'namespace' => NS_MAIN,
 					'title' => 'Page',
-					'params' => array(),
-				),
-				array(
+					'params' => [],
+				],
+				[
 					'legacy' => true,
 					'text' => 'User suppressed page Page',
-					'api' => array(),
-				),
-			),
-		);
+					'api' => [],
+				],
+			],
+		];
 	}
 
 	/**
 	 * @dataProvider provideSuppressDeleteLogDatabaseRows
 	 */
 	public function testSuppressDeleteLogDatabaseRows( $row, $extra ) {
+		$this->setMwGlobals(
+			'wgGroupPermissions',
+			[
+				'oversight' => [
+					'viewsuppressed' => true,
+					'suppressionlog' => true,
+				],
+			]
+		);
+		$this->doTestLogFormatter( $row, $extra, [ 'oversight' ] );
+	}
+
+	/**
+	 * Provide different rows from the logging table to test
+	 * for backward compatibility.
+	 * Do not change the existing data, just add a new database row
+	 */
+	public static function provideSuppressDeleteLogDatabaseRowsNonPrivileged() {
+		return [
+			// Current format
+			[
+				[
+					'type' => 'suppress',
+					'action' => 'delete',
+					'comment' => 'delete comment',
+					'namespace' => NS_MAIN,
+					'title' => 'Page',
+					'params' => [],
+				],
+				[
+					'text' => '(username removed) (log details removed)',
+					'api' => [],
+				],
+			],
+
+			// Legacy format
+			[
+				[
+					'type' => 'suppress',
+					'action' => 'delete',
+					'comment' => 'delete comment',
+					'namespace' => NS_MAIN,
+					'title' => 'Page',
+					'params' => [],
+				],
+				[
+					'legacy' => true,
+					'text' => '(username removed) (log details removed)',
+					'api' => [],
+				],
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider provideSuppressDeleteLogDatabaseRowsNonPrivileged
+	 */
+	public function testSuppressDeleteLogDatabaseRowsNonPrivileged( $row, $extra ) {
+		$this->user = $this->getTestUser()->getUser();
 		$this->doTestLogFormatter( $row, $extra );
 	}
 }

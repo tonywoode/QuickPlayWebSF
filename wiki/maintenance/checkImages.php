@@ -20,6 +20,9 @@
  * @file
  * @ingroup Maintenance
  */
+
+use MediaWiki\MediaWikiServices;
+
 require_once __DIR__ . '/Maintenance.php';
 
 /**
@@ -31,21 +34,23 @@ class CheckImages extends Maintenance {
 
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription = "Check images to see if they exist, are readable, etc";
+		$this->addDescription( 'Check images to see if they exist, are readable, etc' );
 		$this->setBatchSize( 1000 );
 	}
 
 	public function execute() {
 		$start = '';
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbr = $this->getDB( DB_REPLICA );
 
 		$numImages = 0;
 		$numGood = 0;
 
-		$repo = RepoGroup::singleton()->getLocalRepo();
+		$repo = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo();
+		$fileQuery = LocalFile::getQueryInfo();
 		do {
-			$res = $dbr->select( 'image', '*', array( 'img_name > ' . $dbr->addQuotes( $start ) ),
-				__METHOD__, array( 'LIMIT' => $this->mBatchSize ) );
+			$res = $dbr->select( $fileQuery['tables'], $fileQuery['fields'],
+				[ 'img_name > ' . $dbr->addQuotes( $start ) ],
+				__METHOD__, [ 'LIMIT' => $this->getBatchSize() ], $fileQuery['joins'] );
 			foreach ( $res as $row ) {
 				$numImages++;
 				$start = $row->img_name;
@@ -80,5 +85,5 @@ class CheckImages extends Maintenance {
 	}
 }
 
-$maintClass = "CheckImages";
+$maintClass = CheckImages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

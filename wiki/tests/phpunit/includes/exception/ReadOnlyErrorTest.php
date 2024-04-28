@@ -2,15 +2,15 @@
 
 /**
  * @covers ReadOnlyError
- * @author Adam Shorland
+ * @author Addshore
  */
-class ReadOnlyErrorTest extends MediaWikiTestCase {
+class ReadOnlyErrorTest extends MediaWikiIntegrationTestCase {
 
 	public function testConstruction() {
 		$e = new ReadOnlyError();
 		$this->assertEquals( 'readonly', $e->title );
 		$this->assertEquals( 'readonlytext', $e->msg );
-		$this->assertEquals( wfReadOnlyReason() ?: array(), $e->params );
+		$this->assertEquals( wfReadOnlyReason() ?: [], $e->params );
 	}
 
 }

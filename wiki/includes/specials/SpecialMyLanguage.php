@@ -23,6 +23,8 @@
  * @copyright Copyright © 2010-2013 Niklas Laxström, Siebrand Mazeland
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * Unlisted special page just to redirect the user to the translated version of
  * a page, if it exists.
@@ -63,24 +65,26 @@ class SpecialMyLanguage extends RedirectSpecialArticle {
 	 * @return Title|null
 	 */
 	public function findTitle( $subpage ) {
+		$services = MediaWikiServices::getInstance();
 		// base = title without language code suffix
 		// provided = the title as it was given
 		$base = $provided = null;
 		if ( $subpage !== null ) {
 			$provided = Title::newFromText( $subpage );
 			$base = $provided;
-		}
 
-		if ( $provided && strpos( $subpage, '/' ) !== false ) {
-			$pos = strrpos( $subpage, '/' );
-			$basepage = substr( $subpage, 0, $pos );
-			$code = substr( $subpage, $pos + 1 );
-			if ( strlen( $code ) && Language::isKnownLanguageTag( $code ) ) {
-				$base = Title::newFromText( $basepage );
+			if ( $provided && strpos( $subpage, '/' ) !== false ) {
+				$pos = strrpos( $subpage, '/' );
+				$basepage = substr( $subpage, 0, $pos );
+				$code = substr( $subpage, $pos + 1 );
+				if ( strlen( $code ) && $services->getLanguageNameUtils()->isKnownLanguageTag( $code ) ) {
+					$base = Title::newFromText( $basepage );
+				}
 			}
 		}
 
 		if ( !$base ) {
+			// No subpage provided or base page does not exist
 			return null;
 		}
 
@@ -89,15 +93,39 @@ class SpecialMyLanguage extends RedirectSpecialArticle {
 			$base = $page->getRedirectTarget();
 		}
 
-		$uiCode = $this->getLanguage()->getCode();
-		$proposed = $base->getSubpage( $uiCode );
-		if ( $uiCode !== $this->getConfig()->get( 'LanguageCode' ) && $proposed && $proposed->exists() ) {
-			return $proposed;
-		} elseif ( $provided && $provided->exists() ) {
-			return $provided;
-		} else {
+		$uiLang = $this->getLanguage();
+		$contLang = $services->getContentLanguage();
+
+		if ( $uiLang->equals( $contLang ) ) {
+			// Short circuit when the current UI language is the
+			// wiki's default language to avoid unnecessary page lookups.
 			return $base;
 		}
+
+		// Check for a subpage in current UI language
+		$proposed = $base->getSubpage( $uiLang->getCode() );
+		if ( $proposed && $proposed->exists() ) {
+			return $proposed;
+		}
+
+		if ( $provided !== $base && $provided->exists() ) {
+			// Explicit language code given and the page exists
+			return $provided;
+		}
+
+		// Check for fallback languages specified by the UI language
+		$possibilities = $uiLang->getFallbackLanguages();
+		foreach ( $possibilities as $lang ) {
+			if ( $lang !== $contLang->getCode() ) {
+				$proposed = $base->getSubpage( $lang );
+				if ( $proposed && $proposed->exists() ) {
+					return $proposed;
+				}
+			}
+		}
+
+		// When all else has failed, return the base page
+		return $base;
 	}
 
 	/**

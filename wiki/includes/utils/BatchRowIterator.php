@@ -1,10 +1,8 @@
 <?php
+
+use Wikimedia\Rdbms\IDatabase;
+
 /**
- * Allows iterating a large number of rows in batches transparently.
- * By default when iterated over returns the full query result as an
- * array of rows.  Can be wrapped in RecursiveIteratorIterator to
- * collapse those arrays into a single stream of rows queried in batches.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -23,90 +21,113 @@
  * @file
  * @ingroup Maintenance
  */
+
+/**
+ * Allows iterating a large number of rows in batches transparently.
+ * By default when iterated over returns the full query result as an
+ * array of rows.  Can be wrapped in RecursiveIteratorIterator to
+ * collapse those arrays into a single stream of rows queried in batches.
+ *
+ * @newable
+ */
 class BatchRowIterator implements RecursiveIterator {
 
 	/**
-	 * @var DatabaseBase $db The database to read from
+	 * @var IDatabase The database to read from
 	 */
 	protected $db;
 
 	/**
-	 * @var string $table The name of the table to read from
+	 * @var string|array The name or names of the table to read from
 	 */
 	protected $table;
 
 	/**
-	 * @var array $primaryKey The name of the primary key(s)
+	 * @var array The name of the primary key(s)
 	 */
 	protected $primaryKey;
 
 	/**
-	 * @var integer $batchSize The number of rows to fetch per iteration
+	 * @var int The number of rows to fetch per iteration
 	 */
 	protected $batchSize;
 
 	/**
-	 * @var array $conditions Array of strings containing SQL conditions
-	 *  to add to the query
+	 * @var array Array of strings containing SQL conditions to add to the query
 	 */
-	protected $conditions = array();
+	protected $conditions = [];
 
 	/**
-	 * @var array $joinConditions
+	 * @var array
 	 */
-	protected $joinConditions = array();
+	protected $joinConditions = [];
 
 	/**
-	 * @var array $fetchColumns List of column names to select from the
-	 *  table suitable for use with DatabaseBase::select()
+	 * @var array List of column names to select from the table suitable for use
+	 *  with IDatabase::select()
 	 */
 	protected $fetchColumns;
 
 	/**
-	 * @var string $orderBy SQL Order by condition generated from $this->primaryKey
+	 * @var string SQL Order by condition generated from $this->primaryKey
 	 */
 	protected $orderBy;
 
 	/**
-	 * @var array $current The current iterator value
+	 * @var array The current iterator value
 	 */
-	private $current = array();
+	private $current = [];
 
 	/**
-	 * @var integer key 0-indexed number of pages fetched since self::reset()
+	 * @var int 0-indexed number of pages fetched since self::reset()
 	 */
-	private $key;
+	private $key = -1;
 
 	/**
-	 * @param DatabaseBase $db         The database to read from
-	 * @param string       $table      The name of the table to read from
+	 * @var array Additional query options
+	 */
+	protected $options = [];
+
+	/**
+	 * @stable to call
+	 *
+	 * @param IDatabase $db The database to read from
+	 * @param string|array $table The name or names of the table to read from
 	 * @param string|array $primaryKey The name or names of the primary key columns
-	 * @param integer      $batchSize  The number of rows to fetch per iteration
-	 * @throws MWException
+	 * @param int $batchSize The number of rows to fetch per iteration
+	 * @throws InvalidArgumentException
 	 */
-	public function __construct( DatabaseBase $db, $table, $primaryKey, $batchSize ) {
+	public function __construct( IDatabase $db, $table, $primaryKey, $batchSize ) {
 		if ( $batchSize < 1 ) {
-			throw new MWException( 'Batch size must be at least 1 row.' );
+			throw new InvalidArgumentException( 'Batch size must be at least 1 row.' );
 		}
 		$this->db = $db;
 		$this->table = $table;
-		$this->primaryKey = (array) $primaryKey;
+		$this->primaryKey = (array)$primaryKey;
 		$this->fetchColumns = $this->primaryKey;
 		$this->orderBy = implode( ' ASC,', $this->primaryKey ) . ' ASC';
 		$this->batchSize = $batchSize;
 	}
 
 	/**
-	 * @param array $condition Query conditions suitable for use with
-	 *  DatabaseBase::select
+	 * @param array $conditions Query conditions suitable for use with
+	 *  IDatabase::select
 	 */
 	public function addConditions( array $conditions ) {
 		$this->conditions = array_merge( $this->conditions, $conditions );
 	}
 
 	/**
-	 * @param array $condition Query join conditions suitable for use
-	 *  with DatabaseBase::select
+	 * @param array $options Query options suitable for use with
+	 *  IDatabase::select
+	 */
+	public function addOptions( array $options ) {
+		$this->options = array_merge( $this->options, $options );
+	}
+
+	/**
+	 * @param array $conditions Query join conditions suitable for use
+	 *  with IDatabase::select
 	 */
 	public function addJoinConditions( array $conditions ) {
 		$this->joinConditions = array_merge( $this->joinConditions, $conditions );
@@ -114,7 +135,7 @@ class BatchRowIterator implements RecursiveIterator {
 
 	/**
 	 * @param array $columns List of column names to select from the
-	 *  table suitable for use with DatabaseBase::select()
+	 *  table suitable for use with IDatabase::select()
 	 */
 	public function setFetchColumns( array $columns ) {
 		// If it's not the all column selector merge in the primary keys we need
@@ -135,9 +156,10 @@ class BatchRowIterator implements RecursiveIterator {
 	 * @return array Map of primary key column to value within the row
 	 */
 	public function extractPrimaryKeys( $row ) {
-		$pk = array();
-		foreach ( $this->primaryKey as $column ) {
-			$pk[$column] = $row->$column;
+		$pk = [];
+		foreach ( $this->primaryKey as $alias => $column ) {
+			$name = is_numeric( $alias ) ? $column : $alias;
+			$pk[$name] = $row->{$name};
 		}
 		return $pk;
 	}
@@ -145,60 +167,60 @@ class BatchRowIterator implements RecursiveIterator {
 	/**
 	 * @return array The most recently fetched set of rows from the database
 	 */
-	public function current() {
+	public function current(): array {
 		return $this->current;
 	}
 
 	/**
-	 * @return integer 0-indexed count of the page number fetched
+	 * @return int 0-indexed count of the page number fetched
 	 */
-	public function key() {
+	public function key(): int {
 		return $this->key;
 	}
 
 	/**
 	 * Reset the iterator to the begining of the table.
 	 */
-	public function rewind() {
+	public function rewind(): void {
 		$this->key = -1; // self::next() will turn this into 0
-		$this->current = array();
+		$this->current = [];
 		$this->next();
 	}
 
 	/**
-	 * @return boolean True when the iterator is in a valid state
+	 * @return bool True when the iterator is in a valid state
 	 */
-	public function valid() {
-		return (bool) $this->current;
+	public function valid(): bool {
+		return (bool)$this->current;
 	}
 
 	/**
-	 * @return boolean True when this result set has rows
+	 * @return bool True when this result set has rows
 	 */
-	public function hasChildren() {
+	public function hasChildren(): bool {
 		return $this->current && count( $this->current );
 	}
 
 	/**
-	 * @return RecursiveIterator
+	 * @return null|RecursiveIterator
 	 */
-	public function getChildren() {
+	public function getChildren(): ?RecursiveIterator {
 		return new NotRecursiveIterator( new ArrayIterator( $this->current ) );
 	}
 
 	/**
 	 * Fetch the next set of rows from the database.
 	 */
-	public function next() {
+	public function next(): void {
 		$res = $this->db->select(
 			$this->table,
 			$this->fetchColumns,
 			$this->buildConditions(),
 			__METHOD__,
-			array(
+			[
 				'LIMIT' => $this->batchSize,
 				'ORDER BY' => $this->orderBy,
-			),
+			] + $this->options,
 			$this->joinConditions
 		);
 
@@ -216,7 +238,7 @@ class BatchRowIterator implements RecursiveIterator {
 	 * `=` conditions while the final key uses a `>` condition
 	 *
 	 * Example output:
-	 * 	  array( '( foo = 42 AND bar > 7 ) OR ( foo > 42 )' )
+	 *     [ '( foo = 42 AND bar > 7 ) OR ( foo > 42 )' ]
 	 *
 	 * @return array The SQL conditions necessary to select the next set
 	 *  of rows in the batched query
@@ -227,12 +249,13 @@ class BatchRowIterator implements RecursiveIterator {
 		}
 
 		$maxRow = end( $this->current );
-		$maximumValues = array();
-		foreach ( $this->primaryKey as $column ) {
-			$maximumValues[$column] = $this->db->addQuotes( $maxRow->$column );
+		$maximumValues = [];
+		foreach ( $this->primaryKey as $alias => $column ) {
+			$name = is_numeric( $alias ) ? $column : $alias;
+			$maximumValues[$column] = $this->db->addQuotes( $maxRow->{$name} );
 		}
 
-		$pkConditions = array();
+		$pkConditions = [];
 		// For example: If we have 3 primary keys
 		// first run through will generate
 		//   col1 = 4 AND col2 = 7 AND col3 > 1
@@ -267,7 +290,7 @@ class BatchRowIterator implements RecursiveIterator {
 		$keys = array_keys( $quotedMaximumValues );
 		$lastColumn = end( $keys );
 		$lastValue = array_pop( $quotedMaximumValues );
-		$conditions = array();
+		$conditions = [];
 		foreach ( $quotedMaximumValues as $column => $value ) {
 			$conditions[] = "$column = $value";
 		}

@@ -22,82 +22,84 @@
  * @author Rob Church <robchur@gmail.com>
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * Special page lists pages without language links
  *
  * @ingroup SpecialPage
  */
-class WithoutInterwikiPage extends PageQueryPage {
+class SpecialWithoutInterwiki extends PageQueryPage {
 	private $prefix = '';
 
-	function __construct( $name = 'Withoutinterwiki' ) {
+	public function __construct( $name = 'Withoutinterwiki' ) {
 		parent::__construct( $name );
 	}
 
-	function execute( $par ) {
-		$this->prefix = Title::capitalize(
-			$this->getRequest()->getVal( 'prefix', $par ), NS_MAIN );
+	public function execute( $par ) {
+		$prefix = $this->getRequest()->getVal( 'prefix', $par );
+		$this->prefix = $prefix !== null ? Title::capitalize( $prefix, NS_MAIN ) : '';
 		parent::execute( $par );
 	}
 
-	function getPageHeader() {
+	protected function getPageHeader() {
 		# Do not show useless input form if special page is cached
 		if ( $this->isCached() ) {
 			return '';
 		}
 
-		$prefix = $this->prefix;
-		$t = $this->getPageTitle();
+		$formDescriptor = [
+			'prefix' => [
+				'label-message' => 'allpagesprefix',
+				'name' => 'prefix',
+				'id' => 'wiprefix',
+				'type' => 'text',
+				'size' => 20,
+				'default' => $this->prefix
+			]
+		];
 
-		return Html::openElement( 'form', array( 'method' => 'get', 'action' => wfScript() ) ) . "\n" .
-			Html::openElement( 'fieldset' ) . "\n" .
-			Html::element( 'legend', null, $this->msg( 'withoutinterwiki-legend' )->text() ) . "\n" .
-			Html::hidden( 'title', $t->getPrefixedText() ) . "\n" .
-			Xml::inputLabel(
-				$this->msg( 'allpagesprefix' )->text(),
-				'prefix',
-				'wiprefix',
-				20,
-				$prefix
-			) . "\n" .
-			Xml::submitButton( $this->msg( 'withoutinterwiki-submit' )->text() ) . "\n" .
-			Html::closeElement( 'fieldset' ) . "\n" .
-			Html::closeElement( 'form' );
+		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() );
+		$htmlForm->setWrapperLegend( '' )
+			->setSubmitTextMsg( 'withoutinterwiki-submit' )
+			->setMethod( 'get' )
+			->prepareForm()
+			->displayForm( false );
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
 	}
 
-	function getOrderFields() {
-		return array( 'page_namespace', 'page_title' );
+	protected function getOrderFields() {
+		return [ 'page_namespace', 'page_title' ];
 	}
 
-	function isExpensive() {
+	public function isExpensive() {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
-	function getQueryInfo() {
-		$query = array(
-			'tables' => array( 'page', 'langlinks' ),
-			'fields' => array(
+	public function getQueryInfo() {
+		$query = [
+			'tables' => [ 'page', 'langlinks' ],
+			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
-				'value' => 'page_title'
-			),
-			'conds' => array(
+			],
+			'conds' => [
 				'll_title IS NULL',
-				'page_namespace' => MWNamespace::getContentNamespaces(),
+				'page_namespace' => MediaWikiServices::getInstance()->getNamespaceInfo()->
+					getContentNamespaces(),
 				'page_is_redirect' => 0
-			),
-			'join_conds' => array( 'langlinks' => array( 'LEFT JOIN', 'll_from = page_id' ) )
-		);
+			],
+			'join_conds' => [ 'langlinks' => [ 'LEFT JOIN', 'll_from = page_id' ] ]
+		];
 		if ( $this->prefix ) {
-			$dbr = wfGetDB( DB_SLAVE );
+			$dbr = wfGetDB( DB_REPLICA );
 			$query['conds'][] = 'page_title ' . $dbr->buildLike( $this->prefix, $dbr->anyString() );
 		}
 

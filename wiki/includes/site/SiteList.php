@@ -23,7 +23,7 @@
  * @file
  * @ingroup Site
  *
- * @license GNU GPL v2+
+ * @license GPL-2.0-or-later
  * @author Jeroen De Dauw < jeroendedauw@gmail.com >
  */
 class SiteList extends GenericArrayObject {
@@ -34,7 +34,7 @@ class SiteList extends GenericArrayObject {
 	 *
 	 * @var array Array of integer
 	 */
-	protected $byInternalId = array();
+	protected $byInternalId = [];
 
 	/**
 	 * Global site identifiers pointing to their sites offset value.
@@ -43,7 +43,7 @@ class SiteList extends GenericArrayObject {
 	 *
 	 * @var array Array of string
 	 */
-	protected $byGlobalId = array();
+	protected $byGlobalId = [];
 
 	/**
 	 * Navigational site identifiers alias inter-language prefixes
@@ -53,7 +53,7 @@ class SiteList extends GenericArrayObject {
 	 *
 	 * @var array Array of string
 	 */
-	protected $byNavigationId = array();
+	protected $byNavigationId = [];
 
 	/**
 	 * @see GenericArrayObject::getObjectType
@@ -63,7 +63,7 @@ class SiteList extends GenericArrayObject {
 	 * @return string
 	 */
 	public function getObjectType() {
-		return 'Site';
+		return Site::class;
 	}
 
 	/**
@@ -99,7 +99,7 @@ class SiteList extends GenericArrayObject {
 	 *
 	 * @param mixed $index
 	 */
-	public function offsetUnset( $index ) {
+	public function offsetUnset( $index ): void {
 		if ( $this->offsetExists( $index ) ) {
 			/**
 			 * @var Site $site
@@ -175,7 +175,7 @@ class SiteList extends GenericArrayObject {
 	 * @return bool
 	 */
 	public function isEmpty() {
-		return $this->byGlobalId === array();
+		return $this->byGlobalId === [];
 	}
 
 	/**
@@ -296,7 +296,7 @@ class SiteList extends GenericArrayObject {
 	 * @var string A string uniquely identifying the version of the serialization structure,
 	 *             not including any sub-structures.
 	 */
-	const SERIAL_VERSION_ID = '2014-03-17';
+	private const SERIAL_VERSION_ID = '2014-03-17';
 
 	/**
 	 * Returns the version ID that identifies the serialization structure used by
@@ -319,40 +319,30 @@ class SiteList extends GenericArrayObject {
 	 * @return array
 	 */
 	protected function getSerializationData() {
-		//NOTE: When changing the structure, either implement unserialize() to handle the
+		// NOTE: When changing the structure, either implement unserialize() to handle the
 		//      old structure too, or update SERIAL_VERSION_ID to kill any caches.
 		return array_merge(
 			parent::getSerializationData(),
-			array(
+			[
 				'internalIds' => $this->byInternalId,
 				'globalIds' => $this->byGlobalId,
 				'navigationIds' => $this->byNavigationId
-			)
+			]
 		);
 	}
 
 	/**
-	 * @see GenericArrayObject::unserialize
+	 * @see GenericArrayObject::__unserialize
 	 *
-	 * @since 1.21
+	 * @since 1.35.6
 	 *
-	 * @param string $serialization
-	 *
-	 * @return array
+	 * @param array $serializationData
 	 */
-	public function unserialize( $serialization ) {
-		$serializationData = parent::unserialize( $serialization );
+	public function __unserialize( $serializationData ): void {
+		parent::__unserialize( $serializationData );
 
 		$this->byInternalId = $serializationData['internalIds'];
 		$this->byGlobalId = $serializationData['globalIds'];
 		$this->byNavigationId = $serializationData['navigationIds'];
-
-		return $serializationData;
 	}
-}
-
-/**
- * @deprecated since 1.21
- */
-class SiteArray extends SiteList {
 }

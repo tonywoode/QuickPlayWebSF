@@ -40,7 +40,7 @@ class ExplodeIterator implements Iterator {
 	// The position after the end of the next delimiter
 	private $endPos;
 
-	// The current token
+	/** @var string|false The current token */
 	private $current;
 
 	/**
@@ -59,7 +59,7 @@ class ExplodeIterator implements Iterator {
 		$this->rewind();
 	}
 
-	public function rewind() {
+	public function rewind(): void {
 		$this->curPos = 0;
 		$this->endPos = strpos( $this->subject, $this->delim );
 		$this->refreshCurrent();
@@ -77,6 +77,10 @@ class ExplodeIterator implements Iterator {
 		}
 	}
 
+	/**
+	 * @return string|false
+	 */
+	#[\ReturnTypeWillChange]
 	public function current() {
 		return $this->current;
 	}
@@ -84,14 +88,15 @@ class ExplodeIterator implements Iterator {
 	/**
 	 * @return int|bool Current position or boolean false if invalid
 	 */
+	#[\ReturnTypeWillChange]
 	public function key() {
 		return $this->curPos;
 	}
 
 	/**
-	 * @return string
+	 * @return void
 	 */
-	public function next() {
+	public function next(): void {
 		if ( $this->endPos === false ) {
 			$this->curPos = false;
 		} else {
@@ -103,14 +108,12 @@ class ExplodeIterator implements Iterator {
 			}
 		}
 		$this->refreshCurrent();
-
-		return $this->current;
 	}
 
 	/**
 	 * @return bool
 	 */
-	public function valid() {
+	public function valid(): bool {
 		return $this->curPos !== false;
 	}
 }

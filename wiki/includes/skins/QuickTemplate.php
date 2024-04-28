@@ -18,25 +18,34 @@
  * @file
  */
 
+use MediaWiki\HookContainer\ProtectedHookAccessorTrait;
+use MediaWiki\MediaWikiServices;
+
 /**
  * Generic wrapper for template functions, with interface
  * compatible with what we use of PHPTAL 0.7.
+ * @stable to extend
  * @ingroup Skins
  */
 abstract class QuickTemplate {
+	use ProtectedHookAccessorTrait;
 
-	/** @var Config $config */
+	/**
+	 * @var array
+	 */
+	public $data;
+
+	/** @var Config */
 	protected $config;
 
 	/**
-	 * @param Config $config
+	 * @param Config|null $config
 	 */
-	function __construct( Config $config = null ) {
-		$this->data = array();
-		$this->translator = new MediaWikiI18N();
+	public function __construct( Config $config = null ) {
+		$this->data = [];
 		if ( $config === null ) {
 			wfDebug( __METHOD__ . ' was called with no Config instance passed to it' );
-			$config = ConfigFactory::getDefaultInstance()->makeConfig( 'main' );
+			$config = MediaWikiServices::getInstance()->getMainConfig();
 		}
 		$this->config = $config;
 	}
@@ -51,14 +60,14 @@ abstract class QuickTemplate {
 	}
 
 	/**
-	* extends the value of data with name $name with the value $value
-	* @since 1.25
-	* @param string $name
-	* @param mixed $value
-	*/
+	 * extends the value of data with name $name with the value $value
+	 * @since 1.25
+	 * @param string $name
+	 * @param mixed $value
+	 */
 	public function extend( $name, $value ) {
 		if ( $this->haveData( $name ) ) {
-			$this->data[$name] = $this->data[$name] . $value;
+			$this->data[$name] .= $value;
 		} else {
 			$this->data[$name] = $value;
 		}
@@ -68,30 +77,12 @@ abstract class QuickTemplate {
 	 * Gets the template data requested
 	 * @since 1.22
 	 * @param string $name Key for the data
-	 * @param mixed $default Optional default (or null)
-	 * @return mixed The value of the data requested or the deafult
+	 * @param mixed|null $default Optional default (or null)
+	 * @return mixed The value of the data requested or the default
+	 * @return-taint onlysafefor_htmlnoent
 	 */
 	public function get( $name, $default = null ) {
-		if ( isset( $this->data[$name] ) ) {
-			return $this->data[$name];
-		} else {
-			return $default;
-		}
-	}
-
-	/**
-	 * @param string $name
-	 * @param mixed $value
-	 */
-	public function setRef( $name, &$value ) {
-		$this->data[$name] =& $value;
-	}
-
-	/**
-	 * @param MediaWikiI18N $t
-	 */
-	public function setTranslator( &$t ) {
-		$this->translator = &$t;
+		return $this->data[$name] ?? $default;
 	}
 
 	/**
@@ -101,72 +92,43 @@ abstract class QuickTemplate {
 	abstract public function execute();
 
 	/**
-	 * @private
 	 * @param string $str
-	 * @return string
+	 * @suppress SecurityCheck-DoubleEscaped $this->data can be either
 	 */
-	function text( $str ) {
+	protected function text( $str ) {
 		echo htmlspecialchars( $this->data[$str] );
 	}
 
 	/**
-	 * @private
 	 * @param string $str
-	 * @return string
+	 * @suppress SecurityCheck-XSS phan-taint-check cannot tell if $str is pre-escaped
 	 */
-	function html( $str ) {
+	public function html( $str ) {
 		echo $this->data[$str];
 	}
 
 	/**
-	 * @private
-	 * @param string $str
-	 * @return string
+	 * @param string $msgKey
 	 */
-	function msg( $str ) {
-		echo htmlspecialchars( $this->translator->translate( $str ) );
+	public function msg( $msgKey ) {
+		echo htmlspecialchars( wfMessage( $msgKey )->text() );
 	}
 
 	/**
-	 * @private
-	 * @param string $str
-	 * @return string
-	 */
-	function msgHtml( $str ) {
-		echo $this->translator->translate( $str );
-	}
-
-	/**
-	 * An ugly, ugly hack.
-	 * @private
-	 * @param string $str
-	 * @return string
-	 */
-	function msgWiki( $str ) {
-		global $wgOut;
-
-		$text = $this->translator->translate( $str );
-		echo $wgOut->parse( $text );
-	}
-
-	/**
-	 * @private
 	 * @param string $str
 	 * @return bool
 	 */
-	function haveData( $str ) {
+	private function haveData( $str ) {
 		return isset( $this->data[$str] );
 	}
 
 	/**
-	 * @private
-	 *
-	 * @param string $str
+	 * @param string $msgKey
 	 * @return bool
 	 */
-	function haveMsg( $str ) {
-		$msg = $this->translator->translate( $str );
-		return ( $msg != '-' ) && ( $msg != '' ); # ????
+	protected function haveMsg( $msgKey ) {
+		$msg = wfMessage( $msgKey );
+		return $msg->exists() && !$msg->isDisabled();
 	}
 
 	/**

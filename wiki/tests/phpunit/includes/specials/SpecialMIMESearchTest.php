@@ -1,15 +1,16 @@
 <?php
+
 /**
  * @group Database
+ * @covers SpecialMIMESearch
  */
+class SpecialMIMESearchTest extends MediaWikiIntegrationTestCase {
 
-class SpecialMIMESearchTest extends MediaWikiTestCase {
-
-	/** @var MIMEsearchPage */
+	/** @var SpecialMIMESearch */
 	private $page;
 
-	function setUp() {
-		$this->page = new MIMEsearchPage;
+	protected function setUp() : void {
+		$this->page = new SpecialMIMESearch;
 		$context = new RequestContext();
 		$context->setTitle( Title::makeTitle( NS_SPECIAL, 'MIMESearch' ) );
 		$context->setRequest( new FauxRequest() );
@@ -24,7 +25,7 @@ class SpecialMIMESearchTest extends MediaWikiTestCase {
 	 * @param string $major Major MIME type we expect to look for
 	 * @param string $minor Minor MIME type we expect to look for
 	 */
-	function testMimeFiltering( $par, $major, $minor ) {
+	public function testMimeFiltering( $par, $major, $minor ) {
 		$this->page->run( $par );
 		$qi = $this->page->getQueryInfo();
 		$this->assertEquals( $qi['conds']['img_major_mime'], $major );
@@ -36,13 +37,13 @@ class SpecialMIMESearchTest extends MediaWikiTestCase {
 		$this->assertContains( 'image', $qi['tables'] );
 	}
 
-	function providerMimeFiltering() {
-		return array(
-			array( 'image/gif', 'image', 'gif' ),
-			array( 'image/png', 'image', 'png' ),
-			array( 'application/pdf', 'application', 'pdf' ),
-			array( 'image/*', 'image', null ),
-			array( 'multipart/*', 'multipart', null ),
-		);
+	public function providerMimeFiltering() {
+		return [
+			[ 'image/gif', 'image', 'gif' ],
+			[ 'image/png', 'image', 'png' ],
+			[ 'application/pdf', 'application', 'pdf' ],
+			[ 'image/*', 'image', null ],
+			[ 'multipart/*', 'multipart', null ],
+		];
 	}
 }

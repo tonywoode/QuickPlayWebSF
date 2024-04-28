@@ -1,24 +1,40 @@
-( function ( mw, $ ) {
+( function () {
+	/* eslint-disable camelcase */
 	var formatText, formatParse, formatnumTests, specialCharactersPageName, expectedListUsers,
-		expectedListUsersSitename, expectedEntrypoints,
-		mwLanguageCache = {},
-		hasOwn = Object.hasOwnProperty;
+		expectedListUsersSitename, expectedLinkPagenamee, expectedEntrypoints,
+		testData = require( 'mediawiki.language.testdata' ),
+		phpParserData = testData.phpParserData;
 
 	// When the expected result is the same in both modes
 	function assertBothModes( assert, parserArguments, expectedResult, assertMessage ) {
-		assert.equal( formatText.apply( null, parserArguments ), expectedResult, assertMessage + ' when format is \'text\'' );
-		assert.equal( formatParse.apply( null, parserArguments ), expectedResult, assertMessage + ' when format is \'parse\'' );
+		assert.strictEqual( formatText.apply( null, parserArguments ), expectedResult, assertMessage + ' when format is \'text\'' );
+		assert.strictEqual( formatParse.apply( null, parserArguments ), expectedResult, assertMessage + ' when format is \'parse\'' );
 	}
 
 	QUnit.module( 'mediawiki.jqueryMsg', QUnit.newMwEnvironment( {
 		setup: function () {
 			this.originalMwLanguage = mw.language;
+			this.getMwLanguage = function ( langCode ) {
+				mw.language = Object.create( this.originalMwLanguage );
+				mw.language.setData( langCode, phpParserData.jsData[ langCode ] );
+				testData.initLang( langCode );
+				return mw.language;
+			};
+			this.parserDefaults = mw.jqueryMsg.getParserDefaults();
+			mw.jqueryMsg.setParserDefaults( {
+				magic: {
+					PAGENAME: '2 + 2',
+					PAGENAMEE: mw.util.wikiUrlencode( '2 + 2' ),
+					SITENAME: 'Wiki'
+				}
+			} );
 
 			specialCharactersPageName = '"Who" wants to be a millionaire & live on \'Exotic Island\'?';
 
 			expectedListUsers = '注册<a title="Special:ListUsers" href="/wiki/Special:ListUsers">用户</a>';
 			expectedListUsersSitename = '注册<a title="Special:ListUsers" href="/wiki/Special:ListUsers">用户' +
-				mw.config.get( 'wgSiteName' ) + '</a>';
+				'Wiki</a>';
+			expectedLinkPagenamee = '<a href="https://example.org/wiki/Foo?bar=baz#val/2_%2B_2">Test</a>';
 
 			expectedEntrypoints = '<a href="https://www.mediawiki.org/wiki/Manual:index.php">index.php</a>';
 
@@ -32,9 +48,22 @@
 		},
 		teardown: function () {
 			mw.language = this.originalMwLanguage;
+			mw.jqueryMsg.setParserDefaults( this.parserDefaults );
 		},
 		config: {
-			wgArticlePath: '/wiki/$1'
+			wgArticlePath: '/wiki/$1',
+			wgNamespaceIds: {
+				template: 10,
+				template_talk: 11,
+				// Localised
+				szablon: 10,
+				dyskusja_szablonu: 11
+			},
+			wgFormattedNamespaces: {
+				// Localised
+				10: 'Szablon',
+				11: 'Dyskusja szablonu'
+			}
 		},
 		// Messages that are reused in multiple tests
 		messages: {
@@ -44,97 +73,41 @@
 			'gender-msg-currentuser': '{{GENDER:|blue|pink|green}}',
 
 			'plural-msg': 'Found $1 {{PLURAL:$1|item|items}}',
-			// See https://bugzilla.wikimedia.org/69993
+			// See https://phabricator.wikimedia.org/T71993
 			'plural-msg-explicit-forms-nested': 'Found {{PLURAL:$1|$1 results|0=no results in {{SITENAME}}|1=$1 result}}',
 			// Assume the grammar form grammar_case_foo is not valid in any language
 			'grammar-msg': 'Przeszukaj {{GRAMMAR:grammar_case_foo|{{SITENAME}}}}',
 
 			'formatnum-msg': '{{formatnum:$1}}',
 
+			'bidi-msg': 'Welcome {{BIDI:$1}}!',
+
 			'portal-url': 'Project:Community portal',
 			'see-portal-url': '{{Int:portal-url}} is an important community page.',
 
 			'jquerymsg-test-statistics-users': '注册[[Special:ListUsers|用户]]',
 			'jquerymsg-test-statistics-users-sitename': '注册[[Special:ListUsers|用户{{SITENAME}}]]',
+			'jquerymsg-test-link-pagenamee': '[https://example.org/wiki/Foo?bar=baz#val/{{PAGENAMEE}} Test]',
 
 			'jquerymsg-test-version-entrypoints-index-php': '[https://www.mediawiki.org/wiki/Manual:index.php index.php]',
 
 			'external-link-replace': 'Foo [$1 bar]',
-			'external-link-plural': 'Foo {{PLURAL:$1|is [$2 one]|are [$2 some]|2=[$2 two]|3=three|4=a=b|5=}} things.',
-			'plural-only-explicit-forms': 'It is a {{PLURAL:$1|1=single|2=double}} room.'
+			'external-link-plural': 'Foo {{PLURAL:$1|is [$2 one]|are [$2 some]|2=[$2 two]|3=three|4=a=b}} things.',
+			'plural-only-explicit-forms': 'It is a {{PLURAL:$1|1=single|2=double}} room.',
+			'plural-empty-explicit-form': 'There is me{{PLURAL:$1|0=| and other people}}.'
 		}
 	} ) );
 
-	/**
-	 * Be careful to no run this in parallel as it uses a global identifier (mw.language)
-	 * to transport the module back to the test. It musn't be overwritten concurrentely.
-	 *
-	 * This function caches the mw.language data to avoid having to request the same module
-	 * multiple times. There is more than one test case for any given language.
-	 */
-	function getMwLanguage( langCode ) {
-		if ( !hasOwn.call( mwLanguageCache, langCode ) ) {
-			mwLanguageCache[ langCode ] = $.ajax( {
-				url: mw.util.wikiScript( 'load' ),
-				data: {
-					skin: mw.config.get( 'skin' ),
-					lang: langCode,
-					debug: mw.config.get( 'debug' ),
-					modules: [
-						'mediawiki.language.data',
-						'mediawiki.language'
-					].join( '|' ),
-					only: 'scripts'
-				},
-				dataType: 'script',
-				cache: true
-			} ).then( function () {
-				return mw.language;
-			} );
-		}
-		return mwLanguageCache[ langCode ];
-	}
-
-	/**
-	 * @param {Function[]} tasks List of functions that perform tasks
-	 *  that may be asynchronous. Invoke the callback parameter when done.
-	 * @param {Function} complete Called when all tasks are done, or when the sequence is aborted.
-	 */
-	function process( tasks, complete ) {
-		/*jshint latedef:false */
-		function abort() {
-			tasks.splice( 0, tasks.length );
-			next();
-		}
-		function next() {
-			if ( !tasks ) {
-				// This happens if after the process is completed, one of our callbacks is
-				// invoked. This can happen if a test timed out but the process was still
-				// running. In that case, ignore it. Don't invoke complete() a second time.
-				return;
-			}
-			var task = tasks.shift();
-			if ( task ) {
-				task( next, abort );
-			} else {
-				// Remove tasks list to indicate the process is final.
-				tasks = null;
-				complete();
-			}
-		}
-		next();
-	}
-
-	QUnit.test( 'Replace', 16, function ( assert ) {
+	QUnit.test( 'Replace', function ( assert ) {
 		mw.messages.set( 'simple', 'Foo $1 baz $2' );
 
-		assert.equal( formatParse( 'simple' ), 'Foo $1 baz $2', 'Replacements with no substitutes' );
-		assert.equal( formatParse( 'simple', 'bar' ), 'Foo bar baz $2', 'Replacements with less substitutes' );
-		assert.equal( formatParse( 'simple', 'bar', 'quux' ), 'Foo bar baz quux', 'Replacements with all substitutes' );
+		assert.strictEqual( formatParse( 'simple' ), 'Foo $1 baz $2', 'Replacements with no substitutes' );
+		assert.strictEqual( formatParse( 'simple', 'bar' ), 'Foo bar baz $2', 'Replacements with less substitutes' );
+		assert.strictEqual( formatParse( 'simple', 'bar', 'quux' ), 'Foo bar baz quux', 'Replacements with all substitutes' );
 
 		mw.messages.set( 'plain-input', '<foo foo="foo">x$1y&lt;</foo>z' );
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'plain-input', 'bar' ),
 			'&lt;foo foo="foo"&gt;xbary&amp;lt;&lt;/foo&gt;z',
 			'Input is not considered html'
@@ -142,7 +115,7 @@
 
 		mw.messages.set( 'plain-replace', 'Foo $1' );
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'plain-replace', '<bar bar="bar">&gt;</bar>' ),
 			'Foo &lt;bar bar="bar"&gt;&amp;gt;&lt;/bar&gt;',
 			'Replacement is not considered html'
@@ -150,128 +123,146 @@
 
 		mw.messages.set( 'object-replace', 'Foo $1' );
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'object-replace', $( '<div class="bar">&gt;</div>' ) ),
 			'Foo <div class="bar">&gt;</div>',
 			'jQuery objects are preserved as raw html'
 		);
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'object-replace', $( '<div class="bar">&gt;</div>' ).get( 0 ) ),
 			'Foo <div class="bar">&gt;</div>',
 			'HTMLElement objects are preserved as raw html'
 		);
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'object-replace', $( '<div class="bar">&gt;</div>' ).toArray() ),
 			'Foo <div class="bar">&gt;</div>',
 			'HTMLElement[] arrays are preserved as raw html'
 		);
 
-		assert.equal(
+		mw.messages.set( 'simple-double-replace', 'Foo 1: $1 2: $1' );
+		assert.strictEqual(
+			formatParse( 'simple-double-replace', 'bar' ),
+			'Foo 1: bar 2: bar',
+			'string params can be used multiple times'
+		);
+
+		mw.messages.set( 'object-double-replace', 'Foo 1: $1 2: $1' );
+		assert.strictEqual(
+			formatParse( 'object-double-replace', $( '<div class="bar">&gt;</div>' ) ),
+			'Foo 1: <div class="bar">&gt;</div> 2: <div class="bar">&gt;</div>',
+			'jQuery objects can be used multiple times'
+		);
+
+		assert.strictEqual(
+			formatParse( 'object-double-replace', $( '<div class="bar">&gt;</div>' ).get( 0 ) ),
+			'Foo 1: <div class="bar">&gt;</div> 2: <div class="bar">&gt;</div>',
+			'HTMLElement can be used multiple times'
+		);
+
+		assert.strictEqual(
 			formatParse( 'external-link-replace', 'http://example.org/?x=y&z' ),
 			'Foo <a href="http://example.org/?x=y&amp;z">bar</a>',
 			'Href is not double-escaped in wikilink function'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'external-link-plural', 1, 'http://example.org' ),
 			'Foo is <a href="http://example.org">one</a> things.',
 			'Link is expanded inside plural and is not escaped html'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'external-link-plural', 2, 'http://example.org' ),
-			'Foo <a href=\"http://example.org\">two</a> things.',
+			'Foo <a href="http://example.org">two</a> things.',
 			'Link is expanded inside an explicit plural form and is not escaped html'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'external-link-plural', 3 ),
 			'Foo three things.',
 			'A simple explicit plural form co-existing with complex explicit plural forms'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'external-link-plural', 4, 'http://example.org' ),
 			'Foo a=b things.',
 			'Only first equal sign is used as delimiter for explicit plural form. Repeated equal signs does not create issue'
 		);
-		assert.equal(
-			formatParse( 'external-link-plural', 5, 'http://example.org' ),
-			'Foo are <a href="http://example.org">some</a> things.',
-			'Invalid explicit plural form. Plural fallback to the "other" plural form'
-		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'external-link-plural', 6, 'http://example.org' ),
 			'Foo are <a href="http://example.org">some</a> things.',
 			'Plural fallback to the "other" plural form'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'plural-only-explicit-forms', 2 ),
 			'It is a double room.',
 			'Plural with explicit forms alone.'
 		);
 	} );
 
-	QUnit.test( 'Plural', 6, function ( assert ) {
-		assert.equal( formatParse( 'plural-msg', 0 ), 'Found 0 items', 'Plural test for english with zero as count' );
-		assert.equal( formatParse( 'plural-msg', 1 ), 'Found 1 item', 'Singular test for english' );
-		assert.equal( formatParse( 'plural-msg', 2 ), 'Found 2 items', 'Plural test for english' );
-		assert.equal( formatParse( 'plural-msg-explicit-forms-nested', 6 ), 'Found 6 results', 'Plural message with explicit plural forms' );
-		assert.equal( formatParse( 'plural-msg-explicit-forms-nested', 0 ), 'Found no results in ' + mw.config.get( 'wgSiteName' ), 'Plural message with explicit plural forms, with nested {{SITENAME}}' );
-		assert.equal( formatParse( 'plural-msg-explicit-forms-nested', 1 ), 'Found 1 result', 'Plural message with explicit plural forms with placeholder nested' );
+	QUnit.test( 'Plural', function ( assert ) {
+		assert.strictEqual( formatParse( 'plural-msg', 0 ), 'Found 0 items', 'Plural test for english with zero as count' );
+		assert.strictEqual( formatParse( 'plural-msg', 1 ), 'Found 1 item', 'Singular test for english' );
+		assert.strictEqual( formatParse( 'plural-msg', 2 ), 'Found 2 items', 'Plural test for english' );
+		assert.strictEqual( formatParse( 'plural-msg-explicit-forms-nested', 6 ), 'Found 6 results', 'Plural message with explicit plural forms' );
+		assert.strictEqual( formatParse( 'plural-msg-explicit-forms-nested', 0 ), 'Found no results in Wiki', 'Plural message with explicit plural forms, with nested {{SITENAME}}' );
+		assert.strictEqual( formatParse( 'plural-msg-explicit-forms-nested', 1 ), 'Found 1 result', 'Plural message with explicit plural forms with placeholder nested' );
+		assert.strictEqual( formatParse( 'plural-empty-explicit-form', 0 ), 'There is me.' );
+		assert.strictEqual( formatParse( 'plural-empty-explicit-form', 1 ), 'There is me and other people.' );
+		assert.strictEqual( formatParse( 'plural-empty-explicit-form', 2 ), 'There is me and other people.' );
 	} );
 
-	QUnit.test( 'Gender', 15, function ( assert ) {
+	QUnit.test( 'Gender', function ( assert ) {
 		var originalGender = mw.user.options.get( 'gender' );
 
 		// TODO: These tests should be for mw.msg once mw.msg integrated with mw.jqueryMsg
 		// TODO: English may not be the best language for these tests. Use a language like Arabic or Russian
 		mw.user.options.set( 'gender', 'male' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg', 'Bob', 'male' ),
 			'Bob: blue',
 			'Masculine from string "male"'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg', 'Bob', mw.user ),
 			'Bob: blue',
 			'Masculine from mw.user object'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg-currentuser' ),
 			'blue',
 			'Masculine for current user'
 		);
 
 		mw.user.options.set( 'gender', 'female' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg', 'Alice', 'female' ),
 			'Alice: pink',
 			'Feminine from string "female"' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg', 'Alice', mw.user ),
 			'Alice: pink',
 			'Feminine from mw.user object'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg-currentuser' ),
 			'pink',
 			'Feminine for current user'
 		);
 
 		mw.user.options.set( 'gender', 'unknown' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg', 'Foo', mw.user ),
 			'Foo: green',
 			'Neutral from mw.user object' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg', 'User' ),
 			'User: green',
 			'Neutral when no parameter given' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg', 'User', 'unknown' ),
 			'User: green',
 			'Neutral from string "unknown"'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg-currentuser' ),
 			'green',
 			'Neutral for current user'
@@ -279,31 +270,31 @@
 
 		mw.messages.set( 'gender-msg-one-form', '{{GENDER:$1|User}}: $2 {{PLURAL:$2|edit|edits}}' );
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg-one-form', 'male', 10 ),
 			'User: 10 edits',
 			'Gender neutral and plural form'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg-one-form', 'female', 1 ),
 			'User: 1 edit',
 			'Gender neutral and singular form'
 		);
 
 		mw.messages.set( 'gender-msg-lowercase', '{{gender:$1|he|she}} is awesome' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg-lowercase', 'male' ),
 			'he is awesome',
 			'Gender masculine'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg-lowercase', 'female' ),
 			'she is awesome',
 			'Gender feminine'
 		);
 
 		mw.messages.set( 'gender-msg-wrong', '{{gender}} test' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'gender-msg-wrong', 'female' ),
 			' test',
 			'Invalid syntax should result in {{gender}} simply being stripped away'
@@ -312,38 +303,58 @@
 		mw.user.options.set( 'gender', originalGender );
 	} );
 
-	QUnit.test( 'Grammar', 2, function ( assert ) {
-		assert.equal( formatParse( 'grammar-msg' ), 'Przeszukaj ' + mw.config.get( 'wgSiteName' ), 'Grammar Test with sitename' );
+	QUnit.test( 'Case changing', function ( assert ) {
+		mw.messages.set( 'to-lowercase', '{{lc:thIS hAS MEsSed uP CapItaliZatiON}}' );
+		assert.strictEqual( formatParse( 'to-lowercase' ), 'this has messed up capitalization', 'To lowercase' );
+
+		mw.messages.set( 'to-caps', '{{uc:thIS hAS MEsSed uP CapItaliZatiON}}' );
+		assert.strictEqual( formatParse( 'to-caps' ), 'THIS HAS MESSED UP CAPITALIZATION', 'To caps' );
+
+		mw.messages.set( 'uc-to-lcfirst', '{{lcfirst:THis hAS MEsSed uP CapItaliZatiON}}' );
+		mw.messages.set( 'lc-to-lcfirst', '{{lcfirst:thIS hAS MEsSed uP CapItaliZatiON}}' );
+		assert.strictEqual( formatParse( 'uc-to-lcfirst' ), 'tHis hAS MEsSed uP CapItaliZatiON', 'Lcfirst caps' );
+		assert.strictEqual( formatParse( 'lc-to-lcfirst' ), 'thIS hAS MEsSed uP CapItaliZatiON', 'Lcfirst lowercase' );
+
+		mw.messages.set( 'uc-to-ucfirst', '{{ucfirst:THis hAS MEsSed uP CapItaliZatiON}}' );
+		mw.messages.set( 'lc-to-ucfirst', '{{ucfirst:thIS hAS MEsSed uP CapItaliZatiON}}' );
+		assert.strictEqual( formatParse( 'uc-to-ucfirst' ), 'THis hAS MEsSed uP CapItaliZatiON', 'Ucfirst caps' );
+		assert.strictEqual( formatParse( 'lc-to-ucfirst' ), 'ThIS hAS MEsSed uP CapItaliZatiON', 'Ucfirst lowercase' );
+
+		mw.messages.set( 'mixed-to-sentence', '{{ucfirst:{{lc:thIS hAS MEsSed uP CapItaliZatiON}}}}' );
+		assert.strictEqual( formatParse( 'mixed-to-sentence' ), 'This has messed up capitalization', 'To sentence case' );
+		mw.messages.set( 'all-caps-except-first', '{{lcfirst:{{uc:thIS hAS MEsSed uP CapItaliZatiON}}}}' );
+		assert.strictEqual( formatParse( 'all-caps-except-first' ), 'tHIS HAS MESSED UP CAPITALIZATION', 'To opposite sentence case' );
+	} );
+
+	QUnit.test( 'Grammar', function ( assert ) {
+		assert.strictEqual( formatParse( 'grammar-msg' ), 'Przeszukaj Wiki', 'Grammar Test with sitename' );
 
 		mw.messages.set( 'grammar-msg-wrong-syntax', 'Przeszukaj {{GRAMMAR:grammar_case_xyz}}' );
-		assert.equal( formatParse( 'grammar-msg-wrong-syntax' ), 'Przeszukaj ', 'Grammar Test with wrong grammar template syntax' );
+		assert.strictEqual( formatParse( 'grammar-msg-wrong-syntax' ), 'Przeszukaj ', 'Grammar Test with wrong grammar template syntax' );
 	} );
 
-	QUnit.test( 'Match PHP parser', mw.libs.phpParserData.tests.length, function ( assert ) {
-		mw.messages.set( mw.libs.phpParserData.messages );
-		var tasks = $.map( mw.libs.phpParserData.tests, function ( test ) {
-			return function ( next, abort ) {
-				getMwLanguage( test.lang )
-					.then( function ( langClass ) {
-						mw.config.set( 'wgUserLanguage', test.lang );
-						var parser = new mw.jqueryMsg.parser( { language: langClass } );
-						assert.equal(
-							parser.parse( test.key, test.args ).html(),
-							test.result,
-							test.name
-						);
-					}, function () {
-						assert.ok( false, 'Language "' + test.lang + '" failed to load.' );
-					} )
-					.then( next, abort );
-			};
+	QUnit.test( 'Bi-di', function ( assert ) {
+		assert.strictEqual( formatParse( 'bidi-msg', 'Bob' ), 'Welcome \u202ABob\u202C!', 'Bidi test (LTR)' );
+		assert.strictEqual( formatParse( 'bidi-msg', 'בוב' ), 'Welcome \u202Bבוב\u202C!', 'Bidi test (RTL)' );
+	} );
+
+	QUnit.test( 'Match PHP parser', function ( assert ) {
+		var self = this;
+		mw.messages.set( phpParserData.messages );
+		phpParserData.tests.forEach( function ( test ) {
+			var parser,
+				langClass = self.getMwLanguage( test.lang );
+			mw.config.set( 'wgUserLanguage', test.lang );
+			parser = new mw.jqueryMsg.Parser( { language: langClass } );
+			assert.strictEqual(
+				parser.parse( test.key, test.args ).html(),
+				test.result,
+				test.name
+			);
 		} );
-
-		QUnit.stop();
-		process( tasks, QUnit.start );
 	} );
 
-	QUnit.test( 'Links', 14, function ( assert ) {
+	QUnit.test( 'Links', function ( assert ) {
 		var testCases,
 			expectedDisambiguationsText,
 			expectedMultipleBars,
@@ -379,17 +390,17 @@
 		mw.messages.set( 'reverse-pipe-trick', '[[|Tampa, Florida]]' );
 		mw.messages.set( 'empty-link', '[[]]' );
 		this.suppressWarnings();
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'pipe-trick' ),
 			'[[Tampa, Florida|]]',
 			'Pipe trick should not be parsed.'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'reverse-pipe-trick' ),
 			'[[|Tampa, Florida]]',
 			'Reverse pipe trick should not be parsed.'
 		);
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'empty-link' ),
 			'[[]]',
 			'Empty link should not be parsed.'
@@ -426,6 +437,12 @@
 			'Piped wikilink with parser function in the text'
 		);
 
+		assert.htmlEqual(
+			formatParse( 'jquerymsg-test-link-pagenamee' ),
+			expectedLinkPagenamee,
+			'External link with parser function in the URL'
+		);
+
 		testCases = [
 			[
 				'extlink-html-full',
@@ -449,11 +466,11 @@
 			]
 		];
 
-		$.each( testCases, function () {
+		testCases.forEach( function ( testCase ) {
 			var
-				key = this[ 0 ],
-				input = this[ 1 ],
-				output = this[ 2 ];
+				key = testCase[ 0 ],
+				input = testCase[ 1 ],
+				output = testCase[ 2 ];
 			mw.messages.set( key, input );
 			assert.htmlEqual(
 				formatParse( key ),
@@ -463,7 +480,7 @@
 		} );
 	} );
 
-	QUnit.test( 'Replacements in links', 14, function ( assert ) {
+	QUnit.test( 'Replacements in links', function ( assert ) {
 		var testCases = [
 			[
 				'extlink-param-href-full',
@@ -537,11 +554,11 @@
 			]
 		];
 
-		$.each( testCases, function () {
+		testCases.forEach( function ( testCase ) {
 			var
-				key = this[ 0 ],
-				input = this[ 1 ],
-				output = this[ 2 ],
+				key = testCase[ 0 ],
+				input = testCase[ 1 ],
+				output = testCase[ 2 ],
 				paramHref = key.slice( 0, 8 ) === 'wikilink' ? 'Example' : 'http://example.com',
 				paramText = 'Text';
 			mw.messages.set( key, input );
@@ -554,14 +571,14 @@
 	} );
 
 	// Tests that {{-transformation vs. general parsing are done as requested
-	QUnit.test( 'Curly brace transformation', 16, function ( assert ) {
+	QUnit.test( 'Curly brace transformation', function ( assert ) {
 		var oldUserLang = mw.config.get( 'wgUserLanguage' );
 
 		assertBothModes( assert, [ 'gender-msg', 'Bob', 'male' ], 'Bob: blue', 'gender is resolved' );
 
 		assertBothModes( assert, [ 'plural-msg', 5 ], 'Found 5 items', 'plural is resolved' );
 
-		assertBothModes( assert, [ 'grammar-msg' ], 'Przeszukaj ' + mw.config.get( 'wgSiteName' ), 'grammar is resolved' );
+		assertBothModes( assert, [ 'grammar-msg' ], 'Przeszukaj Wiki', 'grammar is resolved' );
 
 		mw.config.set( 'wgUserLanguage', 'en' );
 		assertBothModes( assert, [ 'formatnum-msg', '987654321.654321' ], '987,654,321.654', 'formatnum is resolved' );
@@ -569,7 +586,7 @@
 		// Test non-{{ wikitext, where behavior differs
 
 		// Wikilink
-		assert.equal(
+		assert.strictEqual(
 			formatText( 'jquerymsg-test-statistics-users' ),
 			mw.messages.get( 'jquerymsg-test-statistics-users' ),
 			'Internal link message unchanged when format is \'text\''
@@ -581,7 +598,7 @@
 		);
 
 		// External link
-		assert.equal(
+		assert.strictEqual(
 			formatText( 'jquerymsg-test-version-entrypoints-index-php' ),
 			mw.messages.get( 'jquerymsg-test-version-entrypoints-index-php' ),
 			'External link message unchanged when format is \'text\''
@@ -593,7 +610,7 @@
 		);
 
 		// External link with parameter
-		assert.equal(
+		assert.strictEqual(
 			formatText( 'external-link-replace', 'http://example.com' ),
 			'Foo [http://example.com bar]',
 			'External link message only substitutes parameter when format is \'text\''
@@ -604,20 +621,30 @@
 			'External link message processed when format is \'parse\''
 		);
 		assert.htmlEqual(
+			formatParse( 'external-link-replace', '/wiki/Special:Version' ),
+			'Foo <a href="/wiki/Special:Version">bar</a>',
+			'External link message allows relative URL when processed'
+		);
+		assert.htmlEqual(
+			formatParse( 'external-link-replace', '//example.com' ),
+			'Foo <a href="//example.com">bar</a>',
+			'External link message allows protocol-relative URL when processed'
+		);
+		assert.htmlEqual(
 			formatParse( 'external-link-replace', $( '<i>' ) ),
 			'Foo <i>bar</i>',
 			'External link message processed as jQuery object when format is \'parse\''
 		);
 		assert.htmlEqual(
 			formatParse( 'external-link-replace', function () {} ),
-			'Foo <a href="#">bar</a>',
+			'Foo <a role="button" tabindex="0">bar</a>',
 			'External link message processed as function when format is \'parse\''
 		);
 
 		mw.config.set( 'wgUserLanguage', oldUserLang );
 	} );
 
-	QUnit.test( 'Int', 4, function ( assert ) {
+	QUnit.test( 'Int', function ( assert ) {
 		var newarticletextSource = 'You have followed a link to a page that does not exist yet. To create the page, start typing in the box below (see the [[{{Int:Foobar}}|foobar]] for more info). If you are here by mistake, click your browser\'s back button.',
 			expectedNewarticletext,
 			helpPageTitle = 'Help:Foobar';
@@ -635,7 +662,7 @@
 			'Link with nested message'
 		);
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'see-portal-url' ),
 			'Project:Community portal is an important community page.',
 			'Nested message'
@@ -652,16 +679,46 @@
 
 		mw.messages.set( 'uses-missing-int', '{{int:doesnt-exist}}' );
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'uses-missing-int' ),
-			'[doesnt-exist]',
+			'⧼doesnt-exist⧽',
 			'int: where nested message does not exist'
+		);
+	} );
+
+	QUnit.test( 'Ns', function ( assert ) {
+		mw.messages.set( 'ns-template-talk', '{{ns:Template talk}}' );
+		assert.strictEqual(
+			formatParse( 'ns-template-talk' ),
+			'Dyskusja szablonu',
+			'ns: returns localised namespace when used with a canonical namespace name'
+		);
+
+		mw.messages.set( 'ns-10', '{{ns:10}}' );
+		assert.strictEqual(
+			formatParse( 'ns-10' ),
+			'Szablon',
+			'ns: returns localised namespace when used with a namespace number'
+		);
+
+		mw.messages.set( 'ns-unknown', '{{ns:doesnt-exist}}' );
+		assert.strictEqual(
+			formatParse( 'ns-unknown' ),
+			'',
+			'ns: returns empty string for unknown namespace name'
+		);
+
+		mw.messages.set( 'ns-in-a-link', '[[{{ns:template}}:Foo]]' );
+		assert.strictEqual(
+			formatParse( 'ns-in-a-link' ),
+			'<a title="Szablon:Foo" href="/wiki/Szablon:Foo">Szablon:Foo</a>',
+			'ns: works when used inside a wikilink'
 		);
 	} );
 
 	// Tests that getMessageFunction is used for non-plain messages with curly braces or
 	// square brackets, but not otherwise.
-	QUnit.test( 'mw.Message.prototype.parser monkey-patch', 22, function ( assert ) {
+	QUnit.test( 'mw.Message.prototype.parser monkey-patch', function ( assert ) {
 		var oldGMF, outerCalled, innerCalled;
 
 		mw.messages.set( {
@@ -684,10 +741,12 @@
 			var message;
 			outerCalled = false;
 			innerCalled = false;
+			// eslint-disable-next-line mediawiki/msg-doc
 			message = mw.message( key );
 			message[ format ]();
 			assert.strictEqual( outerCalled, shouldCall, 'Outer function called for ' + key );
 			assert.strictEqual( innerCalled, shouldCall, 'Inner function called for ' + key );
+			delete mw.messages[ format ];
 		}
 
 		verifyGetMessageFunction( 'curly-brace', 'parse', true );
@@ -709,6 +768,24 @@
 		mw.jqueryMsg.getMessageFunction = oldGMF;
 	} );
 
+	// Tests that HTML in message parameters is escaped,
+	// whether the message looks like wikitext or not.
+	QUnit.test( 'mw.Message.prototype.parser monkey-patch HTML-escape', function ( assert ) {
+		mw.messages.set( '1x-wikitext', '<span>$1</span>' );
+		assert.htmlEqual(
+			mw.message( '1x-wikitext', '<script>alert( "1x-wikitext test" )</script>' ).parse(),
+			'<span>&lt;script&gt;alert( &quot;1x-wikitext test&quot; )&lt;/script&gt;</span>',
+			'Message parameters are escaped if message contains wikitext'
+		);
+
+		mw.messages.set( '1x-plain', '$1' );
+		assert.htmlEqual(
+			mw.message( '1x-plain', '<script>alert( "1x-plain test" )</script>' ).parse(),
+			'&lt;script&gt;alert( &quot;1x-plain test&quot; )&lt;/script&gt;',
+			'Message parameters are still escaped if message contains no wikitext'
+		);
+	} );
+
 	formatnumTests = [
 		{
 			lang: 'en',
@@ -725,7 +802,7 @@
 		{
 			lang: 'ar',
 			number: '٩٨٧٦٥٤٣٢١٫٦٥٤٣٢١',
-			result: 987654321,
+			result: '987654321',
 			integer: true,
 			description: 'formatnum test for Arabic, with decimal separator, reverse'
 		},
@@ -738,7 +815,7 @@
 		{
 			lang: 'ar',
 			number: '-١٢٫٨٩',
-			result: -12,
+			result: '-12',
 			integer: true,
 			description: 'formatnum test for Arabic, negative number, reverse'
 		},
@@ -801,40 +878,33 @@
 		},
 		{
 			lang: 'hi',
-			number: '१२३४५६,७८९',
+			number: '१,२३,४५६',
 			result: '123456',
 			integer: true,
 			description: 'formatnum test for Hindi, Devanagari digits passed to get integer value'
 		}
 	];
 
-	QUnit.test( 'formatnum', formatnumTests.length, function ( assert ) {
+	QUnit.test( 'formatnum', function ( assert ) {
+		var self = this;
 		mw.messages.set( 'formatnum-msg', '{{formatnum:$1}}' );
 		mw.messages.set( 'formatnum-msg-int', '{{formatnum:$1|R}}' );
-		var queue = $.map( formatnumTests, function ( test ) {
-			return function ( next, abort ) {
-				getMwLanguage( test.lang )
-					.then( function ( langClass ) {
-						mw.config.set( 'wgUserLanguage', test.lang );
-						var parser = new mw.jqueryMsg.parser( { language: langClass } );
-						assert.equal(
-							parser.parse( test.integer ? 'formatnum-msg-int' : 'formatnum-msg',
-								[ test.number ] ).html(),
-							test.result,
-							test.description
-						);
-					}, function () {
-						assert.ok( false, 'Language "' + test.lang + '" failed to load' );
-					} )
-					.then( next, abort );
-			};
+		formatnumTests.forEach( function ( test ) {
+			var parser,
+				langClass = self.getMwLanguage( test.lang );
+			mw.config.set( 'wgUserLanguage', test.lang );
+			parser = new mw.jqueryMsg.Parser( { language: langClass } );
+			assert.strictEqual(
+				parser.parse( test.integer ? 'formatnum-msg-int' : 'formatnum-msg',
+					[ test.number ] ).html(),
+				test.result,
+				test.description
+			);
 		} );
-		QUnit.stop();
-		process( queue, QUnit.start );
 	} );
 
 	// HTML in wikitext
-	QUnit.test( 'HTML', 26, function ( assert ) {
+	QUnit.test( 'HTML', function ( assert ) {
 		mw.messages.set( 'jquerymsg-italics-msg', '<i>Very</i> important' );
 
 		assertBothModes( assert, [ 'jquerymsg-italics-msg' ], mw.messages.get( 'jquerymsg-italics-msg' ), 'Simple italics unchanged' );
@@ -856,7 +926,7 @@
 			'Italics with link inside in parse mode'
 		);
 
-		assert.equal(
+		assert.strictEqual(
 			formatText( 'jquerymsg-italics-with-link' ),
 			mw.messages.get( 'jquerymsg-italics-with-link' ),
 			'Italics with link unchanged in text mode'
@@ -883,7 +953,7 @@
 			'Tag outside whitelist escaped in parse mode'
 		);
 
-		assert.equal(
+		assert.strictEqual(
 			formatText( 'jquerymsg-script-msg' ),
 			mw.messages.get( 'jquerymsg-script-msg' ),
 			'Tag outside whitelist unchanged in text mode'
@@ -919,14 +989,14 @@
 
 		// Intentionally not using htmlEqual for the quote tests
 		mw.messages.set( 'jquerymsg-double-quotes-preserved', '<i id="double">Double</i>' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'jquerymsg-double-quotes-preserved' ),
 			mw.messages.get( 'jquerymsg-double-quotes-preserved' ),
 			'Attributes with double quotes are preserved as such'
 		);
 
 		mw.messages.set( 'jquerymsg-single-quotes-normalized-to-double', '<i id=\'single\'>Single</i>' );
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'jquerymsg-single-quotes-normalized-to-double' ),
 			'<i id="single">Single</i>',
 			'Attributes with single quotes are normalized to double'
@@ -973,56 +1043,317 @@
 			'Foo&lt;tag/&gt;bar',
 			'Self-closing tags don\'t cause a parse error'
 		);
+
+		mw.messages.set( 'jquerymsg-asciialphabetliteral-regression', '<b >>>="dir">asd</b>' );
+		assert.htmlEqual(
+			formatParse( 'jquerymsg-asciialphabetliteral-regression' ),
+			'<b>&gt;&gt;="dir"&gt;asd</b>',
+			'Regression test for bad "asciiAlphabetLiteral" definition'
+		);
+
+		mw.messages.set( 'jquerymsg-entities1', 'A&B' );
+		mw.messages.set( 'jquerymsg-entities2', 'A&gt;B' );
+		mw.messages.set( 'jquerymsg-entities3', 'A&rarr;B' );
+		assert.htmlEqual(
+			formatParse( 'jquerymsg-entities1' ),
+			'A&amp;B',
+			'Lone "&" is escaped in text'
+		);
+		assert.htmlEqual(
+			formatParse( 'jquerymsg-entities2' ),
+			'A&amp;gt;B',
+			'"&gt;" entity is double-escaped in text' // (WHY?)
+		);
+		assert.htmlEqual(
+			formatParse( 'jquerymsg-entities3' ),
+			'A&amp;rarr;B',
+			'"&rarr;" entity is double-escaped in text'
+		);
+
+		mw.messages.set( 'jquerymsg-entities-attr1', '<i title="A&B"></i>' );
+		mw.messages.set( 'jquerymsg-entities-attr2', '<i title="A&gt;B"></i>' );
+		mw.messages.set( 'jquerymsg-entities-attr3', '<i title="A&rarr;B"></i>' );
+		assert.htmlEqual(
+			formatParse( 'jquerymsg-entities-attr1' ),
+			'<i title="A&amp;B"></i>',
+			'Lone "&" is escaped in attribute'
+		);
+		assert.htmlEqual(
+			formatParse( 'jquerymsg-entities-attr2' ),
+			'<i title="A&gt;B"></i>',
+			'"&gt;" entity is not double-escaped in attribute' // (WHY?)
+		);
+		assert.htmlEqual(
+			formatParse( 'jquerymsg-entities-attr3' ),
+			'<i title="A&amp;rarr;B"></i>',
+			'"&rarr;" entity is double-escaped in attribute'
+		);
 	} );
 
-	QUnit.test( 'Behavior in case of invalid wikitext', 3, function ( assert ) {
+	QUnit.test( 'Nowiki', function ( assert ) {
+		mw.messages.set( 'jquerymsg-nowiki-link', 'Foo <nowiki>[[bar]]</nowiki> baz.' );
+		assert.strictEqual(
+			formatParse( 'jquerymsg-nowiki-link' ),
+			'Foo [[bar]] baz.',
+			'Link inside nowiki is not parsed'
+		);
+
+		mw.messages.set( 'jquerymsg-nowiki-htmltag', 'Foo <nowiki><b>bar</b></nowiki> baz.' );
+		assert.strictEqual(
+			formatParse( 'jquerymsg-nowiki-htmltag' ),
+			'Foo &lt;b&gt;bar&lt;/b&gt; baz.',
+			'HTML inside nowiki is not parsed and escaped'
+		);
+
+		mw.messages.set( 'jquerymsg-nowiki-template', 'Foo <nowiki>{{bar}}</nowiki> baz.' );
+		assert.strictEqual(
+			formatParse( 'jquerymsg-nowiki-template' ),
+			'Foo {{bar}} baz.',
+			'Template inside nowiki is not parsed and does not cause a parse error'
+		);
+	} );
+
+	QUnit.test( 'Behavior in case of invalid wikitext', function ( assert ) {
+		var logSpy;
 		mw.messages.set( 'invalid-wikitext', '<b>{{FAIL}}</b>' );
 
 		this.suppressWarnings();
-		var logSpy = this.sandbox.spy( mw.log, 'warn' );
+		logSpy = this.sandbox.spy( mw.log, 'warn' );
 
-		assert.equal(
+		assert.strictEqual(
 			formatParse( 'invalid-wikitext' ),
 			'&lt;b&gt;{{FAIL}}&lt;/b&gt;',
 			'Invalid wikitext: \'parse\' format'
 		);
 
-		assert.equal(
+		assert.strictEqual(
 			formatText( 'invalid-wikitext' ),
 			'<b>{{FAIL}}</b>',
 			'Invalid wikitext: \'text\' format'
 		);
 
-		assert.equal( logSpy.callCount, 2, 'mw.log.warn calls' );
+		assert.strictEqual( logSpy.callCount, 2, 'mw.log.warn calls' );
 	} );
 
-	QUnit.test( 'Integration', 4, function ( assert ) {
-		var expected, logSpy;
+	QUnit.test( 'Non-string parameters to various functions', function ( assert ) {
+		var i, cases;
+
+		// For jquery-param-int
+		mw.messages.set( 'x', 'y' );
+		// For jquery-param-grammar
+		mw.language.setData( 'en', 'grammarTransformations', {
+			test: [
+				[ 'x', 'y' ]
+			]
+		} );
+
+		cases = [
+			{
+				key: 'jquery-param-wikilink',
+				msg: '[[$1]] [[$1|a]]',
+				expected: '<a title="x" href="/wiki/x">x</a> <a title="x" href="/wiki/x">a</a>'
+			},
+			{
+				key: 'jquery-param-plural',
+				msg: '{{PLURAL:$1|a|b}}',
+				expected: 'b'
+			},
+			{
+				key: 'jquery-param-gender',
+				msg: '{{GENDER:$1|a|b}}',
+				expected: 'a'
+			},
+			{
+				key: 'jquery-param-grammar',
+				msg: '{{GRAMMAR:test|$1}}',
+				expected: '<b>x</b>'
+			},
+			{
+				key: 'jquery-param-int',
+				msg: '{{int:$1}}',
+				expected: 'y'
+			},
+			{
+				key: 'jquery-param-ns',
+				msg: '{{ns:$1}}',
+				expected: ''
+			},
+			{
+				key: 'jquery-param-formatnum',
+				msg: '{{formatnum:$1}}',
+				expected: '<b>x</b>'
+			},
+			{
+				key: 'jquery-param-case',
+				msg: '{{lc:$1}} {{uc:$1}} {{lcfirst:$1}} {{ucfirst:$1}}',
+				expected: 'x X x X'
+			}
+		];
+
+		for ( i = 0; i < cases.length; i++ ) {
+			mw.messages.set( cases[ i ].key, cases[ i ].msg );
+			assert.strictEqual(
+				// eslint-disable-next-line mediawiki/msg-doc
+				mw.message( cases[ i ].key, $( '<b>' ).text( 'x' ) ).parse(),
+				cases[ i ].expected,
+				cases[ i ].key
+			);
+		}
+	} );
+
+	QUnit.test( 'Do not allow javascript: urls', function ( assert ) {
+		mw.messages.set( 'illegal-url', '[javascript:alert(1) foo]' );
+		mw.messages.set( 'illegal-url-param', '[$1 foo]' );
+
+		this.suppressWarnings();
+
+		assert.strictEqual(
+			formatParse( 'illegal-url' ),
+			'[javascript:alert(1) foo]',
+			'illegal-url: \'parse\' format'
+		);
+
+		assert.strictEqual(
+			// eslint-disable-next-line no-script-url
+			formatParse( 'illegal-url-param', 'javascript:alert(1)' ),
+			'[javascript:alert(1) foo]',
+			'illegal-url-param: \'parse\' format'
+		);
+	} );
+
+	QUnit.test( 'Do not allow arbitrary style', function ( assert ) {
+		mw.messages.set( 'illegal-style', '<span style="background-image:url( http://example.com )">bar</span>' );
+
+		this.suppressWarnings();
+
+		assert.strictEqual(
+			formatParse( 'illegal-style' ),
+			'&lt;span style="background-image:url( http://example.com )"&gt;bar&lt;/span&gt;',
+			'illegal-style: \'parse\' format'
+		);
+	} );
+
+	QUnit.test( 'Integration', function ( assert ) {
+		var expected, msg, $bar;
 
 		expected = '<b><a title="Bold" href="/wiki/Bold">Bold</a>!</b>';
 		mw.messages.set( 'integration-test', '<b>[[Bold]]!</b>' );
+		mw.messages.set( 'param-test', 'Hello $1' );
+		mw.messages.set( 'param-test-with-link', 'Hello $1 [[$2|$3]]' );
 
-		this.suppressWarnings();
-		logSpy = this.sandbox.spy( mw.log, 'warn' );
-		assert.equal(
-			window.gM( 'integration-test' ),
-			expected,
-			'Global function gM() works correctly'
-		);
-		assert.equal( logSpy.callCount, 1, 'mw.log.warn called' );
-		this.restoreWarnings();
-
-		assert.equal(
+		assert.strictEqual(
 			mw.message( 'integration-test' ).parse(),
 			expected,
 			'mw.message().parse() works correctly'
 		);
 
-		assert.equal(
+		assert.strictEqual(
 			$( '<span>' ).msg( 'integration-test' ).html(),
 			expected,
 			'jQuery plugin $.fn.msg() works correctly'
 		);
+
+		assert.strictEqual(
+			mw.message( 'param-test', $( '<span>' ).text( 'World' ) ).parse(),
+			'Hello <span>World</span>',
+			'Passing a jQuery object as a parameter to a message without wikitext works correctly'
+		);
+
+		( function () {
+			var $messageArgument,
+				$message;
+
+			mw.messages.set( 'object-double-replace', 'Foo 1: $1 2: $1' );
+			$messageArgument = $( '<div class="bar">&gt;</div>' );
+			$message = $( '<span>' ).msg( 'object-double-replace', $messageArgument );
+			assert.ok(
+				$message[ 0 ].contains( $messageArgument[ 0 ] ),
+				'The original jQuery object is actually in the DOM'
+			);
+		}() );
+
+		assert.strictEqual(
+			mw.message( 'param-test', $( '<span>' ).text( 'World' ).get( 0 ) ).parse(),
+			'Hello <span>World</span>',
+			'Passing a DOM node as a parameter to a message without wikitext works correctly'
+		);
+
+		assert.strictEqual(
+			mw.message( 'param-test', undefined ).parse(),
+			'Hello $1',
+			'Passing undefined as a parameter to a message does not throw an exception'
+		);
+
+		assert.strictEqual(
+			mw.message(
+				'param-test-with-link',
+				$( '<span>' ).text( 'cruel' ),
+				'Globe',
+				'world'
+			).parse(),
+			'Hello <span>cruel</span> <a title="Globe" href="/wiki/Globe">world</a>',
+			'Message with a jQuery parameter and a parsed link'
+		);
+
+		mw.messages.set( 'integration-test-extlink', '[$1 Link]' );
+		msg = mw.message(
+			'integration-test-extlink',
+			$( '<a>' ).attr( 'href', 'http://example.com/' )
+		);
+		msg.parse(); // Not a no-op
+		assert.strictEqual(
+			msg.parse(),
+			'<a href="http://example.com/">Link</a>',
+			'Calling .parse() multiple times does not duplicate link contents'
+		);
+
+		mw.config.set( 'wgUserLanguage', 'qqx' );
+
+		$bar = $( '<b>' ).text( 'bar' );
+		mw.messages.set( 'qqx-message', '(qqx-message)' );
+		mw.messages.set( 'non-qqx-message', '<b>hello world</b>' );
+
+		assert.strictEqual( mw.message( 'missing-message' ).parse(), '⧼missing-message⧽', 'qqx message (missing)' );
+		assert.strictEqual( mw.message( 'missing-message', $bar, 'baz' ).parse(), '⧼missing-message⧽', 'qqx message (missing) with parameters' );
+		assert.strictEqual( mw.message( 'qqx-message' ).parse(), '(qqx-message)', 'qqx message (defined)' );
+		assert.strictEqual( mw.message( 'qqx-message', $bar, 'baz' ).parse(), '(qqx-message: <b>bar</b>, baz)', 'qqx message (defined) with parameters' );
+		assert.strictEqual( mw.message( 'non-qqx-message' ).parse(), '<b>hello world</b>', 'non-qqx message in qqx mode' );
 	} );
 
-}( mediaWiki, jQuery ) );
+	QUnit.test( 'setParserDefaults', function ( assert ) {
+		mw.jqueryMsg.setParserDefaults( {
+			magic: {
+				FOO: 'foo',
+				BAR: 'bar'
+			}
+		} );
+
+		assert.deepEqual(
+			mw.jqueryMsg.getParserDefaults().magic,
+			{
+				FOO: 'foo',
+				BAR: 'bar'
+			},
+			'setParserDefaults is shallow by default'
+		);
+
+		mw.jqueryMsg.setParserDefaults(
+			{
+				magic: {
+					BAZ: 'baz'
+				}
+			},
+			true
+		);
+
+		assert.deepEqual(
+			mw.jqueryMsg.getParserDefaults().magic,
+			{
+				FOO: 'foo',
+				BAR: 'bar',
+				BAZ: 'baz'
+			},
+			'setParserDefaults is deep if requested'
+		);
+	} );
+}() );

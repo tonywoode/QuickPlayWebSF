@@ -2,7 +2,7 @@
 
 /**
  * Utility for exporting site entries to XML.
- * For the output file format, see docs/sitelist.txt and docs/sitelist-1.0.xsd.
+ * For the output file format, see docs/sitelist.md and docs/sitelist-1.0.xsd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
  * @file
  * @ingroup Site
  *
- * @license GNU GPL v2+
+ * @license GPL-2.0-or-later
  * @author Daniel Kinzler
  */
 class SiteExporter {
@@ -38,6 +38,7 @@ class SiteExporter {
 	 * @param resource $sink A file handle open for writing
 	 */
 	public function __construct( $sink ) {
+		// phpcs:ignore MediaWiki.Usage.ForbiddenFunctions.is_resource
 		if ( !is_resource( $sink ) || get_resource_type( $sink ) !== 'stream' ) {
 			throw new InvalidArgumentException( '$sink must be a file handle' );
 		}
@@ -52,10 +53,10 @@ class SiteExporter {
 	 * @param Site[]|SiteList $sites
 	 */
 	public function exportSites( $sites ) {
-		$attributes = array(
+		$attributes = [
 			'version' => '1.0',
 			'xmlns' => 'http://www.mediawiki.org/xml/sitelist-1.0/',
-		);
+		];
 
 		fwrite( $this->sink, Xml::openElement( 'sites', $attributes ) . "\n" );
 
@@ -74,7 +75,7 @@ class SiteExporter {
 	 */
 	private function exportSite( Site $site ) {
 		if ( $site->getType() !== Site::TYPE_UNKNOWN ) {
-			$siteAttr = array( 'type' => $site->getType() );
+			$siteAttr = [ 'type' => $site->getType() ];
 		} else {
 			$siteAttr = null;
 		}
@@ -96,17 +97,17 @@ class SiteExporter {
 		}
 
 		foreach ( $site->getAllPaths() as $type => $path ) {
-			fwrite( $this->sink, "\t\t" . Xml::element( 'path', array( 'type' => $type ), $path ) . "\n" );
+			fwrite( $this->sink, "\t\t" . Xml::element( 'path', [ 'type' => $type ], $path ) . "\n" );
 		}
 
 		foreach ( $site->getLocalIds() as $type => $ids ) {
 			foreach ( $ids as $id ) {
-				fwrite( $this->sink, "\t\t" . Xml::element( 'localid', array( 'type' => $type ), $id ) . "\n" );
+				fwrite( $this->sink, "\t\t" . Xml::element( 'localid', [ 'type' => $type ], $id ) . "\n" );
 			}
 		}
 
-		//@todo: export <data>
-		//@todo: export <config>
+		// @todo: export <data>
+		// @todo: export <config>
 
 		fwrite( $this->sink, "\t" . Xml::closeElement( 'site' ) . "\n" );
 	}

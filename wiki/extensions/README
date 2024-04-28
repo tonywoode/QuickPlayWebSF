@@ -1,22 +1,20 @@
-Extensions (such as the hieroglyphic module WikiHiero) are distributed
-separately. Drop them into this extensions directory and enable as
-per the extension's directions.
+== User Information ==
 
-You can find a list of extensions and documentation on the MediaWiki website:
-    https://www.mediawiki.org/wiki/Category:Extensions
+Extensions are distributed separately. Drop them into this directory and enable
+as per the extension's installation instructions.
 
+You can find a list of extensions and documentation at
+<https://www.mediawiki.org/wiki/Special:MyLanguage/Category:Extensions>.
 
-If you are a developer, you want to fetch the extension tree in another
+== Development Information ==
+
+If you are a developer, you might want to fetch the extension tree in another
 directory and make a symbolic link:
 
- mediawiki/extensions$ ln -s ../../extensions-trunk/FooBarExt
+ mediawiki/extensions$ ln -s ../../extensions-trunk/FooBar
 
 Most extensions are available through Git:
-    https://gerrit.wikimedia.org/r/#/admin/projects/
-    https://git.wikimedia.org/project/mediawiki
-
-Old extensions are on Subversion:
-    https://svn.wikimedia.org/svnroot/mediawiki/trunk/extensions/
+    https://phabricator.wikimedia.org/diffusion/MEXT/
 
 
 Please note that under POSIX systems (Linux...), parent of a symbolic path

@@ -25,13 +25,16 @@
  * @author Rob Church <robchur@gmail.com>
  */
 
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IResultWrapper;
+
 /**
  * A special page to show pages ordered by the number of pages linking to them.
  *
  * @ingroup SpecialPage
  */
-class MostlinkedPage extends QueryPage {
-	function __construct( $name = 'Mostlinked' ) {
+class SpecialMostLinked extends QueryPage {
+	public function __construct( $name = 'Mostlinked' ) {
 		parent::__construct( $name );
 	}
 
@@ -39,55 +42,46 @@ class MostlinkedPage extends QueryPage {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
 	public function getQueryInfo() {
-		return array(
-			'tables' => array( 'pagelinks', 'page' ),
-			'fields' => array(
+		return [
+			'tables' => [ 'pagelinks', 'page' ],
+			'fields' => [
 				'namespace' => 'pl_namespace',
 				'title' => 'pl_title',
 				'value' => 'COUNT(*)',
 				'page_namespace'
-			),
-			'options' => array(
+			],
+			'options' => [
 				'HAVING' => 'COUNT(*) > 1',
-				'GROUP BY' => array(
+				'GROUP BY' => [
 					'pl_namespace', 'pl_title',
 					'page_namespace'
-				)
-			),
-			'join_conds' => array(
-				'page' => array(
+				]
+			],
+			'join_conds' => [
+				'page' => [
 					'LEFT JOIN',
-					array(
+					[
 						'page_namespace = pl_namespace',
 						'page_title = pl_title'
-					)
-				)
-			)
-		);
+					]
+				]
+			]
+		];
 	}
 
 	/**
 	 * Pre-fill the link cache
 	 *
 	 * @param IDatabase $db
-	 * @param ResultWrapper $res
+	 * @param IResultWrapper $res
 	 */
-	function preprocessResults( $db, $res ) {
-		if ( $res->numRows() > 0 ) {
-			$linkBatch = new LinkBatch();
-
-			foreach ( $res as $row ) {
-				$linkBatch->add( $row->namespace, $row->title );
-			}
-
-			$res->seek( 0 );
-			$linkBatch->execute();
-		}
+	public function preprocessResults( $db, $res ) {
+		$this->executeLBFromResultWrapper( $res );
 	}
 
 	/**
@@ -97,10 +91,11 @@ class MostlinkedPage extends QueryPage {
 	 * @param string $caption Text to display on the link
 	 * @return string
 	 */
-	function makeWlhLink( $title, $caption ) {
+	private function makeWlhLink( $title, $caption ) {
 		$wlh = SpecialPage::getTitleFor( 'Whatlinkshere', $title->getPrefixedDBkey() );
 
-		return Linker::linkKnown( $wlh, $caption );
+		$linkRenderer = $this->getLinkRenderer();
+		return $linkRenderer->makeKnownLink( $wlh, $caption );
 	}
 
 	/**
@@ -111,12 +106,12 @@ class MostlinkedPage extends QueryPage {
 	 * @param object $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
+	public function formatResult( $skin, $result ) {
 		$title = Title::makeTitleSafe( $result->namespace, $result->title );
 		if ( !$title ) {
 			return Html::element(
 				'span',
-				array( 'class' => 'mw-invalidtitle' ),
+				[ 'class' => 'mw-invalidtitle' ],
 				Linker::getInvalidTitleDescription(
 					$this->getContext(),
 					$result->namespace,
@@ -124,10 +119,11 @@ class MostlinkedPage extends QueryPage {
 			);
 		}
 
-		$link = Linker::link( $title );
+		$linkRenderer = $this->getLinkRenderer();
+		$link = $linkRenderer->makeLink( $title );
 		$wlh = $this->makeWlhLink(
 			$title,
-			$this->msg( 'nlinks' )->numParams( $result->value )->escaped()
+			$this->msg( 'nlinks' )->numParams( $result->value )->text()
 		);
 
 		return $this->getLanguage()->specialList( $link, $wlh );

@@ -18,11 +18,13 @@
  * @author Happy-melon
  * @file
  */
+use MediaWiki\MediaWikiServices;
 
 /**
  * The simplest way of implementing IContextSource is to hold a RequestContext as a
  * member variable and provide accessors to it.
  *
+ * @stable to extend
  * @since 1.18
  */
 abstract class ContextSource implements IContextSource {
@@ -34,13 +36,14 @@ abstract class ContextSource implements IContextSource {
 	/**
 	 * Get the base IContextSource object
 	 * @since 1.18
+	 * @stable to override
 	 * @return IContextSource
 	 */
 	public function getContext() {
 		if ( $this->context === null ) {
-			$class = get_class( $this );
+			$class = static::class;
 			wfDebug( __METHOD__ . " ($class): called and \$context is null. " .
-				"Using RequestContext::getMain() for sanity\n" );
+				"Using RequestContext::getMain() for sanity" );
 			$this->context = RequestContext::getMain();
 		}
 
@@ -48,9 +51,8 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Set the IContextSource object
-	 *
 	 * @since 1.18
+	 * @stable to override
 	 * @param IContextSource $context
 	 */
 	public function setContext( IContextSource $context ) {
@@ -58,9 +60,8 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Get the Config object
-	 *
 	 * @since 1.23
+	 * @stable to override
 	 * @return Config
 	 */
 	public function getConfig() {
@@ -68,9 +69,8 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Get the WebRequest object
-	 *
 	 * @since 1.18
+	 * @stable to override
 	 * @return WebRequest
 	 */
 	public function getRequest() {
@@ -78,9 +78,8 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Get the Title object
-	 *
 	 * @since 1.18
+	 * @stable to override
 	 * @return Title|null
 	 */
 	public function getTitle() {
@@ -93,6 +92,7 @@ abstract class ContextSource implements IContextSource {
 	 * if this method returns false.
 	 *
 	 * @since 1.19
+	 * @stable to override
 	 * @return bool
 	 */
 	public function canUseWikiPage() {
@@ -106,6 +106,7 @@ abstract class ContextSource implements IContextSource {
 	 * canUseWikiPage() to check whether this method can be called safely.
 	 *
 	 * @since 1.19
+	 * @stable to override
 	 * @return WikiPage
 	 */
 	public function getWikiPage() {
@@ -113,9 +114,8 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Get the OutputPage object
-	 *
 	 * @since 1.18
+	 * @stable to override
 	 * @return OutputPage
 	 */
 	public function getOutput() {
@@ -123,9 +123,9 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Get the User object
-	 *
+	 * @stable to override
 	 * @since 1.18
+	 * @stable to override
 	 * @return User
 	 */
 	public function getUser() {
@@ -133,9 +133,8 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Get the Language object
-	 *
 	 * @since 1.19
+	 * @stable to override
 	 * @return Language
 	 */
 	public function getLanguage() {
@@ -143,9 +142,8 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Get the Skin object
-	 *
 	 * @since 1.18
+	 * @stable to override
 	 * @return Skin
 	 */
 	public function getSkin() {
@@ -153,36 +151,47 @@ abstract class ContextSource implements IContextSource {
 	}
 
 	/**
-	 * Get the Stats object
-	 *
-	 * @since 1.25
-	 * @return BufferingStatsdDataFactory
+	 * @since 1.27
+	 * @stable to override
+	 * @return Timing
 	 */
-	public function getStats() {
-		return $this->getContext()->getStats();
+	public function getTiming() {
+		return $this->getContext()->getTiming();
 	}
 
+	/**
+	 * @deprecated since 1.27 use a StatsdDataFactory from MediaWikiServices (preferably injected)
+	 *
+	 * @since 1.25
+	 * @stable to override
+	 * @return IBufferingStatsdDataFactory
+	 */
+	public function getStats() {
+		return MediaWikiServices::getInstance()->getStatsdDataFactory();
+	}
 
 	/**
 	 * Get a Message object with context set
 	 * Parameters are the same as wfMessage()
 	 *
 	 * @since 1.18
-	 * @param mixed ...
+	 * @stable to override
+	 * @param string|string[]|MessageSpecifier $key Message key, or array of keys,
+	 *   or a MessageSpecifier.
+	 * @param mixed ...$params
 	 * @return Message
 	 */
-	public function msg( /* $args */ ) {
-		$args = func_get_args();
-
-		return call_user_func_array( array( $this->getContext(), 'msg' ), $args );
+	public function msg( $key, ...$params ) {
+		return $this->getContext()->msg( $key, ...$params );
 	}
 
 	/**
 	 * Export the resolved user IP, HTTP headers, user ID, and session ID.
 	 * The result will be reasonably sized to allow for serialization.
 	 *
-	 * @return array
 	 * @since 1.21
+	 * @stable to override
+	 * @return array
 	 */
 	public function exportSession() {
 		return $this->getContext()->exportSession();

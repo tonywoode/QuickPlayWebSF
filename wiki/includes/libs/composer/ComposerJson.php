@@ -7,29 +7,32 @@
  * @since 1.25
  */
 class ComposerJson {
+	/**
+	 * @var array[]
+	 */
+	private $contents;
 
 	/**
 	 * @param string $location
 	 */
 	public function __construct( $location ) {
-		$this->hash = md5_file( $location );
 		$this->contents = json_decode( file_get_contents( $location ), true );
-	}
-
-	public function getHash() {
-		return $this->hash;
 	}
 
 	/**
 	 * Dependencies as specified by composer.json
 	 *
-	 * @return array
+	 * @return string[]
 	 */
 	public function getRequiredDependencies() {
-		$deps = array();
-		foreach ( $this->contents['require'] as $package => $version ) {
-			if ( $package !== "php" && strpos( $package, 'ext-' ) !== 0 ) {
-				$deps[$package] = self::normalizeVersion( $version );
+		$deps = [];
+		if ( isset( $this->contents['require'] ) ) {
+			foreach ( $this->contents['require'] as $package => $version ) {
+				// Examples of package dependancies that don't have a / in the name:
+				// php, ext-xml, composer-plugin-api
+				if ( strpos( $package, '/' ) !== false ) {
+					$deps[$package] = self::normalizeVersion( $version );
+				}
 			}
 		}
 

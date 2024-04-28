@@ -39,20 +39,20 @@
  * that start with "nowait:". However, only 0 timeouts (non-blocking requests)
  * can be used with "nowait:" keys.
  *
- * By default PoolCounter_Stub is used, which provides no locking. You
+ * By default PoolCounterNull is used, which provides no locking. You
  * can get a useful one in the PoolCounter extension.
  */
 abstract class PoolCounter {
 	/* Return codes */
-	const LOCKED = 1; /* Lock acquired */
-	const RELEASED = 2; /* Lock released */
-	const DONE = 3; /* Another worker did the work for you */
+	public const LOCKED = 1; /* Lock acquired */
+	public const RELEASED = 2; /* Lock released */
+	public const DONE = 3; /* Another worker did the work for you */
 
-	const ERROR = -1; /* Indeterminate error */
-	const NOT_LOCKED = -2; /* Called release() with no lock held */
-	const QUEUE_FULL = -3; /* There are already maxqueue workers on this lock */
-	const TIMEOUT = -4; /* Timeout exceeded */
-	const LOCK_HELD = -5; /* Cannot acquire another lock while you have one lock held */
+	public const ERROR = -1; /* Indeterminate error */
+	public const NOT_LOCKED = -2; /* Called release() with no lock held */
+	public const QUEUE_FULL = -3; /* There are already maxqueue workers on this lock */
+	public const TIMEOUT = -4; /* Timeout exceeded */
+	public const LOCK_HELD = -5; /* Cannot acquire another lock while you have one lock held */
 
 	/** @var string All workers with the same key share the lock */
 	protected $key;
@@ -67,34 +67,41 @@ abstract class PoolCounter {
 	protected $slots = 0;
 	/** @var int If this number of workers are already working/waiting, fail instead of wait */
 	protected $maxqueue;
-	/** @var float Maximum time in seconds to wait for the lock */
+	/** @var int Maximum time in seconds to wait for the lock */
 	protected $timeout;
 
 	/**
-	 * @var boolean Whether the key is a "might wait" key
+	 * @var bool Whether the key is a "might wait" key
 	 */
 	private $isMightWaitKey;
 	/**
-	 * @var boolean Whether this process holds a "might wait" lock key
+	 * @var bool Whether this process holds a "might wait" lock key
 	 */
 	private static $acquiredMightWaitKey = 0;
 
 	/**
+	 * @var bool Enable fast stale mode (T250248). This may be overridden by the work class.
+	 */
+	private $fastStale;
+
+	/**
 	 * @param array $conf
-	 * @param string $type
+	 * @param string $type The class of actions to limit concurrency for (task type)
 	 * @param string $key
 	 */
-	protected function __construct( $conf, $type, $key ) {
+	protected function __construct( array $conf, string $type, string $key ) {
 		$this->workers = $conf['workers'];
 		$this->maxqueue = $conf['maxqueue'];
 		$this->timeout = $conf['timeout'];
 		if ( isset( $conf['slots'] ) ) {
 			$this->slots = $conf['slots'];
 		}
+		$this->fastStale = $conf['fastStale'] ?? false;
 
 		if ( $this->slots ) {
-			$key = $this->hashKeyIntoSlots( $key, $this->slots );
+			$key = $this->hashKeyIntoSlots( $type, $key, $this->slots );
 		}
+
 		$this->key = $key;
 		$this->isMightWaitKey = !preg_match( '/^nowait:/', $this->key );
 	}
@@ -102,15 +109,15 @@ abstract class PoolCounter {
 	/**
 	 * Create a Pool counter. This should only be called from the PoolWorks.
 	 *
-	 * @param string $type
+	 * @param string $type The class of actions to limit concurrency for (task type)
 	 * @param string $key
 	 *
 	 * @return PoolCounter
 	 */
-	public static function factory( $type, $key ) {
+	public static function factory( string $type, string $key ) {
 		global $wgPoolCounterConf;
 		if ( !isset( $wgPoolCounterConf[$type] ) ) {
-			return new PoolCounter_Stub;
+			return new PoolCounterNull;
 		}
 		$conf = $wgPoolCounterConf[$type];
 		$class = $conf['class'];
@@ -128,17 +135,21 @@ abstract class PoolCounter {
 	/**
 	 * I want to do this task and I need to do it myself.
 	 *
+	 * @param int|null $timeout Wait timeout, or null to use value passed to
+	 *   the constructor
 	 * @return Status Value is one of Locked/Error
 	 */
-	abstract public function acquireForMe();
+	abstract public function acquireForMe( $timeout = null );
 
 	/**
 	 * I want to do this task, but if anyone else does it
 	 * instead, it's also fine for me. I will read its cached data.
 	 *
+	 * @param int|null $timeout Wait timeout, or null to use value passed to
+	 *   the constructor
 	 * @return Status Value is one of Locked/Done/Error
 	 */
-	abstract public function acquireForAnyone();
+	abstract public function acquireForAnyone( $timeout = null );
 
 	/**
 	 * I have successfully finished my task.
@@ -192,38 +203,22 @@ abstract class PoolCounter {
 	}
 
 	/**
-	 * Given a key (any string) and the number of lots, returns a slot number (an integer from
-	 * the [0..($slots-1)] range). This is used for a global limit on the number of instances of
-	 * a given type that can acquire a lock. The hashing is deterministic so that
+	 * Given a key (any string) and the number of lots, returns a slot key (a prefix with a suffix
+	 * integer from the [0..($slots-1)] range). This is used for a global limit on the number of
+	 * instances of a given type that can acquire a lock. The hashing is deterministic so that
 	 * PoolCounter::$workers is always an upper limit of how many instances with the same key
 	 * can acquire a lock.
 	 *
+	 * @param string $type The class of actions to limit concurrency for (task type)
 	 * @param string $key PoolCounter instance key (any string)
 	 * @param int $slots The number of slots (max allowed value is 65536)
-	 * @return int
+	 * @return string Slot key with the type and slot number
 	 */
-	protected function hashKeyIntoSlots( $key, $slots ) {
-		return hexdec( substr( sha1( $key ), 0, 4 ) ) % $slots;
-	}
-}
-
-// @codingStandardsIgnoreStart Squiz.Classes.ValidClassName.NotCamelCaps
-class PoolCounter_Stub extends PoolCounter {
-	// @codingStandardsIgnoreEnd
-
-	public function __construct() {
-		/* No parameters needed */
+	protected function hashKeyIntoSlots( $type, $key, $slots ) {
+		return $type . ':' . ( hexdec( substr( sha1( $key ), 0, 4 ) ) % $slots );
 	}
 
-	public function acquireForMe() {
-		return Status::newGood( PoolCounter::LOCKED );
-	}
-
-	public function acquireForAnyone() {
-		return Status::newGood( PoolCounter::LOCKED );
-	}
-
-	public function release() {
-		return Status::newGood( PoolCounter::RELEASED );
+	public function isFastStaleEnabled() {
+		return $this->fastStale;
 	}
 }

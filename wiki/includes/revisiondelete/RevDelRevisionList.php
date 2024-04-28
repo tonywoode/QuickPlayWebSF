@@ -19,6 +19,12 @@
  * @ingroup RevisionDelete
  */
 
+use MediaWiki\HookContainer\ProtectedHookAccessorTrait;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Revision\RevisionRecord;
+use Wikimedia\Rdbms\FakeResultWrapper;
+use Wikimedia\Rdbms\IDatabase;
+
 /**
  * List for revision table items
  *
@@ -29,6 +35,8 @@
  * See RevDelRevisionItem and RevDelArchivedRevisionItem for items.
  */
 class RevDelRevisionList extends RevDelList {
+	use ProtectedHookAccessorTrait;
+
 	/** @var int */
 	public $currentRevId;
 
@@ -45,12 +53,18 @@ class RevDelRevisionList extends RevDelList {
 	}
 
 	public static function getRevdelConstant() {
-		return Revision::DELETED_TEXT;
+		return RevisionRecord::DELETED_TEXT;
 	}
 
 	public static function suggestTarget( $target, array $ids ) {
-		$rev = Revision::newFromId( $ids[0] );
-		return $rev ? $rev->getTitle() : $target;
+		$revisionRecord = MediaWikiServices::getInstance()
+			->getRevisionLookup()
+			->getRevisionById( $ids[0] );
+
+		if ( $revisionRecord ) {
+			return Title::newFromLinkTarget( $revisionRecord->getPageAsLinkTarget() );
+		}
+		return $target;
 	}
 
 	/**
@@ -58,33 +72,72 @@ class RevDelRevisionList extends RevDelList {
 	 * @return mixed
 	 */
 	public function doQuery( $db ) {
+		$revisionStore = MediaWikiServices::getInstance()->getRevisionStore();
 		$ids = array_map( 'intval', $this->ids );
-		$live = $db->select(
-			array( 'revision', 'page', 'user' ),
-			array_merge( Revision::selectFields(), Revision::selectUserFields() ),
-			array(
+		$revQuery = $revisionStore->getQueryInfo( [ 'page', 'user' ] );
+		$queryInfo = [
+			'tables' => $revQuery['tables'],
+			'fields' => $revQuery['fields'],
+			'conds' => [
 				'rev_page' => $this->title->getArticleID(),
 				'rev_id' => $ids,
-			),
-			__METHOD__,
-			array( 'ORDER BY' => 'rev_id DESC' ),
-			array(
-				'page' => Revision::pageJoinCond(),
-				'user' => Revision::userJoinCond() )
+			],
+			'options' => [
+				'ORDER BY' => 'rev_id DESC',
+				'USE INDEX' => [ 'revision' => 'PRIMARY' ] // workaround for MySQL bug (T104313)
+			],
+			'join_conds' => $revQuery['joins'],
+		];
+		ChangeTags::modifyDisplayQuery(
+			$queryInfo['tables'],
+			$queryInfo['fields'],
+			$queryInfo['conds'],
+			$queryInfo['join_conds'],
+			$queryInfo['options'],
+			''
 		);
 
+		$live = $db->select(
+			$queryInfo['tables'],
+			$queryInfo['fields'],
+			$queryInfo['conds'],
+			__METHOD__,
+			$queryInfo['options'],
+			$queryInfo['join_conds']
+		);
 		if ( $live->numRows() >= count( $ids ) ) {
 			// All requested revisions are live, keeps things simple!
 			return $live;
 		}
 
+		$arQuery = $revisionStore->getArchiveQueryInfo();
+		$archiveQueryInfo = [
+			'tables' => $arQuery['tables'],
+			'fields' => $arQuery['fields'],
+			'conds' => [
+				'ar_rev_id' => $ids,
+			],
+			'options' => [ 'ORDER BY' => 'ar_rev_id DESC' ],
+			'join_conds' => $arQuery['joins'],
+		];
+
+		ChangeTags::modifyDisplayQuery(
+			$archiveQueryInfo['tables'],
+			$archiveQueryInfo['fields'],
+			$archiveQueryInfo['conds'],
+			$archiveQueryInfo['join_conds'],
+			$archiveQueryInfo['options'],
+			''
+		);
+
 		// Check if any requested revisions are available fully deleted.
-		$archived = $db->select( array( 'archive' ), Revision::selectArchiveFields(),
-			array(
-				'ar_rev_id' => $ids
-			),
+		$archived = $db->select(
+			$archiveQueryInfo['tables'],
+			$archiveQueryInfo['fields'],
+			$archiveQueryInfo['conds'],
 			__METHOD__,
-			array( 'ORDER BY' => 'ar_rev_id DESC' )
+			$archiveQueryInfo['options'],
+			$archiveQueryInfo['join_conds']
 		);
 
 		if ( $archived->numRows() == 0 ) {
@@ -93,7 +146,7 @@ class RevDelRevisionList extends RevDelList {
 			return $archived;
 		} else {
 			// Combine the two! Whee
-			$rows = array();
+			$rows = [];
 			foreach ( $live as $row ) {
 				$rows[$row->rev_id] = $row;
 			}
@@ -117,7 +170,7 @@ class RevDelRevisionList extends RevDelList {
 	}
 
 	public function getCurrent() {
-		if ( is_null( $this->currentRevId ) ) {
+		if ( $this->currentRevId === null ) {
 			$dbw = wfGetDB( DB_MASTER );
 			$this->currentRevId = $dbw->selectField(
 				'page', 'page_latest', $this->title->pageCond(), __METHOD__ );
@@ -126,7 +179,7 @@ class RevDelRevisionList extends RevDelList {
 	}
 
 	public function getSuppressBit() {
-		return Revision::DELETED_RESTRICTED;
+		return RevisionRecord::DELETED_RESTRICTED;
 	}
 
 	public function doPreCommitUpdates() {
@@ -134,10 +187,16 @@ class RevDelRevisionList extends RevDelList {
 		return Status::newGood();
 	}
 
-	public function doPostCommitUpdates() {
-		$this->title->purgeSquid();
+	public function doPostCommitUpdates( array $visibilityChangeMap ) {
+		$hcu = MediaWikiServices::getInstance()->getHtmlCacheUpdater();
+		$hcu->purgeTitleUrls( $this->title, $hcu::PURGE_INTENT_TXROUND_REFLECTED );
 		// Extensions that require referencing previous revisions may need this
-		Hooks::run( 'ArticleRevisionVisibilitySet', array( $this->title, $this->ids ) );
+		$this->getHookRunner()->onArticleRevisionVisibilitySet(
+			$this->title, $this->ids, $visibilityChangeMap );
+		MediaWikiServices::getInstance()
+			->getMainWANObjectCache()
+			->touchCheckKey( "RevDelRevisionList:page:{$this->title->getArticleID()}}" );
+
 		return Status::newGood();
 	}
 }

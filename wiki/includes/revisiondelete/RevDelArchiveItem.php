@@ -19,14 +19,24 @@
  * @ingroup RevisionDelete
  */
 
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Revision\RevisionFactory;
+
 /**
  * Item class for a archive table row
  */
 class RevDelArchiveItem extends RevDelRevisionItem {
-	public function __construct( $list, $row ) {
-		RevDelItem::__construct( $list, $row );
-		$this->revision = Revision::newFromArchiveRow( $row,
-			array( 'page' => $this->list->title->getArticleID() ) );
+	protected static function initRevisionRecord( $list, $row ) {
+		$revRecord = MediaWikiServices::getInstance()
+			->getRevisionFactory()
+			->newRevisionFromArchiveRow(
+				$row,
+				RevisionFactory::READ_NORMAL,
+				null,
+				[ 'page_id' => $list->title->getArticleID() ]
+			);
+
+		return $revRecord;
 	}
 
 	public function getIdField() {
@@ -45,44 +55,48 @@ class RevDelArchiveItem extends RevDelRevisionItem {
 		return 'ar_user_text';
 	}
 
+	public function getAuthorActorField() {
+		return 'ar_actor';
+	}
+
 	public function getId() {
 		# Convert DB timestamp to MW timestamp
-		return $this->revision->getTimestamp();
+		return $this->revisionRecord->getTimestamp();
 	}
 
 	public function setBits( $bits ) {
 		$dbw = wfGetDB( DB_MASTER );
 		$dbw->update( 'archive',
-			array( 'ar_deleted' => $bits ),
-			array(
+			[ 'ar_deleted' => $bits ],
+			[
 				'ar_namespace' => $this->list->title->getNamespace(),
 				'ar_title' => $this->list->title->getDBkey(),
 				// use timestamp for index
 				'ar_timestamp' => $this->row->ar_timestamp,
 				'ar_rev_id' => $this->row->ar_rev_id,
 				'ar_deleted' => $this->getBits()
-			),
+			],
 			__METHOD__ );
 
 		return (bool)$dbw->affectedRows();
 	}
 
 	protected function getRevisionLink() {
-		$date = htmlspecialchars( $this->list->getLanguage()->userTimeAndDate(
-			$this->revision->getTimestamp(), $this->list->getUser() ) );
+		$date = $this->list->getLanguage()->userTimeAndDate(
+			$this->revisionRecord->getTimestamp(), $this->list->getUser() );
 
 		if ( $this->isDeleted() && !$this->canViewContent() ) {
-			return $date;
+			return htmlspecialchars( $date );
 		}
 
-		return Linker::link(
+		return $this->getLinkRenderer()->makeLink(
 			SpecialPage::getTitleFor( 'Undelete' ),
 			$date,
-			array(),
-			array(
+			[],
+			[
 				'target' => $this->list->title->getPrefixedText(),
-				'timestamp' => $this->revision->getTimestamp()
-			)
+				'timestamp' => $this->revisionRecord->getTimestamp()
+			]
 		);
 	}
 
@@ -91,15 +105,15 @@ class RevDelArchiveItem extends RevDelRevisionItem {
 			return $this->list->msg( 'diff' )->escaped();
 		}
 
-		return Linker::link(
+		return $this->getLinkRenderer()->makeLink(
 			SpecialPage::getTitleFor( 'Undelete' ),
-			$this->list->msg( 'diff' )->escaped(),
-			array(),
-			array(
+			$this->list->msg( 'diff' )->text(),
+			[],
+			[
 				'target' => $this->list->title->getPrefixedText(),
 				'diff' => 'prev',
-				'timestamp' => $this->revision->getTimestamp()
-			)
+				'timestamp' => $this->revisionRecord->getTimestamp()
+			]
 		);
 	}
 }

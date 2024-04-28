@@ -28,25 +28,22 @@
 require_once __DIR__ . '/../autoload.php';
 
 class AutoLoader {
-	static protected $autoloadLocalClassesLower = null;
+	protected static $autoloadLocalClassesLower = null;
+
+	/**
+	 * @internal Only public for ExtensionRegistry
+	 * @var string[] Namespace (ends with \) => Path (ends with /)
+	 */
+	public static $psr4Namespaces = [];
 
 	/**
 	 * autoload - take a class name and attempt to load it
 	 *
 	 * @param string $className Name of class we're looking for.
 	 */
-	static function autoload( $className ) {
+	public static function autoload( $className ) {
 		global $wgAutoloadClasses, $wgAutoloadLocalClasses,
 			$wgAutoloadAttemptLowercase;
-
-		// Workaround for PHP bug <https://bugs.php.net/bug.php?id=49143> (5.3.2. is broken, it's
-		// fixed in 5.3.6). Strip leading backslashes from class names. When namespaces are used,
-		// leading backslashes are used to indicate the top-level namespace, e.g. \foo\Bar. When
-		// used like this in the code, the leading backslash isn't passed to the auto-loader
-		// ($className would be 'foo\Bar'). However, if a class is accessed using a string instead
-		// of a class literal (e.g. $class = '\foo\Bar'; new $class()), then some versions of PHP
-		// do not strip the leading backlash in this case, causing autoloading to fail.
-		$className = ltrim( $className, '\\' );
 
 		$filename = false;
 
@@ -76,6 +73,28 @@ class AutoLoader {
 			}
 		}
 
+		if ( !$filename && strpos( $className, '\\' ) !== false ) {
+			// This class is namespaced, so try looking at the namespace map
+			$prefix = $className;
+			while ( ( $pos = strrpos( $prefix, '\\' ) ) !== false ) {
+				// Check to see if this namespace prefix is in the map
+				$prefix = substr( $className, 0, $pos + 1 );
+				if ( isset( self::$psr4Namespaces[$prefix] ) ) {
+					$relativeClass = substr( $className, $pos + 1 );
+					// Build the expected filename, and see if it exists
+					$file = self::$psr4Namespaces[$prefix] . '/' .
+						str_replace( '\\', '/', $relativeClass ) . '.php';
+					if ( file_exists( $file ) ) {
+						$filename = $file;
+						break;
+					}
+				}
+
+				// Remove trailing separator for next iteration
+				$prefix = rtrim( $prefix, '\\' );
+			}
+		}
+
 		if ( !$filename ) {
 			// Class not found; let the next autoloader try to find it
 			return;
@@ -91,24 +110,63 @@ class AutoLoader {
 	}
 
 	/**
-	 * Force a class to be run through the autoloader, helpful for things like
-	 * Sanitizer that have define()s outside of their class definition. Of course
-	 * this wouldn't be necessary if everything in MediaWiki was class-based. Sigh.
-	 *
-	 * @param string $class
-	 * @return bool Return the results of class_exists() so we know if we were successful
-	 */
-	static function loadClass( $class ) {
-		return class_exists( $class );
-	}
-
-	/**
 	 * Method to clear the protected class property $autoloadLocalClassesLower.
 	 * Used in tests.
 	 */
-	static function resetAutoloadLocalClassesLower() {
+	public static function resetAutoloadLocalClassesLower() {
 		self::$autoloadLocalClassesLower = null;
+	}
+
+	/**
+	 * Get a mapping of namespace => file path
+	 * The namespaces should follow the PSR-4 standard for autoloading
+	 *
+	 * @see <https://www.php-fig.org/psr/psr-4/>
+	 * @internal Only public for usage in AutoloadGenerator
+	 * @codeCoverageIgnore
+	 * @since 1.31
+	 * @return string[]
+	 */
+	public static function getAutoloadNamespaces() {
+		return [
+			'MediaWiki\\' => __DIR__ . '/',
+			'MediaWiki\\Api\\' => __DIR__ . '/api/',
+			'MediaWiki\\Auth\\' => __DIR__ . '/auth/',
+			'MediaWiki\\Block\\' => __DIR__ . '/block/',
+			'MediaWiki\\Cache\\' => __DIR__ . '/cache/',
+			'MediaWiki\\ChangeTags\\' => __DIR__ . '/changetags/',
+			'MediaWiki\\Config\\' => __DIR__ . '/config/',
+			'MediaWiki\\Content\\' => __DIR__ . '/content/',
+			'MediaWiki\\DB\\' => __DIR__ . '/db/',
+			'MediaWiki\\Diff\\' => __DIR__ . '/diff/',
+			'MediaWiki\\Edit\\' => __DIR__ . '/edit/',
+			'MediaWiki\\EditPage\\' => __DIR__ . '/editpage/',
+			'MediaWiki\\FileBackend\\LockManager\\' => __DIR__ . '/filebackend/lockmanager/',
+			'MediaWiki\\Http\\' => __DIR__ . '/http/',
+			'MediaWiki\\Installer\\' => __DIR__ . '/installer/',
+			'MediaWiki\\Interwiki\\' => __DIR__ . '/interwiki/',
+			'MediaWiki\\Linker\\' => __DIR__ . '/linker/',
+			'MediaWiki\\Logger\\' => __DIR__ . '/debug/logger/',
+			'MediaWiki\\Logger\Monolog\\' => __DIR__ . '/debug/logger/monolog/',
+			'MediaWiki\\Page\\' => __DIR__ . '/page/',
+			'MediaWiki\\Preferences\\' => __DIR__ . '/preferences/',
+			'MediaWiki\\ResourceLoader\\' => __DIR__ . '/resourceloader/',
+			'MediaWiki\\Search\\' => __DIR__ . '/search/',
+			'MediaWiki\\Search\\SearchWidgets\\' => __DIR__ . '/search/searchwidgets/',
+			'MediaWiki\\Session\\' => __DIR__ . '/session/',
+			'MediaWiki\\Shell\\' => __DIR__ . '/shell/',
+			'MediaWiki\\Site\\' => __DIR__ . '/site/',
+			'MediaWiki\\Sparql\\' => __DIR__ . '/sparql/',
+			'MediaWiki\\SpecialPage\\' => __DIR__ . '/specialpage/',
+			'MediaWiki\\Tidy\\' => __DIR__ . '/tidy/',
+			'MediaWiki\\User\\' => __DIR__ . '/user/',
+			'MediaWiki\\Widget\\' => __DIR__ . '/widget/',
+			'Wikimedia\\' => __DIR__ . '/libs/',
+			'Wikimedia\\Http\\' => __DIR__ . '/libs/http/',
+			'Wikimedia\\UUID\\' => __DIR__ . '/libs/uuid/',
+		];
 	}
 }
 
-spl_autoload_register( array( 'AutoLoader', 'autoload' ) );
+AutoLoader::$psr4Namespaces = AutoLoader::getAutoloadNamespaces();
+spl_autoload_register( [ 'AutoLoader', 'autoload' ] );

@@ -1,44 +1,32 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 /**
- * @group Broken
+ * @group large
  * @group Upload
  * @group Database
  *
  * @covers UploadFromUrl
  */
 class UploadFromUrlTest extends ApiTestCase {
-	protected function setUp() {
-		parent::setUp();
+	private $user;
 
-		$this->setMwGlobals( array(
+	protected function setUp() : void {
+		parent::setUp();
+		$this->user = self::$users['sysop']->getUser();
+
+		$this->setMwGlobals( [
 			'wgEnableUploads' => true,
 			'wgAllowCopyUploads' => true,
-			'wgAllowAsyncCopyUploads' => true,
-		) );
-		wfSetupSession();
+		] );
+		$this->setGroupPermissions( 'sysop', 'upload_by_url', true );
 
-		if ( wfLocalFile( 'UploadFromUrlTest.png' )->exists() ) {
+		if ( MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo()
+			->newFile( 'UploadFromUrlTest.png' )->exists()
+		) {
 			$this->deleteFile( 'UploadFromUrlTest.png' );
 		}
-	}
-
-	protected function doApiRequest( array $params, array $unused = null,
-		$appendModule = false, User $user = null
-	) {
-		$sessionId = session_id();
-		session_write_close();
-
-		$req = new FauxRequest( $params, true, $_SESSION );
-		$module = new ApiMain( $req, true );
-		$module->execute();
-
-		wfSetupSession( $sessionId );
-
-		return array(
-			$module->getResult()->getResultData( null, array( 'Strip' => 'all' ) ),
-			$req
-		);
 	}
 
 	/**
@@ -52,6 +40,63 @@ class UploadFromUrlTest extends ApiTestCase {
 		$this->assertFalse( $job );
 	}
 
+	public function testIsAllowedHostEmpty() {
+		$this->setMwGlobals( [
+			'wgCopyUploadsDomains' => [],
+		] );
+
+		$this->assertTrue( UploadFromUrl::isAllowedHost( 'https://foo.bar' ) );
+	}
+
+	public function testIsAllowedHostDirectMatch() {
+		$this->setMwGlobals( [
+			'wgCopyUploadsDomains' => [
+				'foo.baz',
+				'bar.example.baz',
+			],
+		] );
+
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://example.com' ) );
+
+		$this->assertTrue( UploadFromUrl::isAllowedHost( 'https://foo.baz' ) );
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://.foo.baz' ) );
+
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://example.baz' ) );
+		$this->assertTrue( UploadFromUrl::isAllowedHost( 'https://bar.example.baz' ) );
+	}
+
+	public function testIsAllowedHostLastWildcard() {
+		$this->setMwGlobals( [
+			'wgCopyUploadsDomains' => [
+				'*.baz',
+			],
+		] );
+
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://baz' ) );
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://foo.example' ) );
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://foo.example.baz' ) );
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://foo/bar.baz' ) );
+
+		$this->assertTrue( UploadFromUrl::isAllowedHost( 'https://foo.baz' ) );
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://subdomain.foo.baz' ) );
+	}
+
+	public function testIsAllowedHostWildcardInMiddle() {
+		$this->setMwGlobals( [
+			'wgCopyUploadsDomains' => [
+				'foo.*.baz',
+			],
+		] );
+
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://foo.baz' ) );
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://foo.bar.bar.baz' ) );
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://foo.bar.baz.baz' ) );
+		$this->assertFalse( UploadFromUrl::isAllowedHost( 'https://foo.com/.baz' ) );
+
+		$this->assertTrue( UploadFromUrl::isAllowedHost( 'https://foo.example.baz' ) );
+		$this->assertTrue( UploadFromUrl::isAllowedHost( 'https://foo.bar.baz' ) );
+	}
+
 	/**
 	 * @depends testClearQueue
 	 */
@@ -60,116 +105,56 @@ class UploadFromUrlTest extends ApiTestCase {
 		$exception = false;
 
 		try {
-			$this->doApiRequest( array(
+			$this->doApiRequest( [
 				'action' => 'upload',
-			) );
-		} catch ( UsageException $e ) {
+			] );
+		} catch ( ApiUsageException $e ) {
 			$exception = true;
-			$this->assertEquals( "The token parameter must be set", $e->getMessage() );
+			$this->assertEquals( 'The "token" parameter must be set.', $e->getMessage() );
 		}
 		$this->assertTrue( $exception, "Got exception" );
 
 		$exception = false;
 		try {
-			$this->doApiRequest( array(
+			$this->doApiRequest( [
 				'action' => 'upload',
 				'token' => $token,
-			), $data );
-		} catch ( UsageException $e ) {
+			], $data );
+		} catch ( ApiUsageException $e ) {
 			$exception = true;
-			$this->assertEquals( "One of the parameters sessionkey, file, url, statuskey is required",
+			$this->assertEquals( 'One of the parameters "filekey", "file" and "url" is required.',
 				$e->getMessage() );
 		}
 		$this->assertTrue( $exception, "Got exception" );
 
 		$exception = false;
 		try {
-			$this->doApiRequest( array(
+			$this->doApiRequest( [
 				'action' => 'upload',
 				'url' => 'http://www.example.com/test.png',
 				'token' => $token,
-			), $data );
-		} catch ( UsageException $e ) {
+			], $data );
+		} catch ( ApiUsageException $e ) {
 			$exception = true;
-			$this->assertEquals( "The filename parameter must be set", $e->getMessage() );
+			$this->assertEquals( 'The "filename" parameter must be set.', $e->getMessage() );
 		}
 		$this->assertTrue( $exception, "Got exception" );
 
 		$this->user->removeGroup( 'sysop' );
 		$exception = false;
 		try {
-			$this->doApiRequest( array(
+			$this->doApiRequest( [
 				'action' => 'upload',
 				'url' => 'http://www.example.com/test.png',
 				'filename' => 'UploadFromUrlTest.png',
 				'token' => $token,
-			), $data );
-		} catch ( UsageException $e ) {
+			], $data );
+		} catch ( ApiUsageException $e ) {
 			$exception = true;
-			$this->assertEquals( "Permission denied", $e->getMessage() );
+			$this->assertStringStartsWith( "The action you have requested is limited to users in the group:",
+				$e->getMessage() );
 		}
 		$this->assertTrue( $exception, "Got exception" );
-
-		$this->user->addGroup( 'sysop' );
-		$data = $this->doApiRequest( array(
-			'action' => 'upload',
-			'url' => 'http://upload.wikimedia.org/wikipedia/mediawiki/b/bc/Wiki.png',
-			'asyncdownload' => 1,
-			'filename' => 'UploadFromUrlTest.png',
-			'token' => $token,
-		), $data );
-
-		$this->assertEquals( $data[0]['upload']['result'], 'Queued', 'Queued upload' );
-
-		$job = JobQueueGroup::singleton()->pop();
-		$this->assertThat( $job, $this->isInstanceOf( 'UploadFromUrlJob' ), 'Queued upload inserted' );
-	}
-
-	/**
-	 * @depends testClearQueue
-	 */
-	public function testAsyncUpload( $data ) {
-		$token = $this->user->getEditToken();
-
-		$this->user->addGroup( 'users' );
-
-		$data = $this->doAsyncUpload( $token, true );
-		$this->assertEquals( $data[0]['upload']['result'], 'Success' );
-		$this->assertEquals( $data[0]['upload']['filename'], 'UploadFromUrlTest.png' );
-		$this->assertTrue( wfLocalFile( $data[0]['upload']['filename'] )->exists() );
-
-		$this->deleteFile( 'UploadFromUrlTest.png' );
-
-		return $data;
-	}
-
-	/**
-	 * @depends testClearQueue
-	 */
-	public function testAsyncUploadWarning( $data ) {
-		$token = $this->user->getEditToken();
-
-		$this->user->addGroup( 'users' );
-
-		$data = $this->doAsyncUpload( $token );
-
-		$this->assertEquals( $data[0]['upload']['result'], 'Warning' );
-		$this->assertTrue( isset( $data[0]['upload']['sessionkey'] ) );
-
-		$data = $this->doApiRequest( array(
-			'action' => 'upload',
-			'sessionkey' => $data[0]['upload']['sessionkey'],
-			'filename' => 'UploadFromUrlTest.png',
-			'ignorewarnings' => 1,
-			'token' => $token,
-		) );
-		$this->assertEquals( $data[0]['upload']['result'], 'Success' );
-		$this->assertEquals( $data[0]['upload']['filename'], 'UploadFromUrlTest.png' );
-		$this->assertTrue( wfLocalFile( $data[0]['upload']['filename'] )->exists() );
-
-		$this->deleteFile( 'UploadFromUrlTest.png' );
-
-		return $data;
 	}
 
 	/**
@@ -178,137 +163,17 @@ class UploadFromUrlTest extends ApiTestCase {
 	public function testSyncDownload( $data ) {
 		$token = $this->user->getEditToken();
 
-		$job = JobQueueGroup::singleton()->pop();
-		$this->assertFalse( $job, 'Starting with an empty jobqueue' );
-
 		$this->user->addGroup( 'users' );
-		$data = $this->doApiRequest( array(
+		$data = $this->doApiRequest( [
 			'action' => 'upload',
 			'filename' => 'UploadFromUrlTest.png',
 			'url' => 'http://upload.wikimedia.org/wikipedia/mediawiki/b/bc/Wiki.png',
 			'ignorewarnings' => true,
 			'token' => $token,
-		), $data );
-
-		$job = JobQueueGroup::singleton()->pop();
-		$this->assertFalse( $job );
+		], $data );
 
 		$this->assertEquals( 'Success', $data[0]['upload']['result'] );
 		$this->deleteFile( 'UploadFromUrlTest.png' );
-
-		return $data;
-	}
-
-	public function testLeaveMessage() {
-		$token = $this->user->user->getEditToken();
-
-		$talk = $this->user->user->getTalkPage();
-		if ( $talk->exists() ) {
-			$page = WikiPage::factory( $talk );
-			$page->doDeleteArticle( '' );
-		}
-
-		$this->assertFalse(
-			(bool)$talk->getArticleID( Title::GAID_FOR_UPDATE ),
-			'User talk does not exist'
-		);
-
-		$this->doApiRequest( array(
-			'action' => 'upload',
-			'filename' => 'UploadFromUrlTest.png',
-			'url' => 'http://upload.wikimedia.org/wikipedia/mediawiki/b/bc/Wiki.png',
-			'asyncdownload' => 1,
-			'token' => $token,
-			'leavemessage' => 1,
-			'ignorewarnings' => 1,
-		) );
-
-		$job = JobQueueGroup::singleton()->pop();
-		$this->assertEquals( 'UploadFromUrlJob', get_class( $job ) );
-		$job->run();
-
-		$this->assertTrue( wfLocalFile( 'UploadFromUrlTest.png' )->exists() );
-		$this->assertTrue( (bool)$talk->getArticleID( Title::GAID_FOR_UPDATE ), 'User talk exists' );
-
-		$this->deleteFile( 'UploadFromUrlTest.png' );
-
-		$exception = false;
-		try {
-			$this->doApiRequest( array(
-				'action' => 'upload',
-				'filename' => 'UploadFromUrlTest.png',
-				'url' => 'http://upload.wikimedia.org/wikipedia/mediawiki/b/bc/Wiki.png',
-				'asyncdownload' => 1,
-				'token' => $token,
-				'leavemessage' => 1,
-			) );
-		} catch ( UsageException $e ) {
-			$exception = true;
-			$this->assertEquals(
-				'Using leavemessage without ignorewarnings is not supported',
-				$e->getMessage()
-			);
-		}
-		$this->assertTrue( $exception );
-
-		$job = JobQueueGroup::singleton()->pop();
-		$this->assertFalse( $job );
-
-		return;
-		/*
-		// Broken until using leavemessage with ignorewarnings is supported
-		$talkRev = Revision::newFromTitle( $talk );
-		$talkSize = $talkRev->getSize();
-
-		$job->run();
-
-		$this->assertFalse( wfLocalFile( 'UploadFromUrlTest.png' )->exists() );
-
-		$talkRev = Revision::newFromTitle( $talk );
-		$this->assertTrue( $talkRev->getSize() > $talkSize, 'New message left' );
-		*/
-	}
-
-	/**
-	 * Helper function to perform an async upload, execute the job and fetch
-	 * the status
-	 *
-	 * @param string $token
-	 * @param bool $ignoreWarnings
-	 * @param bool $leaveMessage
-	 * @return array The result of action=upload&statuskey=key
-	 */
-	private function doAsyncUpload( $token, $ignoreWarnings = false, $leaveMessage = false ) {
-		$params = array(
-			'action' => 'upload',
-			'filename' => 'UploadFromUrlTest.png',
-			'url' => 'http://upload.wikimedia.org/wikipedia/mediawiki/b/bc/Wiki.png',
-			'asyncdownload' => 1,
-			'token' => $token,
-		);
-		if ( $ignoreWarnings ) {
-			$params['ignorewarnings'] = 1;
-		}
-		if ( $leaveMessage ) {
-			$params['leavemessage'] = 1;
-		}
-
-		$data = $this->doApiRequest( $params );
-		$this->assertEquals( $data[0]['upload']['result'], 'Queued' );
-		$this->assertTrue( isset( $data[0]['upload']['statuskey'] ) );
-		$statusKey = $data[0]['upload']['statuskey'];
-
-		$job = JobQueueGroup::singleton()->pop();
-		$this->assertEquals( 'UploadFromUrlJob', get_class( $job ) );
-
-		$status = $job->run();
-		$this->assertTrue( $status );
-
-		$data = $this->doApiRequest( array(
-			'action' => 'upload',
-			'statuskey' => $statusKey,
-			'token' => $token,
-		) );
 
 		return $data;
 	}
@@ -318,11 +183,12 @@ class UploadFromUrlTest extends ApiTestCase {
 		$this->assertTrue( $t->exists(), "File '$name' exists" );
 
 		if ( $t->exists() ) {
-			$file = wfFindFile( $name, array( 'ignoreRedirect' => true ) );
+			$file = MediaWikiServices::getInstance()->getRepoGroup()
+				->findFile( $name, [ 'ignoreRedirect' => true ] );
 			$empty = "";
-			FileDeleteForm::doDelete( $t, $file, $empty, "none", true );
+			FileDeleteForm::doDelete( $t, $file, $empty, "none", true, $this->user );
 			$page = WikiPage::factory( $t );
-			$page->doDeleteArticle( "testing" );
+			$page->doDeleteArticleReal( "testing", $this->user );
 		}
 		$t = Title::newFromText( $name, NS_FILE );
 

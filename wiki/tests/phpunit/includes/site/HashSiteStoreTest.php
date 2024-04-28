@@ -24,13 +24,13 @@
  *
  * @author Katie Filbert < aude.wiki@gmail.com >
  */
-class HashSiteStoreTest extends MediaWikiTestCase {
+class HashSiteStoreTest extends \MediaWikiIntegrationTestCase {
 
 	/**
 	 * @covers HashSiteStore::getSites
 	 */
 	public function testGetSites() {
-		$expectedSites = array();
+		$expectedSites = [];
 
 		foreach ( TestSites::getSites() as $testSite ) {
 			$siteId = $testSite->getGlobalId();
@@ -66,7 +66,7 @@ class HashSiteStoreTest extends MediaWikiTestCase {
 	public function testSaveSites() {
 		$store = new HashSiteStore();
 
-		$sites = array();
+		$sites = [];
 
 		$site = new Site();
 		$site->setGlobalId( 'enwiki' );

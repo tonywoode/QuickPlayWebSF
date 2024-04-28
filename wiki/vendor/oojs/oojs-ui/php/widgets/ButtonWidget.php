@@ -6,6 +6,27 @@ namespace OOUI;
  * Generic widget for buttons.
  */
 class ButtonWidget extends Widget {
+	use ButtonElement;
+	use IconElement;
+	use IndicatorElement;
+	use LabelElement;
+	use TitledElement;
+	use FlaggedElement;
+	use TabIndexedElement;
+	use AccessKeyedElement;
+
+	/* Static Properties */
+
+	public static $tagName = 'span';
+
+	/* Properties */
+
+	/**
+	 * Whether button is active.
+	 *
+	 * @var boolean
+	 */
+	protected $active = false;
 
 	/**
 	 * Hyperlink to visit when clicked.
@@ -31,37 +52,57 @@ class ButtonWidget extends Widget {
 	protected $noFollow = true;
 
 	/**
-	 * @param array $config Configuration options
-	 * @param string $config['href'] Hyperlink to visit when clicked
-	 * @param string $config['target'] Target to open hyperlink in
-	 * @param boolean $config['noFollow'] Search engine traversal hint (default: true)
+	 * Relationship attributes, such as the noFollow field above, or noopener for the hyperlink.
+	 *
+	 * @var string[]
 	 */
-	public function __construct( array $config = array() ) {
+	protected $rel = [];
+
+	/**
+	 * @param array $config Configuration options
+	 *      - bool $config['active'] Whether button should be shown as active (default: false)
+	 *      - string $config['href'] Hyperlink to visit when clicked
+	 *      - string $config['target'] Target to open hyperlink in
+	 *      - bool $config['noFollow'] Search engine traversal hint (default: true)
+	 *      - string[] $config['rel'] Relationship attributes for the hyperlink
+	 */
+	public function __construct( array $config = [] ) {
 		// Parent constructor
 		parent::__construct( $config );
 
-		// Mixins
-		$this->mixin( new ButtonElement( $this, $config ) );
-		$this->mixin( new IconElement( $this, $config ) );
-		$this->mixin( new IndicatorElement( $this, $config ) );
-		$this->mixin( new LabelElement( $this, $config ) );
-		$this->mixin( new TitledElement( $this,
-			array_merge( $config, array( 'titled' => $this->button ) ) ) );
-		$this->mixin( new FlaggedElement( $this, $config ) );
-		$this->mixin( new TabIndexedElement( $this,
-			array_merge( $config, array( 'tabIndexed' => $this->button ) ) ) );
-		$this->mixin( new AccessKeyedElement( $this,
-			array_merge( $config, array( 'accessKeyed' => $this->button ) ) ) );
+		// Traits
+		$this->initializeButtonElement( $config );
+		$this->initializeIconElement( $config );
+		$this->initializeIndicatorElement( $config );
+		$this->initializeLabelElement( $config );
+		$this->initializeTitledElement(
+			array_merge( [ 'titled' => $this->button ], $config )
+		);
+		$this->initializeFlaggedElement( $config );
+		$this->initializeTabIndexedElement(
+			array_merge( [ 'tabIndexed' => $this->button ], $config )
+		);
+		$this->initializeAccessKeyedElement(
+			array_merge( [ 'accessKeyed' => $this->button ], $config )
+		);
 
 		// Initialization
 		$this->button->appendContent( $this->icon, $this->label, $this->indicator );
 		$this
-			->addClasses( array( 'oo-ui-buttonWidget' ) )
+			->addClasses( [ 'oo-ui-buttonWidget' ] )
 			->appendContent( $this->button );
 
-		$this->setHref( isset( $config['href'] ) ? $config['href'] : null );
-		$this->setTarget( isset( $config['target'] ) ? $config['target'] : null );
-		$this->setNoFollow( isset( $config['noFollow'] ) ? $config['noFollow'] : true );
+		$this->setActive( $config['active'] ?? false );
+		$this->setHref( $config['href'] ?? null );
+		$this->setTarget( $config['target'] ?? null );
+		$rel = [ 'nofollow' ];
+		if ( isset( $config['rel'] ) ) {
+			$rel = $config['rel'];
+		} elseif ( isset( $config[ 'noFollow' ] ) && $config[ 'noFollow' ] === false ) {
+			$rel = [];
+		}
+
+		$this->setRel( $rel );
 	}
 
 	/**
@@ -85,16 +126,26 @@ class ButtonWidget extends Widget {
 	/**
 	 * Get search engine traversal hint.
 	 *
-	 * @return boolean Whether search engines should avoid traversing this hyperlink
+	 * @return bool Whether search engines should avoid traversing this hyperlink
 	 */
 	public function getNoFollow() {
 		return $this->noFollow;
 	}
 
 	/**
+	 * Get the relationship attribute of the hyperlink.
+	 *
+	 * @return string[] Relationship attributes that apply to the hyperlink
+	 */
+	public function getRel() {
+		return $this->rel;
+	}
+
+	/**
 	 * Set hyperlink location.
 	 *
 	 * @param string|null $href Hyperlink location, null to remove
+	 * @return $this
 	 */
 	public function setHref( $href ) {
 		$this->href = is_string( $href ) ? $href : null;
@@ -108,13 +159,13 @@ class ButtonWidget extends Widget {
 	 * Update the href attribute, in case of changes to href or disabled
 	 * state.
 	 *
-	 * @chainable
+	 * @return $this
 	 */
 	public function updateHref() {
 		if ( $this->href !== null && !$this->isDisabled() ) {
-			$this->button->setAttributes( array( 'href' => $this->href ) );
+			$this->button->setAttributes( [ 'href' => $this->href ] );
 		} else {
-			$this->button->removeAttributes( array( 'href' ) );
+			$this->button->removeAttributes( [ 'href' ] );
 		}
 		return $this;
 	}
@@ -123,14 +174,15 @@ class ButtonWidget extends Widget {
 	 * Set hyperlink target.
 	 *
 	 * @param string|null $target Hyperlink target, null to remove
+	 * @return $this
 	 */
 	public function setTarget( $target ) {
 		$this->target = is_string( $target ) ? $target : null;
 
 		if ( $this->target !== null ) {
-			$this->button->setAttributes( array( 'target' => $target ) );
+			$this->button->setAttributes( [ 'target' => $target ] );
 		} else {
-			$this->button->removeAttributes( array( 'target' ) );
+			$this->button->removeAttributes( [ 'target' ] );
 		}
 
 		return $this;
@@ -139,21 +191,77 @@ class ButtonWidget extends Widget {
 	/**
 	 * Set search engine traversal hint.
 	 *
-	 * @param boolean $noFollow True if search engines should avoid traversing this hyperlink
+	 * @param bool $noFollow True if search engines should avoid traversing this hyperlink
+	 * @return $this
 	 */
 	public function setNoFollow( $noFollow ) {
-		$this->noFollow = is_bool( $noFollow ) ? $noFollow : true;
-
 		if ( $this->noFollow ) {
-			$this->button->setAttributes( array( 'rel' => 'nofollow' ) );
+			if ( !$noFollow ) {
+				$relationship = $this->rel;
+				$index = array_search( 'nofollow', $relationship );
+				unset( $relationship[$index] );
+
+				$this->setRel( $relationship );
+			}
 		} else {
-			$this->button->removeAttributes( array( 'rel' ) );
+			if ( $noFollow ) {
+				$this->setRel( array_merge(
+					$this->rel,
+					[ 'nofollow' ]
+				) );
+			}
 		}
 
 		return $this;
 	}
 
+	/**
+	 * Set the relationship attribute of the hyperlink.
+	 *
+	 * @param string|string[] $rel Relationship attributes for the hyperlink
+	 * @return $this
+	 */
+	public function setRel( $rel ) {
+		$this->rel = is_array( $rel ) ? $rel : [ $rel ];
+		// For backwards compatibility
+		$this->noFollow = in_array( 'nofollow', $this->rel );
+
+		if ( $this->rel ) {
+			$this->button->setAttributes( [ 'rel' => implode( ' ', $this->rel ) ] );
+		} else {
+			$this->button->removeAttributes( [ 'rel' ] );
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Toggle active state.
+	 *
+	 * A button should be marked as active when clicking it would only refresh the page.
+	 *
+	 * @param bool|null $active Make button active
+	 * @return $this
+	 */
+	public function setActive( $active = null ) {
+		$this->active = (bool)$active;
+		$this->toggleClasses( [ 'oo-ui-buttonElement-active' ], $this->active );
+		return $this;
+	}
+
+	/**
+	 * Check if button is active.
+	 *
+	 * @return bool Button is active
+	 */
+	public function isActive() {
+		return $this->active;
+	}
+
 	public function getConfig( &$config ) {
+		if ( $this->active !== false ) {
+			$config['active'] = $this->active;
+		}
 		if ( $this->href !== null ) {
 			$config['href'] = $this->href;
 		}
@@ -162,6 +270,9 @@ class ButtonWidget extends Widget {
 		}
 		if ( $this->noFollow !== true ) {
 			$config['noFollow'] = $this->noFollow;
+		}
+		if ( $this->rel !== [] ) {
+			$config['rel'] = $this->rel;
 		}
 		return parent::getConfig( $config );
 	}

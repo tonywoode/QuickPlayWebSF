@@ -21,6 +21,9 @@
  * @ingroup Maintenance
  */
 
+use Wikimedia\Rdbms\DatabaseSqlite;
+use Wikimedia\Rdbms\DBError;
+
 /**
  * This class contains code common to different SQLite-related maintenance scripts
  *
@@ -45,19 +48,20 @@ class Sqlite {
 	 * @return bool True if no error or error string in case of errors
 	 */
 	public static function checkSqlSyntax( $files ) {
-		if ( !Sqlite::isPresent() ) {
+		if ( !self::isPresent() ) {
 			throw new MWException( "Can't check SQL syntax: SQLite not found" );
 		}
 		if ( !is_array( $files ) ) {
-			$files = array( $files );
+			$files = [ $files ];
 		}
 
-		$allowedTypes = array_flip( array(
+		$allowedTypes = array_flip( [
 			'integer',
 			'real',
 			'text',
-			'blob', // NULL type is omitted intentionally
-		) );
+			'blob',
+			// NULL type is omitted intentionally
+		] );
 
 		$db = DatabaseSqlite::newStandaloneInstance( ':memory:' );
 		try {
@@ -77,7 +81,7 @@ class Sqlite {
 				$columns = $db->query( "PRAGMA table_info({$table->name})", __METHOD__ );
 				foreach ( $columns as $col ) {
 					if ( !isset( $allowedTypes[strtolower( $col->type )] ) ) {
-						$db->close();
+						$db->close( __METHOD__ );
 
 						return "Table {$table->name} has column {$col->name} with non-native type '{$col->type}'";
 					}
@@ -86,7 +90,7 @@ class Sqlite {
 		} catch ( DBError $e ) {
 			return $e->getMessage();
 		}
-		$db->close();
+		$db->close( __METHOD__ );
 
 		return true;
 	}

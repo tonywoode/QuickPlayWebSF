@@ -20,40 +20,52 @@
 
 namespace MediaWiki\Logger;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * LoggerFactory service provider that creates LegacyLogger instances.
  *
  * Usage:
  * @code
- * $wgMWLoggerDefaultSpi = array(
- *   'class' => '\\MediaWiki\\Logger\\LegacySpi',
- * );
+ * $wgMWLoggerDefaultSpi = [
+ *   'class' => \MediaWiki\Logger\LegacySpi::class,
+ * ];
  * @endcode
  *
- * @see \\MediaWiki\\Logger\\LoggerFactory
+ * @see \MediaWiki\Logger\LoggerFactory
  * @since 1.25
- * @author Bryan Davis <bd808@wikimedia.org>
- * @copyright © 2014 Bryan Davis and Wikimedia Foundation.
+ * @copyright © 2014 Wikimedia Foundation and contributors
  */
 class LegacySpi implements Spi {
 
 	/**
-	 * @var array $singletons
+	 * @var array
 	 */
-	protected $singletons = array();
-
+	protected $singletons = [];
 
 	/**
 	 * Get a logger instance.
 	 *
 	 * @param string $channel Logging channel
-	 * @return \\Psr\\Log\\LoggerInterface Logger instance
+	 * @return \Psr\Log\LoggerInterface Logger instance
 	 */
 	public function getLogger( $channel ) {
 		if ( !isset( $this->singletons[$channel] ) ) {
 			$this->singletons[$channel] = new LegacyLogger( $channel );
 		}
 		return $this->singletons[$channel];
+	}
+
+	/**
+	 * @internal For use by MediaWikiIntegrationTestCase
+	 * @param string $channel
+	 * @param LoggerInterface|null $logger
+	 * @return LoggerInterface|null
+	 */
+	public function setLoggerForTest( $channel, LoggerInterface $logger = null ) {
+		$ret = $this->singletons[$channel] ?? null;
+		$this->singletons[$channel] = $logger;
+		return $ret;
 	}
 
 }

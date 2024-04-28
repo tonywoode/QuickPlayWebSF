@@ -26,13 +26,12 @@
  *
  * @ingroup Language
  */
-// @codingStandardsIgnoreStart Ignore class name is not in camel caps format error
+// phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps
 class LanguageZh_hans extends Language {
-	// @codingStandardsIgnoreEnd
 	/**
 	 * @return bool
 	 */
-	function hasWordBreaks() {
+	public function hasWordBreaks() {
 		return false;
 	}
 
@@ -45,7 +44,7 @@ class LanguageZh_hans extends Language {
 	 *
 	 * @return string
 	 */
-	function segmentByWord( $string ) {
+	public function segmentByWord( $string ) {
 		$reg = "/([\\xc0-\\xff][\\x80-\\xbf]*)/";
 		$s = self::insertSpace( $string, $reg );
 		return $s;
@@ -55,8 +54,7 @@ class LanguageZh_hans extends Language {
 	 * @param string $s
 	 * @return string
 	 */
-	function normalizeForSearch( $s ) {
-
+	public function normalizeForSearch( $s ) {
 		// Double-width roman characters
 		$s = parent::normalizeForSearch( $s );
 		$s = trim( $s );
@@ -75,14 +73,14 @@ class LanguageZh_hans extends Language {
 	 *
 	 * @return string
 	 */
-	public function formatDuration( $seconds, array $chosenIntervals = array() ) {
+	public function formatDuration( $seconds, array $chosenIntervals = [] ) {
 		if ( empty( $chosenIntervals ) ) {
-			$chosenIntervals = array( 'centuries', 'years', 'days', 'hours', 'minutes', 'seconds' );
+			$chosenIntervals = [ 'centuries', 'years', 'days', 'hours', 'minutes', 'seconds' ];
 		}
 
 		$intervals = $this->getDurationIntervals( $seconds, $chosenIntervals );
 
-		$segments = array();
+		$segments = [];
 
 		foreach ( $intervals as $intervalName => $intervalValue ) {
 			// Messages: duration-seconds, duration-minutes, duration-hours, duration-days, duration-weeks,

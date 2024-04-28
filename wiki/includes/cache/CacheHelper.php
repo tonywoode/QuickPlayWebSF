@@ -18,69 +18,11 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @license GNU GPL v2 or later
+ * @license GPL-2.0-or-later
  * @author Jeroen De Dauw < jeroendedauw@gmail.com >
  */
 
-/**
- * Interface for all classes implementing CacheHelper functionality.
- *
- * @since 1.20
- */
-interface ICacheHelper {
-	/**
-	 * Sets if the cache should be enabled or not.
-	 *
-	 * @since 1.20
-	 * @param bool $cacheEnabled
-	 */
-	function setCacheEnabled( $cacheEnabled );
-
-	/**
-	 * Initializes the caching.
-	 * Should be called before the first time anything is added via addCachedHTML.
-	 *
-	 * @since 1.20
-	 *
-	 * @param int|null $cacheExpiry Sets the cache expiry, either ttl in seconds or unix timestamp.
-	 * @param bool|null $cacheEnabled Sets if the cache should be enabled or not.
-	 */
-	function startCache( $cacheExpiry = null, $cacheEnabled = null );
-
-	/**
-	 * Get a cached value if available or compute it if not and then cache it if possible.
-	 * The provided $computeFunction is only called when the computation needs to happen
-	 * and should return a result value. $args are arguments that will be passed to the
-	 * compute function when called.
-	 *
-	 * @since 1.20
-	 *
-	 * @param callable $computeFunction
-	 * @param array|mixed $args
-	 * @param string|null $key
-	 *
-	 * @return mixed
-	 */
-	function getCachedValue( $computeFunction, $args = array(), $key = null );
-
-	/**
-	 * Saves the HTML to the cache in case it got recomputed.
-	 * Should be called after the last time anything is added via addCachedHTML.
-	 *
-	 * @since 1.20
-	 */
-	function saveCache();
-
-	/**
-	 * Sets the time to live for the cache, in seconds or a unix timestamp
-	 * indicating the point of expiry...
-	 *
-	 * @since 1.20
-	 *
-	 * @param int $cacheExpiry
-	 */
-	function setExpiry( $cacheExpiry );
-}
+use MediaWiki\MediaWikiServices;
 
 /**
  * Helper class for caching various elements in a single cache entry.
@@ -140,9 +82,9 @@ class CacheHelper implements ICacheHelper {
 	 * Function that gets called when initialization is done.
 	 *
 	 * @since 1.20
-	 * @var callable
+	 * @var callable|null
 	 */
-	protected $onInitHandler = false;
+	protected $onInitHandler;
 
 	/**
 	 * Elements to build a cache key with.
@@ -150,7 +92,7 @@ class CacheHelper implements ICacheHelper {
 	 * @since 1.20
 	 * @var array
 	 */
-	protected $cacheKey = array();
+	protected $cacheKey = [];
 
 	/**
 	 * Sets if the cache should be enabled or not.
@@ -172,12 +114,12 @@ class CacheHelper implements ICacheHelper {
 	 * @param bool|null $cacheEnabled Sets if the cache should be enabled or not.
 	 */
 	public function startCache( $cacheExpiry = null, $cacheEnabled = null ) {
-		if ( is_null( $this->hasCached ) ) {
-			if ( !is_null( $cacheExpiry ) ) {
+		if ( $this->hasCached === null ) {
+			if ( $cacheExpiry !== null ) {
 				$this->cacheExpiry = $cacheExpiry;
 			}
 
-			if ( !is_null( $cacheEnabled ) ) {
+			if ( $cacheEnabled !== null ) {
 				$this->setCacheEnabled( $cacheEnabled );
 			}
 
@@ -213,14 +155,10 @@ class CacheHelper implements ICacheHelper {
 			unset( $refreshArgs['title'] );
 			$refreshArgs['action'] = 'purge';
 
-			$subPage = $context->getTitle()->getFullText();
-			$subPage = explode( '/', $subPage, 2 );
-			$subPage = count( $subPage ) > 1 ? $subPage[1] : false;
-
-			$message .= ' ' . Linker::link(
-				$context->getTitle( $subPage ),
-				$context->msg( 'cachedspecial-refresh-now' )->escaped(),
-				array(),
+			$message .= ' ' . MediaWikiServices::getInstance()->getLinkRenderer()->makeLink(
+				$context->getTitle(),
+				$context->msg( 'cachedspecial-refresh-now' )->text(),
+				[],
 				$refreshArgs
 			);
 		}
@@ -235,13 +173,13 @@ class CacheHelper implements ICacheHelper {
 	 * @since 1.20
 	 */
 	protected function initCaching() {
-		if ( $this->cacheEnabled && is_null( $this->hasCached ) ) {
+		if ( $this->cacheEnabled && $this->hasCached === null ) {
 			$cachedChunks = wfGetCache( CACHE_ANYTHING )->get( $this->getCacheKeyString() );
 
 			$this->hasCached = is_array( $cachedChunks );
-			$this->cachedChunks = $this->hasCached ? $cachedChunks : array();
+			$this->cachedChunks = $this->hasCached ? $cachedChunks : [];
 
-			if ( $this->onInitHandler !== false ) {
+			if ( $this->onInitHandler !== null ) {
 				call_user_func( $this->onInitHandler, $this->hasCached );
 			}
 		}
@@ -261,41 +199,39 @@ class CacheHelper implements ICacheHelper {
 	 *
 	 * @return mixed
 	 */
-	public function getCachedValue( $computeFunction, $args = array(), $key = null ) {
+	public function getCachedValue( $computeFunction, $args = [], $key = null ) {
 		$this->initCaching();
 
 		if ( $this->cacheEnabled && $this->hasCached ) {
 			$value = null;
 
-			if ( is_null( $key ) ) {
-				$itemKey = array_keys( array_slice( $this->cachedChunks, 0, 1 ) );
-				$itemKey = array_shift( $itemKey );
+			if ( $key === null ) {
+				reset( $this->cachedChunks );
+				$itemKey = key( $this->cachedChunks );
 
-				if ( !is_integer( $itemKey ) ) {
+				if ( $itemKey === null ) {
+					wfWarn( "Attempted to get an item while the queue is empty in " . __METHOD__ );
+				} elseif ( !is_int( $itemKey ) ) {
 					wfWarn( "Attempted to get item with non-numeric key while " .
 						"the next item in the queue has a key ($itemKey) in " . __METHOD__ );
-				} elseif ( is_null( $itemKey ) ) {
-					wfWarn( "Attempted to get an item while the queue is empty in " . __METHOD__ );
 				} else {
 					$value = array_shift( $this->cachedChunks );
 				}
+			} elseif ( array_key_exists( $key, $this->cachedChunks ) ) {
+				$value = $this->cachedChunks[$key];
+				unset( $this->cachedChunks[$key] );
 			} else {
-				if ( array_key_exists( $key, $this->cachedChunks ) ) {
-					$value = $this->cachedChunks[$key];
-					unset( $this->cachedChunks[$key] );
-				} else {
-					wfWarn( "There is no item with key '$key' in this->cachedChunks in " . __METHOD__ );
-				}
+				wfWarn( "There is no item with key '$key' in this->cachedChunks in " . __METHOD__ );
 			}
 		} else {
 			if ( !is_array( $args ) ) {
-				$args = array( $args );
+				$args = [ $args ];
 			}
 
-			$value = call_user_func_array( $computeFunction, $args );
+			$value = $computeFunction( ...$args );
 
 			if ( $this->cacheEnabled ) {
-				if ( is_null( $key ) ) {
+				if ( $key === null ) {
 					$this->cachedChunks[] = $value;
 				} else {
 					$this->cachedChunks[$key] = $value;
@@ -344,11 +280,13 @@ class CacheHelper implements ICacheHelper {
 	 * @throws MWException
 	 */
 	protected function getCacheKeyString() {
-		if ( $this->cacheKey === array() ) {
+		if ( $this->cacheKey === [] ) {
 			throw new MWException( 'No cache key set, so cannot obtain or save the CacheHelper values.' );
 		}
 
-		return call_user_func_array( 'wfMemcKey', $this->cacheKey );
+		return ObjectCache::getLocalClusterInstance()->makeKey(
+			...array_values( $this->cacheKey )
+		);
 	}
 
 	/**

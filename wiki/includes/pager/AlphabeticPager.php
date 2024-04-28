@@ -23,6 +23,7 @@
 
 /**
  * IndexPager with an alphabetic list and a formatted navigation bar
+ * @stable to extend
  * @ingroup Pager
  */
 abstract class AlphabeticPager extends IndexPager {
@@ -31,9 +32,11 @@ abstract class AlphabeticPager extends IndexPager {
 	 * Shamelessly stolen bits from ReverseChronologicalPager,
 	 * didn't want to do class magic as may be still revamped
 	 *
+	 * @stable to override
+	 *
 	 * @return string HTML
 	 */
-	function getNavigationBar() {
+	public function getNavigationBar() {
 		if ( !$this->isNavigationBarShown() ) {
 			return '';
 		}
@@ -42,12 +45,12 @@ abstract class AlphabeticPager extends IndexPager {
 			return $this->mNavigationBar;
 		}
 
-		$linkTexts = array(
+		$linkTexts = [
 			'prev' => $this->msg( 'prevn' )->numParams( $this->mLimit )->escaped(),
 			'next' => $this->msg( 'nextn' )->numParams( $this->mLimit )->escaped(),
 			'first' => $this->msg( 'page_first' )->escaped(),
 			'last' => $this->msg( 'page_last' )->escaped()
-		);
+		];
 
 		$lang = $this->getLanguage();
 
@@ -56,8 +59,8 @@ abstract class AlphabeticPager extends IndexPager {
 		$limits = $lang->pipeList( $limitLinks );
 
 		$this->mNavigationBar = $this->msg( 'parentheses' )->rawParams(
-			$lang->pipeList( array( $pagingLinks['first'],
-			$pagingLinks['last'] ) ) )->escaped() . " " .
+			$lang->pipeList( [ $pagingLinks['first'],
+			$pagingLinks['last'] ] ) )->escaped() . " " .
 			$this->msg( 'viewprevnext' )->rawParams( $pagingLinks['prev'],
 				$pagingLinks['next'], $limits )->escaped();
 
@@ -81,7 +84,7 @@ abstract class AlphabeticPager extends IndexPager {
 			} else {
 				$extra .= $this->makeLink(
 					$this->msg( $msgs[$order] )->escaped(),
-					array( 'order' => $order )
+					[ 'order' => $order ]
 				);
 			}
 		}
@@ -99,6 +102,8 @@ abstract class AlphabeticPager extends IndexPager {
 	 * enabling each one in getNavigationBar.  The return type is an associative
 	 * array whose keys must exactly match the keys of the array returned
 	 * by getIndexField(), and whose values are message keys.
+	 *
+	 * @stable to override
 	 *
 	 * @return array
 	 */

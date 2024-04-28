@@ -18,71 +18,7 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @ingroup JobQueue
  */
-
-/**
- * Job queue task description interface
- *
- * @ingroup JobQueue
- * @since 1.23
- */
-interface IJobSpecification {
-	/**
-	 * @return string Job type
-	 */
-	public function getType();
-
-	/**
-	 * @return array
-	 */
-	public function getParams();
-
-	/**
-	 * @return int|null UNIX timestamp to delay running this job until, otherwise null
-	 */
-	public function getReleaseTimestamp();
-
-	/**
-	 * @return bool Whether only one of each identical set of jobs should be run
-	 */
-	public function ignoreDuplicates();
-
-	/**
-	 * Subclasses may need to override this to make duplication detection work.
-	 * The resulting map conveys everything that makes the job unique. This is
-	 * only checked if ignoreDuplicates() returns true, meaning that duplicate
-	 * jobs are supposed to be ignored.
-	 *
-	 * @return array Map of key/values
-	 */
-	public function getDeduplicationInfo();
-
-	/**
-	 * @see JobQueue::deduplicateRootJob()
-	 * @return array
-	 * @since 1.26
-	 */
-	public function getRootJobParams();
-
-	/**
-	 * @see JobQueue::deduplicateRootJob()
-	 * @return bool
-	 * @since 1.22
-	 */
-	public function hasRootJobParams();
-
-	/**
-	 * @see JobQueue::deduplicateRootJob()
-	 * @return bool Whether this is job is a root job
-	 */
-	public function isRootJob();
-
-	/**
-	 * @return Title Descriptive title (this can simply be informative)
-	 */
-	public function getTitle();
-}
 
 /**
  * Job queue task description base code
@@ -91,9 +27,8 @@ interface IJobSpecification {
  * @code
  * $job = new JobSpecification(
  *		'null',
- *		array( 'lives' => 1, 'usleep' => 100, 'pi' => 3.141569 ),
- *		array( 'removeDuplicates' => 1 ),
- *		Title::makeTitle( NS_SPECIAL, 'nullity' )
+ *		[ 'lives' => 1, 'usleep' => 100, 'pi' => 3.141569 ],
+ *		[ 'removeDuplicates' => 1 ]
  * );
  * JobQueueGroup::singleton()->push( $job )
  * @endcode
@@ -117,18 +52,31 @@ class JobSpecification implements IJobSpecification {
 	/**
 	 * @param string $type
 	 * @param array $params Map of key/values
-	 * @param array $opts Map of key/values; includes 'removeDuplicates'
-	 * @param Title $title Optional descriptive title
+	 * @param array $opts Map of key/values
+	 *   'removeDuplicates' key - whether to remove duplicate jobs
+	 *   'removeDuplicatesIgnoreParams' key - array with parameters to ignore for deduplication
+	 * @param Title|null $title Optional descriptive title
 	 */
 	public function __construct(
-		$type, array $params, array $opts = array(), Title $title = null
+		$type, array $params, array $opts = [], Title $title = null
 	) {
 		$this->validateParams( $params );
 		$this->validateParams( $opts );
 
 		$this->type = $type;
+		if ( $title instanceof Title ) {
+			// Make sure JobQueue classes can pull the title from parameters alone
+			if ( $title->getDBkey() !== '' ) {
+				$params += [
+					'namespace' => $title->getNamespace(),
+					'title' => $title->getDBkey()
+				];
+			}
+		} else {
+			$title = Title::makeTitle( NS_SPECIAL, '' );
+		}
 		$this->params = $params;
-		$this->title = $title ?: Title::makeTitle( NS_SPECIAL, 'Badtitle/' . get_class( $this ) );
+		$this->title = $title;
 		$this->opts = $opts;
 	}
 
@@ -168,32 +116,31 @@ class JobSpecification implements IJobSpecification {
 	}
 
 	public function getDeduplicationInfo() {
-		$info = array(
+		$info = [
 			'type' => $this->getType(),
-			'namespace' => $this->getTitle()->getNamespace(),
-			'title' => $this->getTitle()->getDBkey(),
 			'params' => $this->getParams()
-		);
+		];
 		if ( is_array( $info['params'] ) ) {
 			// Identical jobs with different "root" jobs should count as duplicates
 			unset( $info['params']['rootJobSignature'] );
 			unset( $info['params']['rootJobTimestamp'] );
 			// Likewise for jobs with different delay times
 			unset( $info['params']['jobReleaseTimestamp'] );
+			if ( isset( $this->opts['removeDuplicatesIgnoreParams'] ) ) {
+				foreach ( $this->opts['removeDuplicatesIgnoreParams'] as $field ) {
+					unset( $info['params'][$field] );
+				}
+			}
 		}
 
 		return $info;
 	}
 
 	public function getRootJobParams() {
-		return array(
-			'rootJobSignature' => isset( $this->params['rootJobSignature'] )
-				? $this->params['rootJobSignature']
-				: null,
-			'rootJobTimestamp' => isset( $this->params['rootJobTimestamp'] )
-				? $this->params['rootJobTimestamp']
-				: null
-		);
+		return [
+			'rootJobSignature' => $this->params['rootJobSignature'] ?? null,
+			'rootJobTimestamp' => $this->params['rootJobTimestamp'] ?? null
+		];
 	}
 
 	public function hasRootJobParams() {
@@ -210,15 +157,15 @@ class JobSpecification implements IJobSpecification {
 	 * @since 1.25
 	 */
 	public function toSerializableArray() {
-		return array(
+		return [
 			'type'   => $this->type,
 			'params' => $this->params,
 			'opts'   => $this->opts,
-			'title'  => array(
+			'title'  => [
 				'ns'  => $this->title->getNamespace(),
-				'key' => $this->title->getDbKey()
-			)
-		);
+				'key' => $this->title->getDBkey()
+			]
+		];
 	}
 
 	/**

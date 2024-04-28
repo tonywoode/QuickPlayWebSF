@@ -7,6 +7,11 @@
  * @since 1.25
  */
 class ComposerLock {
+	/**
+	 * @var array[]
+	 * @phan-var array{packages:array{name:string,version:string,type:string,license?:string,authors?:mixed,description?:string}}
+	 */
+	private $contents;
 
 	/**
 	 * @param string $location
@@ -15,25 +20,21 @@ class ComposerLock {
 		$this->contents = json_decode( file_get_contents( $location ), true );
 	}
 
-	public function getHash() {
-		return $this->contents['hash'];
-	}
-
 	/**
 	 * Dependencies currently installed according to composer.lock
 	 *
-	 * @return array
+	 * @return array[]
 	 */
 	public function getInstalledDependencies() {
-		$deps = array();
+		$deps = [];
 		foreach ( $this->contents['packages'] as $installed ) {
-			$deps[$installed['name']] = array(
+			$deps[$installed['name']] = [
 				'version' => ComposerJson::normalizeVersion( $installed['version'] ),
 				'type' => $installed['type'],
-				'licenses' => isset( $installed['license'] ) ? $installed['license'] : array(),
-				'authors' => isset( $installed['authors'] ) ? $installed['authors'] : array(),
-				'description' => isset( $installed['description'] ) ? $installed['description']: '',
-			);
+				'licenses' => $installed['license'] ?? [],
+				'authors' => $installed['authors'] ?? [],
+				'description' => $installed['description'] ?? '',
+			];
 		}
 
 		return $deps;

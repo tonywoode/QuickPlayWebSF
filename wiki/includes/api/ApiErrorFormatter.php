@@ -26,6 +26,7 @@
  * ApiResult.
  * @since 1.25
  * @ingroup API
+ * @phan-file-suppress PhanUndeclaredMethod Undeclared methods in IApiMessage
  */
 class ApiErrorFormatter {
 	/** @var Title Dummy title to silence warnings from MessageCache::parse() */
@@ -43,7 +44,9 @@ class ApiErrorFormatter {
 	 * @param ApiResult $result Into which data will be added
 	 * @param Language $lang Used for i18n
 	 * @param string $format
-	 *  - text: Error message as wikitext
+	 *  - plaintext: Error message as something vaguely like plaintext
+	 *    (it's basically wikitext with HTML tags stripped and entities decoded)
+	 *  - wikitext: Error message as wikitext
 	 *  - html: Error message as HTML
 	 *  - raw: Raw message key and parameters, no human-readable text
 	 *  - none: Code and data only, no human-readable text
@@ -54,6 +57,55 @@ class ApiErrorFormatter {
 		$this->lang = $lang;
 		$this->useDB = $useDB;
 		$this->format = $format;
+	}
+
+	/**
+	 * Test whether a code is a valid API error code
+	 *
+	 * A valid code contains only ASCII letters, numbers, underscore, and
+	 * hyphen and is not the empty string.
+	 *
+	 * For backwards compatibility, any code beginning 'internal_api_error_' is
+	 * also allowed.
+	 *
+	 * @param string $code
+	 * @return bool
+	 */
+	public static function isValidApiCode( $code ) {
+		return is_string( $code ) && (
+			preg_match( '/^[a-zA-Z0-9_-]+$/', $code ) ||
+			// TODO: Deprecate this
+			preg_match( '/^internal_api_error_[^\0\r\n]+$/', $code )
+		);
+	}
+
+	/**
+	 * Return a formatter like this one but with a different format
+	 *
+	 * @since 1.32
+	 * @param string $format New format.
+	 * @return ApiErrorFormatter
+	 */
+	public function newWithFormat( $format ) {
+		return new self( $this->result, $this->lang, $format, $this->useDB );
+	}
+
+	/**
+	 * Fetch the format for this formatter
+	 * @since 1.32
+	 * @return string
+	 */
+	public function getFormat() {
+		return $this->format;
+	}
+
+	/**
+	 * Fetch the Language for this formatter
+	 * @since 1.29
+	 * @return Language
+	 */
+	public function getLanguage() {
+		return $this->lang;
 	}
 
 	/**
@@ -69,53 +121,50 @@ class ApiErrorFormatter {
 
 	/**
 	 * Add a warning to the result
-	 * @param string $moduleName
-	 * @param MessageSpecifier|array|string $msg i18n message for the warning
-	 * @param string $code Machine-readable code for the warning. Defaults as
-	 *   for IApiMessage::getApiCode().
-	 * @param array $data Machine-readable data for the warning, if any.
-	 *   Uses IApiMessage::getApiData() if $msg implements that interface.
+	 * @param string|null $modulePath
+	 * @param Message|array|string $msg Warning message. See ApiMessage::create().
+	 * @param string|null $code See ApiMessage::create().
+	 * @param array|null $data See ApiMessage::create().
 	 */
-	public function addWarning( $moduleName, $msg, $code = null, $data = null ) {
+	public function addWarning( $modulePath, $msg, $code = null, $data = null ) {
 		$msg = ApiMessage::create( $msg, $code, $data )
 			->inLanguage( $this->lang )
 			->title( $this->getDummyTitle() )
 			->useDatabase( $this->useDB );
-		$this->addWarningOrError( 'warning', $moduleName, $msg );
+		$this->addWarningOrError( 'warning', $modulePath, $msg );
 	}
 
 	/**
 	 * Add an error to the result
-	 * @param string $moduleName
-	 * @param MessageSpecifier|array|string $msg i18n message for the error
-	 * @param string $code Machine-readable code for the warning. Defaults as
-	 *   for IApiMessage::getApiCode().
-	 * @param array $data Machine-readable data for the warning, if any.
-	 *   Uses IApiMessage::getApiData() if $msg implements that interface.
+	 * @param string|null $modulePath
+	 * @param Message|array|string $msg Warning message. See ApiMessage::create().
+	 * @param string|null $code See ApiMessage::create().
+	 * @param array|null $data See ApiMessage::create().
 	 */
-	public function addError( $moduleName, $msg, $code = null, $data = null ) {
+	public function addError( $modulePath, $msg, $code = null, $data = null ) {
 		$msg = ApiMessage::create( $msg, $code, $data )
 			->inLanguage( $this->lang )
 			->title( $this->getDummyTitle() )
 			->useDatabase( $this->useDB );
-		$this->addWarningOrError( 'error', $moduleName, $msg );
+		$this->addWarningOrError( 'error', $modulePath, $msg );
 	}
 
 	/**
-	 * Add warnings and errors from a Status object to the result
-	 * @param string $moduleName
-	 * @param Status $status
-	 * @param string[] $types 'warning' and/or 'error'
+	 * Add warnings and errors from a StatusValue object to the result
+	 * @param string|null $modulePath
+	 * @param StatusValue $status
+	 * @param string[]|string $types 'warning' and/or 'error'
+	 * @param string[] $filter Messages to filter out (since 1.33)
 	 */
 	public function addMessagesFromStatus(
-		$moduleName, Status $status, $types = array( 'warning', 'error' )
+		$modulePath, StatusValue $status, $types = [ 'warning', 'error' ], array $filter = []
 	) {
-		if ( $status->isGood() || !$status->errors ) {
+		if ( $status->isGood() || !$status->getErrors() ) {
 			return;
 		}
 
 		$types = (array)$types;
-		foreach ( $status->errors as $error ) {
+		foreach ( $status->getErrors() as $error ) {
 			if ( !in_array( $error['type'], $types, true ) ) {
 				continue;
 			}
@@ -127,93 +176,209 @@ class ApiErrorFormatter {
 				$tag = 'warning';
 			}
 
-			if ( is_array( $error ) && isset( $error['message'] ) ) {
-				// Normal case
-				if ( $error['message'] instanceof Message ) {
-					$msg = ApiMessage::create( $error['message'], null, array() );
-				} else {
-					$args = isset( $error['params'] ) ? $error['params'] : array();
-					array_unshift( $args, $error['message'] );
-					$error += array( 'params' => array() );
-					$msg = ApiMessage::create( $args, null, array() );
-				}
-			} elseif ( is_array( $error ) ) {
-				// Weird case handled by Message::getErrorMessage
-				$msg = ApiMessage::create( $error, null, array() );
-			} else {
-				// Another weird case handled by Message::getErrorMessage
-				$msg = ApiMessage::create( $error, null, array() );
-			}
-
-			$msg->inLanguage( $this->lang )
+			$msg = ApiMessage::create( $error )
+				->inLanguage( $this->lang )
 				->title( $this->getDummyTitle() )
 				->useDatabase( $this->useDB );
-			$this->addWarningOrError( $tag, $moduleName, $msg );
+			if ( !in_array( $msg->getKey(), $filter, true ) ) {
+				$this->addWarningOrError( $tag, $modulePath, $msg );
+			}
 		}
 	}
 
 	/**
-	 * Format messages from a Status as an array
-	 * @param Status $status
+	 * Get an ApiMessage from a throwable
+	 * @since 1.29
+	 * @param Throwable $exception
+	 * @param array $options
+	 *  - wrap: (string|array|MessageSpecifier) Used to wrap the throwable's
+	 *    message if it's not an ILocalizedException. The throwable's message
+	 *    will be added as the final parameter.
+	 *  - code: (string) Default code
+	 *  - data: (array) Default extra data
+	 * @return IApiMessage
+	 */
+	public function getMessageFromException( Throwable $exception, array $options = [] ) {
+		$options += [ 'code' => null, 'data' => [] ];
+
+		if ( $exception instanceof ILocalizedException ) {
+			$msg = $exception->getMessageObject();
+			$params = [];
+		} elseif ( $exception instanceof MessageSpecifier ) {
+			$msg = Message::newFromSpecifier( $exception );
+			$params = [];
+		} else {
+			if ( isset( $options['wrap'] ) ) {
+				$msg = $options['wrap'];
+			} else {
+				$msg = new RawMessage( '$1' );
+				if ( !isset( $options['code'] ) ) {
+					$class = preg_replace( '#^Wikimedia\\\Rdbms\\\#', '', get_class( $exception ) );
+					$options['code'] = 'internal_api_error_' . $class;
+					$options['data']['errorclass'] = get_class( $exception );
+				}
+			}
+			$params = [ wfEscapeWikiText( $exception->getMessage() ) ];
+		}
+		return ApiMessage::create( $msg, $options['code'], $options['data'] )
+			->params( $params )
+			->inLanguage( $this->lang )
+			->title( $this->getDummyTitle() )
+			->useDatabase( $this->useDB );
+	}
+
+	/**
+	 * Format a throwable as an array
+	 * @since 1.29
+	 * @param Throwable $exception
+	 * @param array $options See self::getMessageFromException(), plus
+	 *  - format: (string) Format override
+	 * @return array
+	 */
+	public function formatException( Throwable $exception, array $options = [] ) {
+		return $this->formatMessage(
+			// @phan-suppress-next-line PhanTypeMismatchArgument
+			$this->getMessageFromException( $exception, $options ),
+			$options['format'] ?? null
+		);
+	}
+
+	/**
+	 * Format a message as an array
+	 * @param Message|array|string $msg Message. See ApiMessage::create().
+	 * @param string|null $format
+	 * @return array
+	 */
+	public function formatMessage( $msg, $format = null ) {
+		$msg = ApiMessage::create( $msg )
+			->inLanguage( $this->lang )
+			->title( $this->getDummyTitle() )
+			->useDatabase( $this->useDB );
+		return $this->formatMessageInternal( $msg, $format ?: $this->format );
+	}
+
+	/**
+	 * Format messages from a StatusValue as an array
+	 * @param StatusValue $status
 	 * @param string $type 'warning' or 'error'
 	 * @param string|null $format
 	 * @return array
 	 */
-	public function arrayFromStatus( Status $status, $type = 'error', $format = null ) {
-		if ( $status->isGood() || !$status->errors ) {
-			return array();
+	public function arrayFromStatus( StatusValue $status, $type = 'error', $format = null ) {
+		if ( $status->isGood() || !$status->getErrors() ) {
+			return [];
 		}
 
 		$result = new ApiResult( 1e6 );
 		$formatter = new ApiErrorFormatter(
 			$result, $this->lang, $format ?: $this->format, $this->useDB
 		);
-		$formatter->addMessagesFromStatus( 'dummy', $status, array( $type ) );
+		$formatter->addMessagesFromStatus( null, $status, [ $type ] );
 		switch ( $type ) {
 			case 'error':
-				return (array)$result->getResultData( array( 'errors', 'dummy' ) );
+				return (array)$result->getResultData( [ 'errors' ] );
 			case 'warning':
-				return (array)$result->getResultData( array( 'warnings', 'dummy' ) );
+				return (array)$result->getResultData( [ 'warnings' ] );
 		}
 	}
 
 	/**
-	 * Actually add the warning or error to the result
-	 * @param string $tag 'warning' or 'error'
-	 * @param string $moduleName
-	 * @param ApiMessage|ApiRawMessage $msg
+	 * Turn wikitext into something resembling plaintext
+	 * @since 1.29
+	 * @param string $text
+	 * @return string
 	 */
-	protected function addWarningOrError( $tag, $moduleName, $msg ) {
-		$value = array( 'code' => $msg->getApiCode() );
-		switch ( $this->format ) {
+	public static function stripMarkup( $text ) {
+		// Turn semantic quoting tags to quotes
+		$ret = preg_replace( '!</?(var|kbd|samp|code)>!', '"', $text );
+
+		// Strip tags and decode.
+		$ret = Sanitizer::stripAllTags( $ret );
+
+		return $ret;
+	}
+
+	/**
+	 * Format a Message object for raw format
+	 * @param MessageSpecifier $msg
+	 * @return array
+	 */
+	private function formatRawMessage( MessageSpecifier $msg ) {
+		$ret = [
+			'key' => $msg->getKey(),
+			'params' => $msg->getParams(),
+		];
+		ApiResult::setIndexedTagName( $ret['params'], 'param' );
+
+		// Transform Messages as parameters in the style of Message::fooParam().
+		foreach ( $ret['params'] as $i => $param ) {
+			if ( $param instanceof MessageSpecifier ) {
+				$ret['params'][$i] = [ 'message' => $this->formatRawMessage( $param ) ];
+			}
+		}
+		return $ret;
+	}
+
+	/**
+	 * Format a message as an array
+	 * @since 1.29
+	 * @param ApiMessage|ApiRawMessage $msg
+	 * @param string|null $format
+	 * @return array
+	 */
+	protected function formatMessageInternal( $msg, $format ) {
+		$value = [ 'code' => $msg->getApiCode() ];
+		switch ( $format ) {
+			case 'plaintext':
+				$value += [
+					'text' => self::stripMarkup( $msg->text() ),
+					ApiResult::META_CONTENT => 'text',
+				];
+				break;
+
 			case 'wikitext':
-				$value += array(
+				$value += [
 					'text' => $msg->text(),
 					ApiResult::META_CONTENT => 'text',
-				);
+				];
 				break;
 
 			case 'html':
-				$value += array(
+				$value += [
 					'html' => $msg->parse(),
 					ApiResult::META_CONTENT => 'html',
-				);
+				];
 				break;
 
 			case 'raw':
-				$value += array(
-					'message' => $msg->getKey(),
-					'params' => $msg->getParams(),
-				);
-				ApiResult::setIndexedTagName( $value['params'], 'param' );
+				$value += $this->formatRawMessage( $msg );
 				break;
 
 			case 'none':
 				break;
 		}
-		$value += $msg->getApiData();
+		$data = $msg->getApiData();
+		if ( $data ) {
+			$value['data'] = $msg->getApiData() + [
+				ApiResult::META_TYPE => 'assoc',
+			];
+		}
+		return $value;
+	}
 
-		$path = array( $tag . 's', $moduleName );
+	/**
+	 * Actually add the warning or error to the result
+	 * @param string $tag 'warning' or 'error'
+	 * @param string|null $modulePath
+	 * @param ApiMessage|ApiRawMessage $msg
+	 */
+	protected function addWarningOrError( $tag, $modulePath, $msg ) {
+		$value = $this->formatMessageInternal( $msg, $this->format );
+		if ( $modulePath !== null ) {
+			$value += [ 'module' => $modulePath ];
+		}
+
+		$path = [ $tag . 's' ];
 		$existing = $this->result->getResultData( $path );
 		if ( $existing === null || !in_array( $value, $existing ) ) {
 			$flags = ApiResult::NO_SIZE_CHECK;
@@ -222,82 +387,6 @@ class ApiErrorFormatter {
 			}
 			$this->result->addValue( $path, null, $value, $flags );
 			$this->result->addIndexedTagName( $path, $tag );
-		}
-	}
-}
-
-/**
- * Format errors and warnings in the old style, for backwards compatibility.
- * @since 1.25
- * @deprecated Only for backwards compatibility, do not use
- * @ingroup API
- */
-class ApiErrorFormatter_BackCompat extends ApiErrorFormatter {
-	/**
-	 * @param ApiResult $result Into which data will be added
-	 */
-	public function __construct( ApiResult $result ) {
-		parent::__construct( $result, Language::factory( 'en' ), 'none', false );
-	}
-
-	public function arrayFromStatus( Status $status, $type = 'error', $format = null ) {
-		if ( $status->isGood() || !$status->errors ) {
-			return array();
-		}
-
-		$result = array();
-		foreach ( $status->getErrorsByType( $type ) as $error ) {
-			if ( $error['message'] instanceof Message ) {
-				$error = array(
-					'message' => $error['message']->getKey(),
-					'params' => $error['message']->getParams(),
-				) + $error;
-			}
-			ApiResult::setIndexedTagName( $error['params'], 'param' );
-			$result[] = $error;
-		}
-		ApiResult::setIndexedTagName( $result, $type );
-
-		return $result;
-	}
-
-	protected function addWarningOrError( $tag, $moduleName, $msg ) {
-		$value = $msg->plain();
-
-		if ( $tag === 'error' ) {
-			// In BC mode, only one error
-			$code = $msg->getApiCode();
-			if ( isset( ApiBase::$messageMap[$code] ) ) {
-				// Backwards compatibility
-				$code = ApiBase::$messageMap[$code]['code'];
-			}
-
-			$value = array(
-				'code' => $code,
-				'info' => $value,
-			) + $msg->getApiData();
-			$this->result->addValue( null, 'error', $value,
-				ApiResult::OVERRIDE | ApiResult::ADD_ON_TOP | ApiResult::NO_SIZE_CHECK );
-		} else {
-			// Don't add duplicate warnings
-			$tag .= 's';
-			$path = array( $tag, $moduleName );
-			$oldWarning = $this->result->getResultData( array( $tag, $moduleName, $tag ) );
-			if ( $oldWarning !== null ) {
-				$warnPos = strpos( $oldWarning, $value );
-				// If $value was found in $oldWarning, check if it starts at 0 or after "\n"
-				if ( $warnPos !== false && ( $warnPos === 0 || $oldWarning[$warnPos - 1] === "\n" ) ) {
-					// Check if $value is followed by "\n" or the end of the $oldWarning
-					$warnPos += strlen( $value );
-					if ( strlen( $oldWarning ) <= $warnPos || $oldWarning[$warnPos] === "\n" ) {
-						return;
-					}
-				}
-				// If there is a warning already, append it to the existing one
-				$value = "$oldWarning\n$value";
-			}
-			$this->result->addContentValue( $path, $tag, $value,
-				ApiResult::OVERRIDE | ApiResult::ADD_ON_TOP | ApiResult::NO_SIZE_CHECK );
 		}
 	}
 }

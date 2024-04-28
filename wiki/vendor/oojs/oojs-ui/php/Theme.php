@@ -16,7 +16,7 @@ abstract class Theme {
 	/* Static Methods */
 
 	/**
-	 * @param Theme|null $theme
+	 * @param Theme|null $theme Theme to use throughout the application
 	 */
 	public static function setSingleton( Theme $theme = null ) {
 		self::$singleton = $theme;
@@ -44,7 +44,7 @@ abstract class Theme {
 	 * @return array Categorized class names with `on` and `off` lists
 	 */
 	public function getElementClasses( Element $element ) {
-		return array( 'on' => array(), 'off' => array() );
+		return [ 'on' => [], 'off' => [] ];
 	}
 
 	/**
@@ -53,18 +53,17 @@ abstract class Theme {
 	 * For elements with theme logic hooks, this should be called any time there's a state change.
 	 *
 	 * @param Element $element Element for which to update classes
-	 * @return array Categorized class names with `on` and `off` lists
 	 */
 	public function updateElementClasses( Element $element ) {
 		$classes = $this->getElementClasses( $element );
 
-		if ( isset( $element->icon ) ) {
-			$element->icon
+		if ( method_exists( $element, 'getIconElement' ) ) {
+			$element->getIconElement()
 				->removeClasses( $classes['off'] )
 				->addClasses( $classes['on'] );
 		}
-		if ( isset( $element->indicator ) ) {
-			$element->indicator
+		if ( method_exists( $element, 'getIndicatorElement' ) ) {
+			$element->getIndicatorElement()
 				->removeClasses( $classes['off'] )
 				->addClasses( $classes['on'] );
 		}

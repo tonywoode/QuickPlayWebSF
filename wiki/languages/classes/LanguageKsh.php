@@ -28,7 +28,7 @@
  * @ingroup Language
  */
 class LanguageKsh extends Language {
-	private static $familygender = array(
+	private static $familygender = [
 		// Do not add male wiki families, since that's the default.
 		// No need add neuter wikis having names ending in -wiki.
 			'wikipedia' => 'f',
@@ -40,7 +40,7 @@ class LanguageKsh extends Language {
 			'wikitravel' => 'n',
 			'wikia' => 'f',
 			'translatewiki.net' => 'n',
-		);
+		];
 
 	/**
 	 * Convert from the nominative form of a noun to other cases.
@@ -52,30 +52,28 @@ class LanguageKsh extends Language {
 	 * Word order is irrelevant.
 	 *
 	 * Possible values specifying the grammatical case are:
-	 *	1, Nominative
-	 *	2, Genitive
-	 *	3, Dative
-	 *	4, Accusative, -omitted-
+	 * 	1, Nominative
+	 * 	2, Genitive
+	 * 	3, Dative
+	 * 	4, Accusative, -omitted-
 	 *
 	 * Possible values specifying the article type are:
-	 *	Betoont               focussed or stressed article
-	 *	-omitted-             unstressed or unfocussed article
+	 * 	Betoont               focussed or stressed article
+	 * 	-omitted-             unstressed or unfocussed article
 	 *
 	 * Possible values for the type of genitive are:
-	 *	Sing, Iehr            prepositioned genitive = possessive dative
-	 *	Vun, Fon, -omitted-   postpositioned genitive
-	 *	                               = preposition "vun" with dative
+	 * 	Sing, Iehr            prepositioned genitive = possessive dative
+	 * 	Vun, Fon, -omitted-   postpositioned genitive = preposition "vun" with dative
 	 *
 	 * Values of case overrides & prepositions, in the order of preceedence:
-	 *	Sing, Iehr            possessive dative = prepositioned genitive
-	 *	Vun, Fon              preposition "vun" with dative
-	 *	                                     = postpositioned genitive
-	 *	En, em                preposition "en" with dative
+	 * 	Sing, Iehr            possessive dative = prepositioned genitive
+	 * 	Vun, Fon              preposition "vun" with dative = postpositioned genitive
+	 * 	En, em                preposition "en" with dative
 	 *
 	 * Values for object gender specifiers of the possessive dative, or
 	 * prepositioned genitive, evaluated with "Sing, Iehr" of above only:
-	 *	Male                  a singular male object follows
-	 *	-omitted-             a non-male or plural object follows
+	 * 	Male                  a singular male object follows
+	 * 	-omitted-             a non-male or plural object follows
 	 *
 	 * We currently handle definite articles of the singular only.
 	 * There is a full set of test cases at:
@@ -88,7 +86,7 @@ class LanguageKsh extends Language {
 	 *
 	 * @return string
 	 */
-	function convertGrammar( $word, $case ) {
+	public function convertGrammar( $word, $case ) {
 		$lord = strtolower( $word );
 		$gender = 'm'; // Nuutnaarel // default
 		if ( preg_match( '/wiki$/', $lord ) ) {
@@ -166,21 +164,6 @@ class LanguageKsh extends Language {
 	}
 
 	/**
-	 * Avoid grouping whole numbers between 0 to 9999
-	 *
-	 * @param string $_
-	 *
-	 * @return string
-	 */
-	public function commafy( $_ ) {
-		if ( !preg_match( '/^\d{1,4}$/', $_ ) ) {
-			return strrev( (string)preg_replace( '/(\d{3})(?=\d)(?!\d*\.)/', '$1,', strrev( $_ ) ) );
-		} else {
-			return $_;
-		}
-	}
-
-	/**
 	 * Handle cases of (1, other, 0) or (1, other)
 	 *
 	 * @param int $count
@@ -188,7 +171,7 @@ class LanguageKsh extends Language {
 	 *
 	 * @return string
 	 */
-	function convertPlural( $count, $forms ) {
+	public function convertPlural( $count, $forms ) {
 		$forms = $this->handleExplicitPluralForms( $count, $forms );
 		if ( is_string( $forms ) ) {
 			return $forms;

@@ -1,22 +1,22 @@
 <?php
 
 /**
- * @author Adam Shorland
+ * @author Addshore
  * @covers JsonContent
  */
 class JsonContentTest extends MediaWikiLangTestCase {
 
 	public static function provideValidConstruction() {
-		return array(
-			array( 'foo', false, null ),
-			array( '[]', true, array() ),
-			array( '{}', true, (object)array() ),
-			array( '""', true, '' ),
-			array( '"0"', true, '0' ),
-			array( '"bar"', true, 'bar' ),
-			array( '0', true, '0' ),
-			array( '{ "0": "bar" }', true, (object)array( 'bar' ) ),
-		);
+		return [
+			[ 'foo', false, null ],
+			[ '[]', true, [] ],
+			[ '{}', true, (object)[] ],
+			[ '""', true, '' ],
+			[ '"0"', true, '0' ],
+			[ '"bar"', true, 'bar' ],
+			[ '0', true, '0' ],
+			[ '{ "0": "bar" }', true, (object)[ 'bar' ] ],
+		];
 	}
 
 	/**
@@ -29,35 +29,35 @@ class JsonContentTest extends MediaWikiLangTestCase {
 	}
 
 	public static function provideDataToEncode() {
-		return array(
-			array(
+		return [
+			[
 				// Round-trip empty array
 				'[]',
 				'[]',
-			),
-			array(
+			],
+			[
 				// Round-trip empty object
 				'{}',
 				'{}',
-			),
-			array(
+			],
+			[
 				// Round-trip empty array/object (nested)
 				'{ "foo": {}, "bar": [] }',
 				"{\n    \"foo\": {},\n    \"bar\": []\n}",
-			),
-			array(
+			],
+			[
 				'{ "foo": "bar" }',
 				"{\n    \"foo\": \"bar\"\n}",
-			),
-			array(
+			],
+			[
 				'{ "foo": 1000 }',
 				"{\n    \"foo\": 1000\n}",
-			),
-			array(
+			],
+			[
 				'{ "foo": 1000, "0": "bar" }',
 				"{\n    \"foo\": 1000,\n    \"0\": \"bar\"\n}",
-			),
-		);
+			],
+		];
 	}
 
 	/**
@@ -82,62 +82,66 @@ class JsonContentTest extends MediaWikiLangTestCase {
 	}
 
 	private function getMockTitle() {
-		return $this->getMockBuilder( 'Title' )
+		return $this->getMockBuilder( Title::class )
 			->disableOriginalConstructor()
 			->getMock();
 	}
 
 	private function getMockUser() {
-		return $this->getMockBuilder( 'User' )
+		return $this->getMockBuilder( User::class )
 			->disableOriginalConstructor()
 			->getMock();
 	}
+
 	private function getMockParserOptions() {
-		return $this->getMockBuilder( 'ParserOptions' )
+		return $this->getMockBuilder( ParserOptions::class )
 			->disableOriginalConstructor()
 			->getMock();
 	}
 
 	public static function provideDataAndParserText() {
-		return array(
-			array(
-				array(),
+		return [
+			[
+				[],
 				'<table class="mw-json"><tbody><tr><td>' .
 				'<table class="mw-json"><tbody><tr><td class="mw-json-empty">Empty array</td></tr>'
 				. '</tbody></table></td></tr></tbody></table>'
-			),
-			array(
-				(object)array(),
+			],
+			[
+				(object)[],
 				'<table class="mw-json"><tbody><tr><td class="mw-json-empty">Empty object</td></tr>' .
 				'</tbody></table>'
-			),
-			array(
-				(object)array( 'foo' ),
-				'<table class="mw-json"><tbody><tr><th>0</th><td class="value">"foo"</td></tr>' .
-				'</tbody></table>'
-			),
-			array(
-				(object)array( 'foo', 'bar' ),
-				'<table class="mw-json"><tbody><tr><th>0</th><td class="value">"foo"</td></tr>' .
-				'<tr><th>1</th><td class="value">"bar"</td></tr></tbody></table>'
-			),
-			array(
-				(object)array( 'baz' => 'foo', 'bar' ),
-				'<table class="mw-json"><tbody><tr><th>baz</th><td class="value">"foo"</td></tr>' .
-				'<tr><th>0</th><td class="value">"bar"</td></tr></tbody></table>'
-			),
-			array(
-				(object)array( 'baz' => 1000, 'bar' ),
-				'<table class="mw-json"><tbody><tr><th>baz</th><td class="value">1000</td></tr>' .
-				'<tr><th>0</th><td class="value">"bar"</td></tr></tbody></table>'
-			),
-			array(
-				(object)array( '<script>alert("evil!")</script>' ),
-				'<table class="mw-json"><tbody><tr><th>0</th><td class="value">"' .
+			],
+			[
+				(object)[ 'foo' ],
+				'<table class="mw-json"><tbody><tr><th><span>0</span></th>' .
+				'<td class="mw-json-value">"foo"</td></tr></tbody></table>'
+			],
+			[
+				(object)[ 'foo', 'bar' ],
+				'<table class="mw-json"><tbody><tr><th><span>0</span></th>' .
+				'<td class="mw-json-value">"foo"</td></tr><tr><th><span>1</span></th>' .
+				'<td class="mw-json-value">"bar"</td></tr></tbody></table>'
+			],
+			[
+				(object)[ 'baz' => 'foo', 'bar' ],
+				'<table class="mw-json"><tbody><tr><th><span>baz</span></th>' .
+				'<td class="mw-json-value">"foo"</td></tr><tr><th><span>0</span></th>' .
+				'<td class="mw-json-value">"bar"</td></tr></tbody></table>'
+			],
+			[
+				(object)[ 'baz' => 1000, 'bar' ],
+				'<table class="mw-json"><tbody><tr><th><span>baz</span></th>' .
+				'<td class="mw-json-value">1000</td></tr><tr><th><span>0</span></th>' .
+				'<td class="mw-json-value">"bar"</td></tr></tbody></table>'
+			],
+			[
+				(object)[ '<script>alert("evil!")</script>' ],
+				'<table class="mw-json"><tbody><tr><th><span>0</span></th><td class="mw-json-value">"' .
 				'&lt;script>alert("evil!")&lt;/script>"' .
 				'</td></tr></tbody></table>',
-			),
-		);
+			],
+		];
 	}
 
 	/**
@@ -146,7 +150,7 @@ class JsonContentTest extends MediaWikiLangTestCase {
 	public function testFillParserOutput( $data, $expected ) {
 		$obj = new JsonContent( FormatJson::encode( $data ) );
 		$parserOutput = $obj->getParserOutput( $this->getMockTitle(), null, null, true );
-		$this->assertInstanceOf( 'ParserOutput', $parserOutput );
+		$this->assertInstanceOf( ParserOutput::class, $parserOutput );
 		$this->assertEquals( $expected, $parserOutput->getText() );
 	}
 }

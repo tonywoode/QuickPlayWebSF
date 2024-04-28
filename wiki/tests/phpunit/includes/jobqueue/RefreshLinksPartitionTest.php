@@ -5,8 +5,8 @@
  * @group medium
  * @group Database
  */
-class RefreshLinksPartitionTest extends MediaWikiTestCase {
-	public function __construct( $name = null, array $data = array(), $dataName = '' ) {
+class RefreshLinksPartitionTest extends MediaWikiIntegrationTestCase {
+	public function __construct( $name = null, array $data = [], $dataName = '' ) {
 		parent::__construct( $name, $data, $dataName );
 
 		$this->tablesUsed[] = 'page';
@@ -16,6 +16,7 @@ class RefreshLinksPartitionTest extends MediaWikiTestCase {
 
 	/**
 	 * @dataProvider provider_backlinks
+	 * @covers BacklinkJobUtils::partitionBacklinkJob
 	 */
 	public function testRefreshLinks( $ns, $dbKey, $pages ) {
 		$title = Title::makeTitle( $ns, $dbKey );
@@ -34,21 +35,21 @@ class RefreshLinksPartitionTest extends MediaWikiTestCase {
 			'Correct number of backlinks'
 		);
 
-		$job = new RefreshLinksJob( $title, array( 'recursive' => true, 'table' => 'pagelinks' )
+		$job = new RefreshLinksJob( $title, [ 'recursive' => true, 'table' => 'pagelinks' ]
 			+ Job::newRootJobParams( "refreshlinks:pagelinks:{$title->getPrefixedText()}" ) );
 		$extraParams = $job->getRootJobParams();
-		$jobs = BacklinkJobUtils::partitionBacklinkJob( $job, 9, 1, array( 'params' => $extraParams ) );
+		$jobs = BacklinkJobUtils::partitionBacklinkJob( $job, 9, 1, [ 'params' => $extraParams ] );
 
-		$this->assertEquals( 10, count( $jobs ), 'Correct number of sub-jobs' );
+		$this->assertCount( 10, $jobs, 'Correct number of sub-jobs' );
 		$this->assertEquals( $pages[0], current( $jobs[0]->params['pages'] ),
 			'First job is leaf job with proper title' );
 		$this->assertEquals( $pages[8], current( $jobs[8]->params['pages'] ),
 			'Last leaf job is leaf job with proper title' );
-		$this->assertEquals( true, isset( $jobs[9]->params['recursive'] ),
+		$this->assertTrue( isset( $jobs[9]->params['recursive'] ),
 			'Last job is recursive sub-job' );
-		$this->assertEquals( true, $jobs[9]->params['recursive'],
+		$this->assertTrue( $jobs[9]->params['recursive'],
 			'Last job is recursive sub-job' );
-		$this->assertEquals( true, is_array( $jobs[9]->params['range'] ),
+		$this->assertTrue( is_array( $jobs[9]->params['range'] ),
 			'Last job is recursive sub-job' );
 		$this->assertEquals( $title->getPrefixedText(), $jobs[0]->getTitle()->getPrefixedText(),
 			'Base job title retainend in leaf job' );
@@ -63,19 +64,19 @@ class RefreshLinksPartitionTest extends MediaWikiTestCase {
 			$jobs[9],
 			9,
 			1,
-			array( 'params' => $extraParams )
+			[ 'params' => $extraParams ]
 		);
 
-		$this->assertEquals( 10, count( $jobs2 ), 'Correct number of sub-jobs' );
+		$this->assertCount( 10, $jobs2, 'Correct number of sub-jobs' );
 		$this->assertEquals( $pages[9], current( $jobs2[0]->params['pages'] ),
 			'First job is leaf job with proper title' );
 		$this->assertEquals( $pages[17], current( $jobs2[8]->params['pages'] ),
 			'Last leaf job is leaf job with proper title' );
-		$this->assertEquals( true, isset( $jobs2[9]->params['recursive'] ),
+		$this->assertTrue( isset( $jobs2[9]->params['recursive'] ),
 			'Last job is recursive sub-job' );
-		$this->assertEquals( true, $jobs2[9]->params['recursive'],
+		$this->assertTrue( $jobs2[9]->params['recursive'],
 			'Last job is recursive sub-job' );
-		$this->assertEquals( true, is_array( $jobs2[9]->params['range'] ),
+		$this->assertTrue( is_array( $jobs2[9]->params['range'] ),
 			'Last job is recursive sub-job' );
 		$this->assertEquals( $extraParams['rootJobSignature'], $jobs2[0]->params['rootJobSignature'],
 			'Leaf job has root params' );
@@ -86,10 +87,10 @@ class RefreshLinksPartitionTest extends MediaWikiTestCase {
 			$jobs2[9],
 			9,
 			1,
-			array( 'params' => $extraParams )
+			[ 'params' => $extraParams ]
 		);
 
-		$this->assertEquals( 2, count( $jobs3 ), 'Correct number of sub-jobs' );
+		$this->assertCount( 2, $jobs3, 'Correct number of sub-jobs' );
 		$this->assertEquals( $pages[18], current( $jobs3[0]->params['pages'] ),
 			'First job is leaf job with proper title' );
 		$this->assertEquals( $extraParams['rootJobSignature'], $jobs3[0]->params['rootJobSignature'],
@@ -101,12 +102,12 @@ class RefreshLinksPartitionTest extends MediaWikiTestCase {
 	}
 
 	public static function provider_backlinks() {
-		$pages = array();
+		$pages = [];
 		for ( $i = 0; $i < 20; ++$i ) {
-			$pages[] = array( 0, "Page-$i" );
+			$pages[] = [ 0, "Page-$i" ];
 		}
-		return array(
-			array( 10, 'Bang', $pages )
-		);
+		return [
+			[ 10, 'Bang', $pages ]
+		];
 	}
 }

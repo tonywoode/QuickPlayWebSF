@@ -1,103 +1,113 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * @group Database
  * @group Parser
+ *
+ * @covers Parser
+ * @covers BlockLevelPass
+ * @covers StripState
+ *
+ * @covers Preprocessor_Hash
+ * @covers PPDStack_Hash
+ * @covers PPDStackElement_Hash
+ * @covers PPDPart_Hash
+ * @covers PPFrame_Hash
+ * @covers PPTemplateFrame_Hash
+ * @covers PPCustomFrame_Hash
+ * @covers PPNode_Hash_Tree
+ * @covers PPNode_Hash_Text
+ * @covers PPNode_Hash_Array
+ * @covers PPNode_Hash_Attr
  */
-class TagHookTest extends MediaWikiTestCase {
+class TagHooksTest extends MediaWikiIntegrationTestCase {
 	public static function provideValidNames() {
-		return array(
-			array( 'foo' ),
-			array( 'foo-bar' ),
-			array( 'foo_bar' ),
-			array( 'FOO-BAR' ),
-			array( 'foo bar' )
-		);
+		return [
+			[ 'foo' ],
+			[ 'foo-bar' ],
+			[ 'foo_bar' ],
+			[ 'FOO-BAR' ],
+			[ 'foo bar' ]
+		];
 	}
 
 	public static function provideBadNames() {
-		return array( array( "foo<bar" ), array( "foo>bar" ), array( "foo\nbar" ), array( "foo\rbar" ) );
+		return [ [ "foo<bar" ], [ "foo>bar" ], [ "foo\nbar" ], [ "foo\rbar" ] ];
+	}
+
+	private function getParserOptions() {
+		$popt = ParserOptions::newFromUserAndLang( new User,
+			MediaWikiServices::getInstance()->getContentLanguage() );
+		return $popt;
 	}
 
 	/**
 	 * @dataProvider provideValidNames
-	 * @covers Parser::setHook
 	 */
 	public function testTagHooks( $tag ) {
-		global $wgParserConf, $wgContLang;
-		$parser = new Parser( $wgParserConf );
+		$parser = MediaWikiServices::getInstance()->getParserFactory()->create();
 
-		$parser->setHook( $tag, array( $this, 'tagCallback' ) );
+		$parser->setHook( $tag, [ $this, 'tagCallback' ] );
 		$parserOutput = $parser->parse(
 			"Foo<$tag>Bar</$tag>Baz",
 			Title::newFromText( 'Test' ),
-			ParserOptions::newFromUserAndLang( new User, $wgContLang )
+			$this->getParserOptions()
 		);
-		$this->assertEquals( "<p>FooOneBaz\n</p>", $parserOutput->getText() );
+		$this->assertEquals( "<p>FooOneBaz\n</p>", $parserOutput->getText( [ 'unwrap' => true ] ) );
 
 		$parser->mPreprocessor = null; # Break the Parser <-> Preprocessor cycle
 	}
 
 	/**
 	 * @dataProvider provideBadNames
-	 * @expectedException MWException
-	 * @covers Parser::setHook
 	 */
 	public function testBadTagHooks( $tag ) {
-		global $wgParserConf, $wgContLang;
-		$parser = new Parser( $wgParserConf );
+		$parser = MediaWikiServices::getInstance()->getParserFactory()->create();
 
-		$parser->setHook( $tag, array( $this, 'tagCallback' ) );
-		$parser->parse(
-			"Foo<$tag>Bar</$tag>Baz",
-			Title::newFromText( 'Test' ),
-			ParserOptions::newFromUserAndLang( new User, $wgContLang )
-		);
-		$this->fail( 'Exception not thrown.' );
+		$this->expectException( MWException::class );
+		$parser->setHook( $tag, [ $this, 'tagCallback' ] );
 	}
 
 	/**
 	 * @dataProvider provideValidNames
-	 * @covers Parser::setFunctionTagHook
 	 */
 	public function testFunctionTagHooks( $tag ) {
-		global $wgParserConf, $wgContLang;
-		$parser = new Parser( $wgParserConf );
+		$parser = MediaWikiServices::getInstance()->getParserFactory()->create();
 
-		$parser->setFunctionTagHook( $tag, array( $this, 'functionTagCallback' ), 0 );
+		$this->hideDeprecated( 'Parser::setFunctionTagHook' );
+		$parser->setFunctionTagHook( $tag, [ $this, 'functionTagCallback' ], 0 );
 		$parserOutput = $parser->parse(
 			"Foo<$tag>Bar</$tag>Baz",
 			Title::newFromText( 'Test' ),
-			ParserOptions::newFromUserAndLang( new User, $wgContLang )
+			$this->getParserOptions()
 		);
-		$this->assertEquals( "<p>FooOneBaz\n</p>", $parserOutput->getText() );
+		$this->assertEquals( "<p>FooOneBaz\n</p>", $parserOutput->getText( [ 'unwrap' => true ] ) );
 
 		$parser->mPreprocessor = null; # Break the Parser <-> Preprocessor cycle
 	}
 
 	/**
 	 * @dataProvider provideBadNames
-	 * @expectedException MWException
-	 * @covers Parser::setFunctionTagHook
 	 */
 	public function testBadFunctionTagHooks( $tag ) {
-		global $wgParserConf, $wgContLang;
-		$parser = new Parser( $wgParserConf );
+		$parser = MediaWikiServices::getInstance()->getParserFactory()->create();
 
-		$parser->setFunctionTagHook( $tag, array( $this, 'functionTagCallback' ), Parser::SFH_OBJECT_ARGS );
-		$parser->parse(
-			"Foo<$tag>Bar</$tag>Baz",
-			Title::newFromText( 'Test' ),
-			ParserOptions::newFromUserAndLang( new User, $wgContLang )
+		$this->expectException( MWException::class );
+		$this->hideDeprecated( 'Parser::setFunctionTagHook' );
+		$parser->setFunctionTagHook(
+			$tag,
+			[ $this, 'functionTagCallback' ],
+			Parser::SFH_OBJECT_ARGS
 		);
-		$this->fail( 'Exception not thrown.' );
 	}
 
-	function tagCallback( $text, $params, $parser ) {
+	public function tagCallback( $text, $params, $parser ) {
 		return str_rot13( $text );
 	}
 
-	function functionTagCallback( &$parser, $frame, $code, $attribs ) {
+	public function functionTagCallback( $parser, $frame, $code, $attribs ) {
 		return str_rot13( $code );
 	}
 }

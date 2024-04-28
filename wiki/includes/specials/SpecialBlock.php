@@ -21,6 +21,15 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Block\DatabaseBlock;
+use MediaWiki\Block\Restriction\NamespaceRestriction;
+use MediaWiki\Block\Restriction\PageRestriction;
+use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Permissions\PermissionManager;
+use MediaWiki\User\UserIdentity;
+use Wikimedia\IPUtils;
+
 /**
  * A special page that allows users with 'block' right to block users from
  * editing pages and other actions
@@ -28,11 +37,17 @@
  * @ingroup SpecialPage
  */
 class SpecialBlock extends FormSpecialPage {
-	/** @var User User to be blocked, as passed either by parameter (url?wpTarget=Foo)
-	 * or as subpage (Special:Block/Foo) */
+	/**
+	 * @var PermissionManager
+	 */
+	private $permissionManager;
+
+	/** @var User|string|null User to be blocked, as passed either by parameter (url?wpTarget=Foo)
+	 * or as subpage (Special:Block/Foo)
+	 */
 	protected $target;
 
-	/** @var int Block::TYPE_ constant */
+	/** @var int DatabaseBlock::TYPE_ constant */
 	protected $type;
 
 	/** @var User|string The previous block target */
@@ -45,10 +60,16 @@ class SpecialBlock extends FormSpecialPage {
 	protected $alreadyBlocked;
 
 	/** @var array */
-	protected $preErrors = array();
+	protected $preErrors = [];
 
-	public function __construct() {
+	public function __construct( PermissionManager $permissionManager ) {
 		parent::__construct( 'Block', 'block' );
+
+		$this->permissionManager = $permissionManager;
+	}
+
+	public function doesWrites() {
+		return true;
 	}
 
 	/**
@@ -59,12 +80,20 @@ class SpecialBlock extends FormSpecialPage {
 	 */
 	protected function checkExecutePermissions( User $user ) {
 		parent::checkExecutePermissions( $user );
-
-		# bug 15810: blocked admins should have limited access here
+		# T17810: blocked admins should have limited access here
 		$status = self::checkUnblockSelf( $this->target, $user );
 		if ( $status !== true ) {
 			throw new ErrorPageError( 'badaccess', $status );
 		}
+	}
+
+	/**
+	 * We allow certain special cases where user is blocked
+	 *
+	 * @return bool
+	 */
+	public function requiresUnblock() {
+		return false;
 	}
 
 	/**
@@ -85,7 +114,7 @@ class SpecialBlock extends FormSpecialPage {
 		}
 
 		list( $this->previousTarget, /*...*/ ) =
-			Block::parseTarget( $request->getVal( 'wpPreviousTarget' ) );
+			DatabaseBlock::parseTarget( $request->getVal( 'wpPreviousTarget' ) );
 		$this->requestedHideUser = $request->getBool( 'wpHideUser' );
 	}
 
@@ -95,7 +124,6 @@ class SpecialBlock extends FormSpecialPage {
 	 * @param HTMLForm $form
 	 */
 	protected function alterForm( HTMLForm $form ) {
-		$form->setWrapperLegendMsg( 'blockip-legend' );
 		$form->setHeaderText( '' );
 		$form->setSubmitDestructive();
 
@@ -110,11 +138,15 @@ class SpecialBlock extends FormSpecialPage {
 			if ( $s ) {
 				$form->addHeaderText( Html::rawElement(
 					'div',
-					array( 'class' => 'error' ),
+					[ 'class' => 'error' ],
 					$s
 				) );
 			}
 		}
+	}
+
+	protected function getDisplayFormat() {
+		return 'ooui';
 	}
 
 	/**
@@ -122,106 +154,185 @@ class SpecialBlock extends FormSpecialPage {
 	 * @return array
 	 */
 	protected function getFormFields() {
-		global $wgBlockAllowsUTEdit;
+		$conf = $this->getConfig();
+		$blockAllowsUTEdit = $conf->get( 'BlockAllowsUTEdit' );
+
+		$this->getOutput()->enableOOUI();
 
 		$user = $this->getUser();
 
 		$suggestedDurations = self::getSuggestedDurations();
 
-		$a = array(
-			'Target' => array(
-				'type' => 'text',
-				'label-message' => 'ipaddressorusername',
-				'id' => 'mw-bi-target',
-				'size' => '45',
-				'autofocus' => true,
-				'required' => true,
-				'validation-callback' => array( __CLASS__, 'validateTargetField' ),
-				'cssclass' => 'mw-autocomplete-user', // used by mediawiki.userSuggest
-			),
-			'Expiry' => array(
-				'type' => !count( $suggestedDurations ) ? 'text' : 'selectorother',
-				'label-message' => 'ipbexpiry',
-				'required' => true,
-				'options' => $suggestedDurations,
-				'other' => $this->msg( 'ipbother' )->text(),
-				'default' => $this->msg( 'ipb-default-expiry' )->inContentLanguage()->text(),
-			),
-			'Reason' => array(
-				'type' => 'selectandother',
-				'maxlength' => 255,
-				'label-message' => 'ipbreason',
-				'options-message' => 'ipbreason-dropdown',
-			),
-			'CreateAccount' => array(
-				'type' => 'check',
-				'label-message' => 'ipbcreateaccount',
-				'default' => true,
-			),
-		);
+		$a = [];
+
+		$a['Target'] = [
+			'type' => 'user',
+			'ipallowed' => true,
+			'iprange' => true,
+			'id' => 'mw-bi-target',
+			'size' => '45',
+			'autofocus' => true,
+			'required' => true,
+			'validation-callback' => [ __CLASS__, 'validateTargetField' ],
+			'section' => 'target',
+		];
+
+		$a['Editing'] = [
+			'type' => 'check',
+			'label-message' => 'block-prevent-edit',
+			'default' => true,
+			'section' => 'actions',
+		];
+
+		$a['EditingRestriction'] = [
+			'type' => 'radio',
+			'cssclass' => 'mw-block-editing-restriction',
+			'default' => 'sitewide',
+			'options' => [
+				$this->msg( 'ipb-sitewide' )->escaped() .
+					new \OOUI\LabelWidget( [
+						'classes' => [ 'oo-ui-inline-help' ],
+						'label' => $this->msg( 'ipb-sitewide-help' )->text(),
+					] ) => 'sitewide',
+				$this->msg( 'ipb-partial' )->escaped() .
+					new \OOUI\LabelWidget( [
+						'classes' => [ 'oo-ui-inline-help' ],
+						'label' => $this->msg( 'ipb-partial-help' )->text(),
+					] ) => 'partial',
+			],
+			'section' => 'actions',
+		];
+
+		$a['PageRestrictions'] = [
+			'type' => 'titlesmultiselect',
+			'label' => $this->msg( 'ipb-pages-label' )->text(),
+			'exists' => true,
+			'max' => 10,
+			'cssclass' => 'mw-block-restriction',
+			'default' => '',
+			'showMissing' => false,
+			'excludeDynamicNamespaces' => true,
+			'input' => [
+				'autocomplete' => false
+			],
+			'section' => 'actions',
+		];
+
+		$a['NamespaceRestrictions'] = [
+			'type' => 'namespacesmultiselect',
+			'label' => $this->msg( 'ipb-namespaces-label' )->text(),
+			'exists' => true,
+			'cssclass' => 'mw-block-restriction',
+			'default' => '',
+			'input' => [
+				'autocomplete' => false
+			],
+			'section' => 'actions',
+		];
+
+		$a['CreateAccount'] = [
+			'type' => 'check',
+			'label-message' => 'ipbcreateaccount',
+			'default' => true,
+			'section' => 'actions',
+		];
 
 		if ( self::canBlockEmail( $user ) ) {
-			$a['DisableEmail'] = array(
+			$a['DisableEmail'] = [
 				'type' => 'check',
 				'label-message' => 'ipbemailban',
-			);
+				'section' => 'actions',
+			];
 		}
 
-		if ( $wgBlockAllowsUTEdit ) {
-			$a['DisableUTEdit'] = array(
+		if ( $blockAllowsUTEdit ) {
+			$a['DisableUTEdit'] = [
 				'type' => 'check',
 				'label-message' => 'ipb-disableusertalk',
 				'default' => false,
-			);
+				'section' => 'actions',
+			];
 		}
 
-		$a['AutoBlock'] = array(
+		$defaultExpiry = $this->msg( 'ipb-default-expiry' )->inContentLanguage();
+		if ( $this->type === DatabaseBlock::TYPE_RANGE || $this->type === DatabaseBlock::TYPE_IP ) {
+			$defaultExpiryIP = $this->msg( 'ipb-default-expiry-ip' )->inContentLanguage();
+			if ( !$defaultExpiryIP->isDisabled() ) {
+				$defaultExpiry = $defaultExpiryIP;
+			}
+		}
+
+		$a['Expiry'] = [
+			'type' => 'expiry',
+			'required' => true,
+			'options' => $suggestedDurations,
+			'default' => $defaultExpiry->text(),
+			'section' => 'expiry',
+		];
+
+		$a['Reason'] = [
+			'type' => 'selectandother',
+			// HTML maxlength uses "UTF-16 code units", which means that characters outside BMP
+			// (e.g. emojis) count for two each. This limit is overridden in JS to instead count
+			// Unicode codepoints.
+			'maxlength' => CommentStore::COMMENT_CHARACTER_LIMIT,
+			'maxlength-unit' => 'codepoints',
+			'options-message' => 'ipbreason-dropdown',
+			'section' => 'reason',
+		];
+
+		$a['AutoBlock'] = [
 			'type' => 'check',
 			'label-message' => 'ipbenableautoblock',
 			'default' => true,
-		);
+			'section' => 'options',
+		];
 
 		# Allow some users to hide name from block log, blocklist and listusers
-		if ( $user->isAllowed( 'hideuser' ) ) {
-			$a['HideUser'] = array(
+		if ( $this->permissionManager->userHasRight( $user, 'hideuser' ) ) {
+			$a['HideUser'] = [
 				'type' => 'check',
 				'label-message' => 'ipbhidename',
 				'cssclass' => 'mw-block-hideuser',
-			);
+				'section' => 'options',
+			];
 		}
 
 		# Watchlist their user page? (Only if user is logged in)
 		if ( $user->isLoggedIn() ) {
-			$a['Watch'] = array(
+			$a['Watch'] = [
 				'type' => 'check',
 				'label-message' => 'ipbwatchuser',
-			);
+				'section' => 'options',
+			];
 		}
 
-		$a['HardBlock'] = array(
+		$a['HardBlock'] = [
 			'type' => 'check',
 			'label-message' => 'ipb-hardblock',
 			'default' => false,
-		);
+			'section' => 'options',
+		];
 
 		# This is basically a copy of the Target field, but the user can't change it, so we
 		# can see if the warnings we maybe showed to the user before still apply
-		$a['PreviousTarget'] = array(
+		$a['PreviousTarget'] = [
 			'type' => 'hidden',
 			'default' => false,
-		);
+		];
 
 		# We'll turn this into a checkbox if we need to
-		$a['Confirm'] = array(
+		$a['Confirm'] = [
 			'type' => 'hidden',
 			'default' => '',
 			'label-message' => 'ipb-confirm',
-		);
+			'cssclass' => 'mw-block-confirm',
+		];
 
 		$this->maybeAlterFormDefaults( $a );
 
 		// Allow extensions to add more fields
-		Hooks::run( 'SpecialBlockModifyFormFields', array( $this, &$a ) );
+		$this->getHookRunner()->onSpecialBlockModifyFormFields( $this, $a );
 
 		return $a;
 	}
@@ -229,9 +340,7 @@ class SpecialBlock extends FormSpecialPage {
 	/**
 	 * If the user has already been blocked with similar settings, load that block
 	 * and change the defaults for the form fields to match the existing settings.
-	 * @param array $fields HTMLForm descriptor array
-	 * @return bool Whether fields were altered (that is, whether the target is
-	 *     already blocked)
+	 * @param array &$fields HTMLForm descriptor array
 	 */
 	protected function maybeAlterFormDefaults( &$fields ) {
 		# This will be overwritten by request data
@@ -248,32 +357,36 @@ class SpecialBlock extends FormSpecialPage {
 		# This won't be
 		$fields['PreviousTarget']['default'] = (string)$this->target;
 
-		$block = Block::newFromTarget( $this->target );
+		$block = DatabaseBlock::newFromTarget( $this->target );
 
-		if ( $block instanceof Block && !$block->mAuto # The block exists and isn't an autoblock
-			&& ( $this->type != Block::TYPE_RANGE # The block isn't a rangeblock
-				|| $block->getTarget() == $this->target ) # or if it is, the range is what we're about to block
+		// Populate fields if there is a block that is not an autoblock; if it is a range
+		// block, only populate the fields if the range is the same as $this->target
+		if ( $block instanceof DatabaseBlock && $block->getType() !== DatabaseBlock::TYPE_AUTO
+			&& ( $this->type != DatabaseBlock::TYPE_RANGE
+				|| $block->getTarget() == $this->target )
 		) {
 			$fields['HardBlock']['default'] = $block->isHardblock();
-			$fields['CreateAccount']['default'] = $block->prevents( 'createaccount' );
+			$fields['CreateAccount']['default'] = $block->isCreateAccountBlocked();
 			$fields['AutoBlock']['default'] = $block->isAutoblocking();
 
 			if ( isset( $fields['DisableEmail'] ) ) {
-				$fields['DisableEmail']['default'] = $block->prevents( 'sendemail' );
+				$fields['DisableEmail']['default'] = $block->isEmailBlocked();
 			}
 
 			if ( isset( $fields['HideUser'] ) ) {
-				$fields['HideUser']['default'] = $block->mHideName;
+				$fields['HideUser']['default'] = $block->getHideName();
 			}
 
 			if ( isset( $fields['DisableUTEdit'] ) ) {
-				$fields['DisableUTEdit']['default'] = $block->prevents( 'editownusertalk' );
+				$fields['DisableUTEdit']['default'] = !$block->isUsertalkEditAllowed();
 			}
 
 			// If the username was hidden (ipb_deleted == 1), don't show the reason
-			// unless this user also has rights to hideuser: Bug 35839
-			if ( !$block->mHideName || $this->getUser()->isAllowed( 'hideuser' ) ) {
-				$fields['Reason']['default'] = $block->mReason;
+			// unless this user also has rights to hideuser: T37839
+			if ( !$block->getHideName() || $this->permissionManager
+					->userHasRight( $this->getUser(), 'hideuser' )
+			) {
+				$fields['Reason']['default'] = $block->getReasonComment()->text;
 			} else {
 				$fields['Reason']['default'] = '';
 			}
@@ -289,28 +402,61 @@ class SpecialBlock extends FormSpecialPage {
 				$fields['Confirm']['default'] = 1;
 			}
 
-			if ( $block->mExpiry == 'infinity' ) {
+			if ( $block->getExpiry() == 'infinity' ) {
 				$fields['Expiry']['default'] = 'infinite';
 			} else {
-				$fields['Expiry']['default'] = wfTimestamp( TS_RFC2822, $block->mExpiry );
+				$fields['Expiry']['default'] = wfTimestamp( TS_RFC2822, $block->getExpiry() );
+			}
+
+			if ( !$block->isSitewide() ) {
+				$fields['EditingRestriction']['default'] = 'partial';
+
+				$pageRestrictions = [];
+				$namespaceRestrictions = [];
+				foreach ( $block->getRestrictions() as $restriction ) {
+					if ( $restriction instanceof PageRestriction && $restriction->getTitle() ) {
+						$pageRestrictions[] = $restriction->getTitle()->getPrefixedText();
+					} elseif ( $restriction instanceof NamespaceRestriction ) {
+						$namespaceRestrictions[] = $restriction->getValue();
+					}
+				}
+
+				// Sort the restrictions so they are in alphabetical order.
+				sort( $pageRestrictions );
+				$fields['PageRestrictions']['default'] = implode( "\n", $pageRestrictions );
+				sort( $namespaceRestrictions );
+				$fields['NamespaceRestrictions']['default'] = implode( "\n", $namespaceRestrictions );
+
+				if (
+					empty( $pageRestrictions ) &&
+					empty( $namespaceRestrictions )
+				) {
+					$fields['Editing']['default'] = false;
+				}
 			}
 
 			$this->alreadyBlocked = true;
-			$this->preErrors[] = array( 'ipb-needreblock', wfEscapeWikiText( (string)$block->getTarget() ) );
+			$this->preErrors[] = [ 'ipb-needreblock', wfEscapeWikiText( (string)$block->getTarget() ) ];
+		}
+
+		if ( $this->alreadyBlocked || $this->getRequest()->wasPosted()
+			|| $this->getRequest()->getCheck( 'wpCreateAccount' )
+		) {
+			$this->getOutput()->addJsConfigVars( 'wgCreateAccountDirty', true );
 		}
 
 		# We always need confirmation to do HideUser
 		if ( $this->requestedHideUser ) {
 			$fields['Confirm']['type'] = 'check';
 			unset( $fields['Confirm']['default'] );
-			$this->preErrors[] = array( 'ipb-confirmhideuser', 'ipb-confirmaction' );
+			$this->preErrors[] = [ 'ipb-confirmhideuser', 'ipb-confirmaction' ];
 		}
 
 		# Or if the user is trying to block themselves
 		if ( (string)$this->target === $this->getUser()->getName() ) {
 			$fields['Confirm']['type'] = 'check';
 			unset( $fields['Confirm']['default'] );
-			$this->preErrors[] = array( 'ipb-blockingself', 'ipb-confirmaction' );
+			$this->preErrors[] = [ 'ipb-blockingself', 'ipb-confirmaction' ];
 		}
 	}
 
@@ -319,31 +465,41 @@ class SpecialBlock extends FormSpecialPage {
 	 * @return string
 	 */
 	protected function preText() {
-		$this->getOutput()->addModules( array( 'mediawiki.special.block', 'mediawiki.userSuggest' ) );
+		$this->getOutput()->addModuleStyles( [
+			'mediawiki.widgets.TagMultiselectWidget.styles',
+			'mediawiki.special',
+		] );
+		$this->getOutput()->addModules( [ 'mediawiki.special.block' ] );
 
-		$text = $this->msg( 'blockiptext' )->parse();
+		$blockCIDRLimit = $this->getConfig()->get( 'BlockCIDRLimit' );
+		$text = $this->msg( 'blockiptext', $blockCIDRLimit['IPv4'], $blockCIDRLimit['IPv6'] )->parse();
 
-		$otherBlockMessages = array();
+		$otherBlockMessages = [];
 		if ( $this->target !== null ) {
+			$targetName = $this->target;
+			if ( $this->target instanceof User ) {
+				$targetName = $this->target->getName();
+			}
 			# Get other blocks, i.e. from GlobalBlocking or TorBlock extension
-			Hooks::run( 'OtherBlockLogLink', array( &$otherBlockMessages, $this->target ) );
+			$this->getHookRunner()->onOtherBlockLogLink(
+				$otherBlockMessages, $targetName );
 
 			if ( count( $otherBlockMessages ) ) {
 				$s = Html::rawElement(
 					'h2',
-					array(),
+					[],
 					$this->msg( 'ipb-otherblocks-header', count( $otherBlockMessages ) )->parse()
 				) . "\n";
 
 				$list = '';
 
 				foreach ( $otherBlockMessages as $link ) {
-					$list .= Html::rawElement( 'li', array(), $link ) . "\n";
+					$list .= Html::rawElement( 'li', [], $link ) . "\n";
 				}
 
 				$s .= Html::rawElement(
 					'ul',
-					array( 'class' => 'mw-blockip-alreadyblocked' ),
+					[ 'class' => 'mw-blockip-alreadyblocked' ],
 					$list
 				) . "\n";
 
@@ -359,14 +515,17 @@ class SpecialBlock extends FormSpecialPage {
 	 * @return string
 	 */
 	protected function postText() {
-		$links = array();
+		$links = [];
 
+		$this->getOutput()->addModuleStyles( 'mediawiki.special' );
+
+		$linkRenderer = $this->getLinkRenderer();
 		# Link to the user's contributions, if applicable
 		if ( $this->target instanceof User ) {
 			$contribsPage = SpecialPage::getTitleFor( 'Contributions', $this->target->getName() );
-			$links[] = Linker::link(
+			$links[] = $linkRenderer->makeLink(
 				$contribsPage,
-				$this->msg( 'ipb-blocklist-contribs', $this->target->getName() )->escaped()
+				$this->msg( 'ipb-blocklist-contribs', $this->target->getName() )->text()
 			);
 		}
 
@@ -381,29 +540,32 @@ class SpecialBlock extends FormSpecialPage {
 			$message = $this->msg( 'ipb-unblock' )->parse();
 			$list = SpecialPage::getTitleFor( 'Unblock' );
 		}
-		$links[] = Linker::linkKnown( $list, $message, array() );
+		$links[] = $linkRenderer->makeKnownLink(
+			$list,
+			new HtmlArmor( $message )
+		);
 
 		# Link to the block list
-		$links[] = Linker::linkKnown(
+		$links[] = $linkRenderer->makeKnownLink(
 			SpecialPage::getTitleFor( 'BlockList' ),
-			$this->msg( 'ipb-blocklist' )->escaped()
+			$this->msg( 'ipb-blocklist' )->text()
 		);
 
 		$user = $this->getUser();
 
 		# Link to edit the block dropdown reasons, if applicable
-		if ( $user->isAllowed( 'editinterface' ) ) {
-			$links[] = Linker::linkKnown(
+		if ( $this->permissionManager->userHasRight( $user, 'editinterface' ) ) {
+			$links[] = $linkRenderer->makeKnownLink(
 				$this->msg( 'ipbreason-dropdown' )->inContentLanguage()->getTitle(),
-				$this->msg( 'ipb-edit-dropdown' )->escaped(),
-				array(),
-				array( 'action' => 'edit' )
+				$this->msg( 'ipb-edit-dropdown' )->text(),
+				[],
+				[ 'action' => 'edit' ]
 			);
 		}
 
 		$text = Html::rawElement(
 			'p',
-			array( 'class' => 'mw-ipb-conveniencelinks' ),
+			[ 'class' => 'mw-ipb-conveniencelinks' ],
 			$this->getLanguage()->pipeList( $links )
 		);
 
@@ -417,27 +579,27 @@ class SpecialBlock extends FormSpecialPage {
 				'block',
 				$userTitle,
 				'',
-				array(
+				[
 					'lim' => 10,
-					'msgKey' => array( 'blocklog-showlog', $userTitle->getText() ),
+					'msgKey' => [ 'blocklog-showlog', $userTitle->getText() ],
 					'showIfEmpty' => false
-				)
+				]
 			);
 			$text .= $out;
 
 			# Add suppression block entries if allowed
-			if ( $user->isAllowed( 'suppressionlog' ) ) {
+			if ( $this->permissionManager->userHasRight( $user, 'suppressionlog' ) ) {
 				LogEventsList::showLogExtract(
 					$out,
 					'suppress',
 					$userTitle,
 					'',
-					array(
+					[
 						'lim' => 10,
-						'conds' => array( 'log_action' => array( 'block', 'reblock', 'unblock' ) ),
-						'msgKey' => array( 'blocklog-showsuppresslog', $userTitle->getText() ),
+						'conds' => [ 'log_action' => [ 'block', 'reblock', 'unblock' ] ],
+						'msgKey' => [ 'blocklog-showsuppresslog', $userTitle->getText() ],
 						'showIfEmpty' => false
-					)
+					]
 				);
 
 				$text .= $out;
@@ -450,13 +612,15 @@ class SpecialBlock extends FormSpecialPage {
 	/**
 	 * Get a user page target for things like logs.
 	 * This handles account and IP range targets.
-	 * @param User|string $target
+	 * @param User|string|null $target
 	 * @return Title|null
 	 */
 	protected static function getTargetUserTitle( $target ) {
 		if ( $target instanceof User ) {
 			return $target->getUserPage();
-		} elseif ( IP::isIPAddress( $target ) ) {
+		}
+
+		if ( is_string( $target ) && IPUtils::isIPAddress( $target ) ) {
 			return Title::makeTitleSafe( NS_USER, $target );
 		}
 
@@ -465,11 +629,12 @@ class SpecialBlock extends FormSpecialPage {
 
 	/**
 	 * Determine the target of the block, and the type of target
-	 * @todo Should be in Block.php?
+	 * @todo Should be in DatabaseBlock.php?
 	 * @param string $par Subpage parameter passed to setup, or data value from
 	 *     the HTMLForm
-	 * @param WebRequest $request Optionally try and get data from a request too
-	 * @return array( User|string|null, Block::TYPE_ constant|null )
+	 * @param WebRequest|null $request Optionally try and get data from a request too
+	 * @return array [ User|string|null, DatabaseBlock::TYPE_ constant|null ]
+	 * @phan-return array{0:User|string|null,1:int|null}
 	 */
 	public static function getTargetAndType( $par, WebRequest $request = null ) {
 		$i = 0;
@@ -504,14 +669,14 @@ class SpecialBlock extends FormSpecialPage {
 					break 2;
 			}
 
-			list( $target, $type ) = Block::parseTarget( $target );
+			list( $target, $type ) = DatabaseBlock::parseTarget( $target );
 
 			if ( $type !== null ) {
-				return array( $target, $type );
+				return [ $target, $type ];
 			}
 		}
 
-		return array( null, null );
+		return [ null, null ];
 	}
 
 	/**
@@ -520,14 +685,14 @@ class SpecialBlock extends FormSpecialPage {
 	 * @param string $value
 	 * @param array $alldata
 	 * @param HTMLForm $form
-	 * @return Message
+	 * @return Message|true
 	 */
 	public static function validateTargetField( $value, $alldata, $form ) {
 		$status = self::validateTarget( $value, $form->getUser() );
 		if ( !$status->isOK() ) {
 			$errors = $status->getErrorsArray();
 
-			return call_user_func_array( array( $form, 'msg' ), $errors[0] );
+			return $form->msg( ...$errors[0] );
 		} else {
 			return true;
 		}
@@ -548,7 +713,7 @@ class SpecialBlock extends FormSpecialPage {
 		list( $target, $type ) = self::getTargetAndType( $value );
 		$status = Status::newGood( $target );
 
-		if ( $type == Block::TYPE_USER ) {
+		if ( $type == DatabaseBlock::TYPE_USER ) {
 			if ( $target->isAnon() ) {
 				$status->fatal(
 					'nosuchusershort',
@@ -560,33 +725,33 @@ class SpecialBlock extends FormSpecialPage {
 			if ( $unblockStatus !== true ) {
 				$status->fatal( 'badaccess', $unblockStatus );
 			}
-		} elseif ( $type == Block::TYPE_RANGE ) {
+		} elseif ( $type == DatabaseBlock::TYPE_RANGE ) {
 			list( $ip, $range ) = explode( '/', $target, 2 );
 
 			if (
-				( IP::isIPv4( $ip ) && $wgBlockCIDRLimit['IPv4'] == 32 ) ||
-				( IP::isIPv6( $ip ) && $wgBlockCIDRLimit['IPv6'] == 128 )
+				( IPUtils::isIPv4( $ip ) && $wgBlockCIDRLimit['IPv4'] == 32 ) ||
+				( IPUtils::isIPv6( $ip ) && $wgBlockCIDRLimit['IPv6'] == 128 )
 			) {
 				// Range block effectively disabled
 				$status->fatal( 'range_block_disabled' );
 			}
 
 			if (
-				( IP::isIPv4( $ip ) && $range > 32 ) ||
-				( IP::isIPv6( $ip ) && $range > 128 )
+				( IPUtils::isIPv4( $ip ) && $range > 32 ) ||
+				( IPUtils::isIPv6( $ip ) && $range > 128 )
 			) {
 				// Dodgy range
 				$status->fatal( 'ip_range_invalid' );
 			}
 
-			if ( IP::isIPv4( $ip ) && $range < $wgBlockCIDRLimit['IPv4'] ) {
+			if ( IPUtils::isIPv4( $ip ) && $range < $wgBlockCIDRLimit['IPv4'] ) {
 				$status->fatal( 'ip_range_toolarge', $wgBlockCIDRLimit['IPv4'] );
 			}
 
-			if ( IP::isIPv6( $ip ) && $range < $wgBlockCIDRLimit['IPv6'] ) {
+			if ( IPUtils::isIPv6( $ip ) && $range < $wgBlockCIDRLimit['IPv6'] ) {
 				$status->fatal( 'ip_range_toolarge', $wgBlockCIDRLimit['IPv6'] );
 			}
-		} elseif ( $type == Block::TYPE_IP ) {
+		} elseif ( $type == DatabaseBlock::TYPE_IP ) {
 			# All is well
 		} else {
 			$status->fatal( 'badipaddress' );
@@ -600,23 +765,20 @@ class SpecialBlock extends FormSpecialPage {
 	 *
 	 * @param array $data
 	 * @param IContextSource $context
-	 * @return bool|string
+	 * @return bool|array
 	 */
 	public static function processForm( array $data, IContextSource $context ) {
-		global $wgBlockAllowsUTEdit, $wgHideUserContribLimit, $wgContLang;
-
 		$performer = $context->getUser();
-
-		// Handled by field validator callback
-		// self::validateTargetField( $data['Target'] );
+		$isPartialBlock = isset( $data['EditingRestriction'] ) &&
+			$data['EditingRestriction'] === 'partial';
 
 		# This might have been a hidden field or a checkbox, so interesting data
 		# can come from it
-		$data['Confirm'] = !in_array( $data['Confirm'], array( '', '0', null, false ), true );
+		$data['Confirm'] = !in_array( $data['Confirm'], [ '', '0', null, false ], true );
 
 		/** @var User $target */
 		list( $target, $type ) = self::getTargetAndType( $data['Target'] );
-		if ( $type == Block::TYPE_USER ) {
+		if ( $type == DatabaseBlock::TYPE_USER ) {
 			$user = $target;
 			$target = $user->getName();
 			$userId = $user->getId();
@@ -631,22 +793,42 @@ class SpecialBlock extends FormSpecialPage {
 			if ( $target === $performer->getName() &&
 				( $data['PreviousTarget'] !== $target || !$data['Confirm'] )
 			) {
-				return array( 'ipb-blockingself', 'ipb-confirmaction' );
+				return [ 'ipb-blockingself', 'ipb-confirmaction' ];
 			}
-		} elseif ( $type == Block::TYPE_RANGE ) {
+		} elseif ( $type == DatabaseBlock::TYPE_RANGE ) {
+			$user = null;
 			$userId = 0;
-		} elseif ( $type == Block::TYPE_IP ) {
+		} elseif ( $type == DatabaseBlock::TYPE_IP ) {
+			$user = null;
 			$target = $target->getName();
 			$userId = 0;
 		} else {
 			# This should have been caught in the form field validation
-			return array( 'badipaddress' );
+			return [ 'badipaddress' ];
 		}
 
-		if ( ( strlen( $data['Expiry'] ) == 0 ) || ( strlen( $data['Expiry'] ) > 50 )
-			|| !self::parseExpiryInput( $data['Expiry'] )
+		// Reason, to be passed to the block object. For default values of reason, see
+		// HTMLSelectAndOtherField::getDefault
+		// @phan-suppress-next-line PhanPluginDuplicateConditionalNullCoalescing
+		$blockReason = isset( $data['Reason'][0] ) ? $data['Reason'][0] : '';
+
+		$expiryTime = self::parseExpiryInput( $data['Expiry'] );
+
+		if (
+			// an expiry time is needed
+			( strlen( $data['Expiry'] ) == 0 ) ||
+			// can't be a larger string as 50 (it should be a time format in any way)
+			( strlen( $data['Expiry'] ) > 50 ) ||
+			// check, if the time could be parsed
+			!$expiryTime
 		) {
-			return array( 'ipb_expiry_invalid' );
+			return [ 'ipb_expiry_invalid' ];
+		}
+
+		// an expiry time should be in the future, not in the
+		// past (wouldn't make any sense) - bug T123069
+		if ( $expiryTime < wfTimestampNow() ) {
+			return [ 'ipb_expiry_old' ];
 		}
 
 		if ( !isset( $data['DisableEmail'] ) ) {
@@ -660,51 +842,114 @@ class SpecialBlock extends FormSpecialPage {
 		}
 
 		if ( $data['HideUser'] ) {
-			if ( !$performer->isAllowed( 'hideuser' ) ) {
+			if ( !MediaWikiServices::getInstance()
+				->getPermissionManager()
+				->userHasRight( $performer, 'hideuser' )
+			) {
 				# this codepath is unreachable except by a malicious user spoofing forms,
 				# or by race conditions (user has hideuser and block rights, loads block form,
 				# and loses hideuser rights before submission); so need to fail completely
 				# rather than just silently disable hiding
-				return array( 'badaccess-group0' );
+				return [ 'badaccess-group0' ];
+			}
+
+			if ( $isPartialBlock ) {
+				return [ 'ipb_hide_partial' ];
 			}
 
 			# Recheck params here...
-			if ( $type != Block::TYPE_USER ) {
+			$hideUserContribLimit = $context->getConfig()->get( 'HideUserContribLimit' );
+			if ( $type != DatabaseBlock::TYPE_USER ) {
 				$data['HideUser'] = false; # IP users should not be hidden
 			} elseif ( !wfIsInfinity( $data['Expiry'] ) ) {
 				# Bad expiry.
-				return array( 'ipb_expiry_temp' );
-			} elseif ( $wgHideUserContribLimit !== false
-				&& $user->getEditCount() > $wgHideUserContribLimit
+				return [ 'ipb_expiry_temp' ];
+			} elseif ( $hideUserContribLimit !== false
+				&& $user->getEditCount() > $hideUserContribLimit
 			) {
 				# Typically, the user should have a handful of edits.
 				# Disallow hiding users with many edits for performance.
-				return array( array( 'ipb_hide_invalid',
-					Message::numParam( $wgHideUserContribLimit ) ) );
+				return [ [ 'ipb_hide_invalid',
+					Message::numParam( $hideUserContribLimit ) ] ];
 			} elseif ( !$data['Confirm'] ) {
-				return array( 'ipb-confirmhideuser', 'ipb-confirmaction' );
+				return [ 'ipb-confirmhideuser', 'ipb-confirmaction' ];
 			}
 		}
 
+		// Check whether the user can edit their own user talk page.
+		$blockAllowsUTEdit = $context->getConfig()->get( 'BlockAllowsUTEdit' );
+		$isUserTalkNamespaceBlock = !$isPartialBlock ||
+			in_array( NS_USER_TALK, explode( "\n", $data['NamespaceRestrictions'] ) );
+		if ( $isUserTalkNamespaceBlock ) {
+			// If the block blocks the user talk namespace, disallow own user talk edit if
+			// the global config disallows it; otherwise use the form field value.
+			$userTalkEditAllowed = $blockAllowsUTEdit ? !$data['DisableUTEdit'] : false;
+		} else {
+			// If the block doesn't block the user talk namespace, then it can't block own
+			// user talk edit, regardless of the config or field (T210475). Return error
+			// message if the field tries to disallow own user talk edit.
+			if ( isset( $data['DisableUTEdit'] ) && $data['DisableUTEdit'] ) {
+				return [ 'ipb-prevent-user-talk-edit' ];
+			}
+			$userTalkEditAllowed = true;
+		}
+
+		// A block is empty if it is a partial block, the page restrictions are empty, the
+		// namespace restrictions are empty, and none of the actions are enabled
+		if ( $isPartialBlock &&
+			!( isset( $data['PageRestrictions'] ) && $data['PageRestrictions'] !== '' ) &&
+			!( isset( $data['NamespaceRestrictions'] ) && $data['NamespaceRestrictions'] !== '' ) &&
+			$data['DisableEmail'] === false &&
+			( $userTalkEditAllowed || !$blockAllowsUTEdit ) &&
+			!$data['CreateAccount']
+		) {
+			return [ 'ipb-empty-block' ];
+		}
+
 		# Create block object.
-		$block = new Block();
+		$block = new DatabaseBlock();
 		$block->setTarget( $target );
 		$block->setBlocker( $performer );
-		# Truncate reason for whole multibyte characters
-		$block->mReason = $wgContLang->truncate( $data['Reason'][0], 255 );
-		$block->mExpiry = self::parseExpiryInput( $data['Expiry'] );
-		$block->prevents( 'createaccount', $data['CreateAccount'] );
-		$block->prevents( 'editownusertalk', ( !$wgBlockAllowsUTEdit || $data['DisableUTEdit'] ) );
-		$block->prevents( 'sendemail', $data['DisableEmail'] );
+		$block->setReason( $blockReason );
+		$block->setExpiry( $expiryTime );
+		$block->isCreateAccountBlocked( $data['CreateAccount'] );
+		$block->isUsertalkEditAllowed( $userTalkEditAllowed );
+		$block->isEmailBlocked( $data['DisableEmail'] );
 		$block->isHardblock( $data['HardBlock'] );
 		$block->isAutoblocking( $data['AutoBlock'] );
-		$block->mHideName = $data['HideUser'];
+		$block->setHideName( $data['HideUser'] );
 
-		$reason = array( 'hookaborted' );
-		if ( !Hooks::run( 'BlockIp', array( &$block, &$performer, &$reason ) ) ) {
+		if ( $isPartialBlock ) {
+			$block->isSitewide( false );
+		}
+
+		$reason = [ 'hookaborted' ];
+		if ( !Hooks::runner()->onBlockIp( $block, $performer, $reason ) ) {
 			return $reason;
 		}
 
+		$pageRestrictions = [];
+		$namespaceRestrictions = [];
+		if ( isset( $data['PageRestrictions'] ) && $data['PageRestrictions'] !== '' ) {
+			$pageRestrictions = array_map( function ( $text ) {
+				$title = Title::newFromText( $text );
+				// Use the link cache since the title has already been loaded when
+				// the field was validated.
+				$restriction = new PageRestriction( 0, $title->getArticleID() );
+				$restriction->setTitle( $title );
+				return $restriction;
+			}, explode( "\n", $data['PageRestrictions'] ) );
+		}
+		if ( isset( $data['NamespaceRestrictions'] ) && $data['NamespaceRestrictions'] !== '' ) {
+			$namespaceRestrictions = array_map( function ( $id ) {
+				return new NamespaceRestriction( 0, $id );
+			}, explode( "\n", $data['NamespaceRestrictions'] ) );
+		}
+
+		$restrictions = ( array_merge( $pageRestrictions, $namespaceRestrictions ) );
+		$block->setRestrictions( $restrictions );
+
+		$priorBlock = null;
 		# Try to insert block. Is there a conflicting block?
 		$status = $block->insert();
 		if ( !$status ) {
@@ -713,56 +958,77 @@ class SpecialBlock extends FormSpecialPage {
 			$blockNotConfirmed = !$data['Confirm'] || ( array_key_exists( 'PreviousTarget', $data )
 				&& $data['PreviousTarget'] !== $target );
 
-			# Special case for API - bug 32434
+			# Special case for API - T34434
 			$reblockNotAllowed = ( array_key_exists( 'Reblock', $data ) && !$data['Reblock'] );
 
 			# Show form unless the user is already aware of this...
 			if ( $blockNotConfirmed || $reblockNotAllowed ) {
-				return array( array( 'ipb_already_blocked', $block->getTarget() ) );
+				return [ [ 'ipb_already_blocked', $block->getTarget() ] ];
 				# Otherwise, try to update the block...
 			} else {
 				# This returns direct blocks before autoblocks/rangeblocks, since we should
 				# be sure the user is blocked by now it should work for our purposes
-				$currentBlock = Block::newFromTarget( $target );
-
-				if ( $block->equals( $currentBlock ) ) {
-					return array( array( 'ipb_already_blocked', $block->getTarget() ) );
+				$currentBlock = DatabaseBlock::newFromTarget( $target );
+				if ( !$currentBlock instanceof DatabaseBlock ) {
+					$logger = LoggerFactory::getInstance( 'BlockManager' );
+					$logger->warning( 'Block could not be inserted. No existing block was found.' );
+					return [ [ 'ipb-block-not-found', $block->getTarget() ] ];
 				}
-
+				if ( $block->equals( $currentBlock ) ) {
+					return [ [ 'ipb_already_blocked', $block->getTarget() ] ];
+				}
 				# If the name was hidden and the blocking user cannot hide
 				# names, then don't allow any block changes...
-				if ( $currentBlock->mHideName && !$performer->isAllowed( 'hideuser' ) ) {
-					return array( 'cant-see-hidden-user' );
+				if ( $currentBlock->getHideName() && !MediaWikiServices::getInstance()
+						->getPermissionManager()
+						->userHasRight( $performer, 'hideuser' )
+				) {
+					return [ 'cant-see-hidden-user' ];
 				}
 
+				$priorBlock = clone $currentBlock;
+				$currentBlock->setBlocker( $performer );
 				$currentBlock->isHardblock( $block->isHardblock() );
-				$currentBlock->prevents( 'createaccount', $block->prevents( 'createaccount' ) );
-				$currentBlock->mExpiry = $block->mExpiry;
+				$currentBlock->isCreateAccountBlocked( $block->isCreateAccountBlocked() );
+				$currentBlock->setExpiry( $block->getExpiry() );
 				$currentBlock->isAutoblocking( $block->isAutoblocking() );
-				$currentBlock->mHideName = $block->mHideName;
-				$currentBlock->prevents( 'sendemail', $block->prevents( 'sendemail' ) );
-				$currentBlock->prevents( 'editownusertalk', $block->prevents( 'editownusertalk' ) );
-				$currentBlock->mReason = $block->mReason;
+				$currentBlock->setHideName( $block->getHideName() );
+				$currentBlock->isEmailBlocked( $block->isEmailBlocked() );
+				$currentBlock->isUsertalkEditAllowed( $block->isUsertalkEditAllowed() );
+				$currentBlock->setReason( $block->getReasonComment() );
+
+				// Maintain the sitewide status. If partial blocks is not enabled,
+				// saving the block will result in a sitewide block.
+				$currentBlock->isSitewide( $block->isSitewide() );
+
+				// Set the block id of the restrictions.
+				$blockRestrictionStore = MediaWikiServices::getInstance()->getBlockRestrictionStore();
+				$currentBlock->setRestrictions(
+					$blockRestrictionStore->setBlockId( $currentBlock->getId(), $restrictions )
+				);
 
 				$status = $currentBlock->update();
+				// TODO handle failure
 
 				$logaction = 'reblock';
 
 				# Unset _deleted fields if requested
-				if ( $currentBlock->mHideName && !$data['HideUser'] ) {
+				if ( $currentBlock->getHideName() && !$data['HideUser'] ) {
 					RevisionDeleteUser::unsuppressUserName( $target, $userId );
 				}
 
 				# If hiding/unhiding a name, this should go in the private logs
-				if ( (bool)$currentBlock->mHideName ) {
+				if ( (bool)$currentBlock->getHideName() ) {
 					$data['HideUser'] = true;
 				}
+
+				$block = $currentBlock;
 			}
 		} else {
 			$logaction = 'block';
 		}
 
-		Hooks::run( 'BlockIpComplete', array( $block, $performer ) );
+		Hooks::runner()->onBlockIpComplete( $block, $performer, $priorBlock );
 
 		# Set *_deleted fields if requested
 		if ( $data['HideUser'] ) {
@@ -770,37 +1036,55 @@ class SpecialBlock extends FormSpecialPage {
 		}
 
 		# Can't watch a rangeblock
-		if ( $type != Block::TYPE_RANGE && $data['Watch'] ) {
+		if ( $type != DatabaseBlock::TYPE_RANGE && $data['Watch'] ) {
 			WatchAction::doWatch(
 				Title::makeTitle( NS_USER, $target ),
 				$performer,
-				WatchedItem::IGNORE_USER_RIGHTS
+				User::IGNORE_USER_RIGHTS
 			);
 		}
 
-		# Block constructor sanitizes certain block options on insert
-		$data['BlockEmail'] = $block->prevents( 'sendemail' );
+		# DatabaseBlock constructor sanitizes certain block options on insert
+		$data['BlockEmail'] = $block->isEmailBlocked();
 		$data['AutoBlock'] = $block->isAutoblocking();
 
 		# Prepare log parameters
-		$logParams = array();
-		$logParams['5::duration'] = $data['Expiry'];
+		$logParams = [];
+
+		$rawExpiry = $data['Expiry'];
+		$logExpiry = wfIsInfinity( $rawExpiry ) ? 'infinity' : $rawExpiry;
+
+		$logParams['5::duration'] = $logExpiry;
 		$logParams['6::flags'] = self::blockLogFlags( $data, $type );
+		$logParams['sitewide'] = $block->isSitewide();
+
+		if ( !$block->isSitewide() ) {
+			if ( $data['PageRestrictions'] !== '' ) {
+				$logParams['7::restrictions']['pages'] = explode( "\n", $data['PageRestrictions'] );
+			}
+
+			if ( $data['NamespaceRestrictions'] !== '' ) {
+				$logParams['7::restrictions']['namespaces'] = explode( "\n", $data['NamespaceRestrictions'] );
+			}
+		}
 
 		# Make log entry, if the name is hidden, put it in the suppression log
 		$log_type = $data['HideUser'] ? 'suppress' : 'block';
 		$logEntry = new ManualLogEntry( $log_type, $logaction );
 		$logEntry->setTarget( Title::makeTitle( NS_USER, $target ) );
-		$logEntry->setComment( $data['Reason'][0] );
+		$logEntry->setComment( $blockReason );
 		$logEntry->setPerformer( $performer );
 		$logEntry->setParameters( $logParams );
-		# Relate log ID to block IDs (bug 25763)
-		$blockIds = array_merge( array( $status['id'] ), $status['autoIds'] );
-		$logEntry->setRelations( array( 'ipb_id' => $blockIds ) );
+		# Relate log ID to block ID (T27763)
+		$logEntry->setRelations( [ 'ipb_id' => $block->getId() ] );
 		$logId = $logEntry->insert();
+
+		if ( !empty( $data['Tags'] ) ) {
+			$logEntry->addTags( $data['Tags'] );
+		}
+
 		$logEntry->publish( $logId );
 
-		# Report to the user
 		return true;
 	}
 
@@ -810,25 +1094,25 @@ class SpecialBlock extends FormSpecialPage {
 	 *     to the standard "**<duration>|<displayname>" format?
 	 * @param Language|null $lang The language to get the durations in, or null to use
 	 *     the wiki's content language
-	 * @return array
+	 * @param bool $includeOther Whether to include the 'other' option in the list of
+	 *     suggestions
+	 * @return string[]
 	 */
-	public static function getSuggestedDurations( $lang = null ) {
-		$a = array();
+	public static function getSuggestedDurations( Language $lang = null, $includeOther = true ) {
 		$msg = $lang === null
 			? wfMessage( 'ipboptions' )->inContentLanguage()->text()
 			: wfMessage( 'ipboptions' )->inLanguage( $lang )->text();
 
 		if ( $msg == '-' ) {
-			return array();
+			return [];
 		}
 
-		foreach ( explode( ',', $msg ) as $option ) {
-			if ( strpos( $option, ':' ) === false ) {
-				$option = "$option:$option";
-			}
+		$a = XmlSelect::parseOptionsMessage( $msg );
 
-			list( $show, $value ) = explode( ':', $option );
-			$a[$show] = $value;
+		if ( $a && $includeOther ) {
+			// if options exist, add other to the end instead of the begining (which
+			// is what happens by default).
+			$a[ wfMessage( 'ipbother' )->text() ] = 'other';
 		}
 
 		return $a;
@@ -837,85 +1121,78 @@ class SpecialBlock extends FormSpecialPage {
 	/**
 	 * Convert a submitted expiry time, which may be relative ("2 weeks", etc) or absolute
 	 * ("24 May 2034", etc), into an absolute timestamp we can put into the database.
+	 *
+	 * @todo strtotime() only accepts English strings. This means the expiry input
+	 *       can only be specified in English.
+	 * @see https://www.php.net/manual/en/function.strtotime.php
+	 *
 	 * @param string $expiry Whatever was typed into the form
-	 * @return string Timestamp or 'infinity'
+	 * @return string|bool Timestamp or 'infinity' or false on error.
 	 */
 	public static function parseExpiryInput( $expiry ) {
 		if ( wfIsInfinity( $expiry ) ) {
-			$expiry = 'infinity';
-		} else {
-			$expiry = strtotime( $expiry );
-
-			if ( $expiry < 0 || $expiry === false ) {
-				return false;
-			}
-
-			$expiry = wfTimestamp( TS_MW, $expiry );
+			return 'infinity';
 		}
 
-		return $expiry;
+		$expiry = strtotime( $expiry );
+
+		if ( $expiry < 0 || $expiry === false ) {
+			return false;
+		}
+
+		return wfTimestamp( TS_MW, $expiry );
 	}
 
 	/**
 	 * Can we do an email block?
-	 * @param User $user The sysop wanting to make a block
+	 * @param UserIdentity $user The sysop wanting to make a block
 	 * @return bool
 	 */
-	public static function canBlockEmail( $user ) {
-		global $wgEnableUserEmail, $wgSysopEmailBans;
+	public static function canBlockEmail( UserIdentity $user ) {
+		global $wgEnableUserEmail;
 
-		return ( $wgEnableUserEmail && $wgSysopEmailBans && $user->isAllowed( 'blockemail' ) );
+		return ( $wgEnableUserEmail && MediaWikiServices::getInstance()
+				->getPermissionManager()
+				->userHasRight( $user, 'blockemail' ) );
 	}
 
 	/**
-	 * bug 15810: blocked admins should not be able to block/unblock
-	 * others, and probably shouldn't be able to unblock themselves
-	 * either.
-	 * @param User|int|string $user
+	 * T17810: Sitewide blocked admins should not be able to block/unblock
+	 * others with one exception; they can block the user who blocked them,
+	 * to reduce advantage of a malicious account blocking all admins (T150826).
+	 *
+	 * T208965: Partially blocked admins can block and unblock others as normal.
+	 *
+	 * @param User|string|null $target Target to block or unblock; could be a User object,
+	 *   or username/IP address, or null when the target is not known yet (e.g. when
+	 *   displaying Special:Block)
 	 * @param User $performer User doing the request
 	 * @return bool|string True or error message key
 	 */
-	public static function checkUnblockSelf( $user, User $performer ) {
-		if ( is_int( $user ) ) {
-			$user = User::newFromId( $user );
-		} elseif ( is_string( $user ) ) {
-			$user = User::newFromName( $user );
-		}
-
-		if ( $performer->isBlocked() ) {
-			if ( $user instanceof User && $user->getId() == $performer->getId() ) {
-				# User is trying to unblock themselves
-				if ( $performer->isAllowed( 'unblockself' ) ) {
-					return true;
-					# User blocked themselves and is now trying to reverse it
-				} elseif ( $performer->blockedBy() === $performer->getName() ) {
-					return true;
-				} else {
-					return 'ipbnounblockself';
-				}
-			} else {
-				# User is trying to block/unblock someone else
-				return 'ipbblocked';
-			}
-		} else {
-			return true;
-		}
+	public static function checkUnblockSelf( $target, User $performer ) {
+		return MediaWikiServices::getInstance()
+			->getBlockPermissionCheckerFactory()
+			->newBlockPermissionChecker( $target, $performer )
+			->checkBlockPermissions();
 	}
 
 	/**
 	 * Return a comma-delimited list of "flags" to be passed to the log
 	 * reader for this block, to provide more information in the logs
 	 * @param array $data From HTMLForm data
-	 * @param int $type Block::TYPE_ constant (USER, RANGE, or IP)
+	 * @param int $type DatabaseBlock::TYPE_ constant (USER, RANGE, or IP)
 	 * @return string
 	 */
 	protected static function blockLogFlags( array $data, $type ) {
-		global $wgBlockAllowsUTEdit;
-		$flags = array();
+		$config = RequestContext::getMain()->getConfig();
+
+		$blockAllowsUTEdit = $config->get( 'BlockAllowsUTEdit' );
+
+		$flags = [];
 
 		# when blocking a user the option 'anononly' is not available/has no effect
 		# -> do not write this into log
-		if ( !$data['HardBlock'] && $type != Block::TYPE_USER ) {
+		if ( !$data['HardBlock'] && $type != DatabaseBlock::TYPE_USER ) {
 			// For grepping: message block-log-flags-anononly
 			$flags[] = 'anononly';
 		}
@@ -926,7 +1203,7 @@ class SpecialBlock extends FormSpecialPage {
 		}
 
 		# Same as anononly, this is not displayed when blocking an IP address
-		if ( !$data['AutoBlock'] && $type == Block::TYPE_USER ) {
+		if ( !$data['AutoBlock'] && $type == DatabaseBlock::TYPE_USER ) {
 			// For grepping: message block-log-flags-noautoblock
 			$flags[] = 'noautoblock';
 		}
@@ -936,7 +1213,7 @@ class SpecialBlock extends FormSpecialPage {
 			$flags[] = 'noemail';
 		}
 
-		if ( $wgBlockAllowsUTEdit && $data['DisableUTEdit'] ) {
+		if ( $blockAllowsUTEdit && $data['DisableUTEdit'] ) {
 			// For grepping: message block-log-flags-nousertalk
 			$flags[] = 'nousertalk';
 		}
@@ -952,10 +1229,17 @@ class SpecialBlock extends FormSpecialPage {
 	/**
 	 * Process the form on POST submission.
 	 * @param array $data
-	 * @param HTMLForm $form
+	 * @param HTMLForm|null $form
 	 * @return bool|array True for success, false for didn't-try, array of errors on failure
 	 */
 	public function onSubmit( array $data, HTMLForm $form = null ) {
+		// If "Editing" checkbox is unchecked, the block must be a partial block affecting
+		// actions other than editing, and there must be no restrictions.
+		if ( isset( $data['Editing'] ) && $data['Editing'] === false ) {
+			$data['EditingRestriction'] = 'partial';
+			$data['PageRestrictions'] = '';
+			$data['NamespaceRestrictions'] = '';
+		}
 		return self::processForm( $data, $form->getContext() );
 	}
 
@@ -967,6 +1251,24 @@ class SpecialBlock extends FormSpecialPage {
 		$out = $this->getOutput();
 		$out->setPageTitle( $this->msg( 'blockipsuccesssub' ) );
 		$out->addWikiMsg( 'blockipsuccesstext', wfEscapeWikiText( $this->target ) );
+	}
+
+	/**
+	 * Return an array of subpages beginning with $search that this special page will accept.
+	 *
+	 * @param string $search Prefix to search for
+	 * @param int $limit Maximum number of results to return (usually 10)
+	 * @param int $offset Number of results to skip (usually 0)
+	 * @return string[] Matching subpages
+	 */
+	public function prefixSearchSubpages( $search, $limit, $offset ) {
+		$user = User::newFromName( $search );
+		if ( !$user ) {
+			// No prefix suggestion for invalid user
+			return [];
+		}
+		// Autocomplete subpage as user list - public to allow caching
+		return UserNamePrefixSearch::search( 'public', $search, $limit, $offset );
 	}
 
 	protected function getGroupName() {

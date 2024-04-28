@@ -36,14 +36,14 @@ class LanguageFi extends Language {
 	 * @param string $case
 	 * @return string
 	 */
-	function convertGrammar( $word, $case ) {
+	public function convertGrammar( $word, $case ) {
 		global $wgGrammarForms;
 		if ( isset( $wgGrammarForms['fi'][$case][$word] ) ) {
 			return $wgGrammarForms['fi'][$case][$word];
 		}
 
-		# These rules are not perfect, but they are currently only used for site names so it doesn't
-		# matter if they are wrong sometimes. Just add a special case for your site name if necessary.
+		# These rules don't cover the whole language.
+		# They are used only for site names.
 
 		# wovel harmony flag
 		$aou = preg_match( '/[aou][^äöy]*$/i', $word );
@@ -73,8 +73,7 @@ class LanguageFi extends Language {
 				break;
 			case 'illative':
 				# Double the last letter and add 'n'
-				# mb_substr has a compatibility function in GlobalFunctions.php
-				$word = $word . mb_substr( $word, -1 ) . 'n';
+				$word .= mb_substr( $word, -1 ) . 'n';
 				break;
 			case 'inessive':
 				$word .= ( $aou ? 'ssa' : 'ssä' );
@@ -85,10 +84,11 @@ class LanguageFi extends Language {
 
 	/**
 	 * @param string $str
-	 * @param bool $forContent
+	 * @param User|null $user User object to use timezone from or null for $wgUser
+	 * @param int $now Current timestamp, for formatting relative block durations
 	 * @return string
 	 */
-	function translateBlockExpiry( $str, $forContent = false ) {
+	public function translateBlockExpiry( $str, User $user = null, $now = 0 ) {
 		/*
 			'ago', 'now', 'today', 'this', 'next',
 			'first', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth',
@@ -102,7 +102,7 @@ class LanguageFi extends Language {
 				'jul:heinäkuu,aug:elokuu,sep:syyskuu,oct:lokakuu,nov:marraskuu,' .
 				dec:joulukuu,sept:syyskuu';
 		*/
-		$weekds = array(
+		$weekds = [
 			'monday' => 'maanantai',
 			'tuesday' => 'tiistai',
 			'wednesday' => 'keskiviikko',
@@ -144,9 +144,10 @@ class LanguageFi extends Language {
 			'month' => 'kuukausi',
 			'years' => 'vuotta',
 			'year' => 'vuosi',
-			'infinite' => 'ikuisesti',
-			'indefinite' => 'ikuisesti'
-		);
+			'infinite' => 'ikuinen',
+			'indefinite' => 'ikuinen',
+			'infinity' => 'ikuinen'
+		];
 
 		$final = '';
 		$tokens = explode( ' ', $str );
@@ -166,6 +167,6 @@ class LanguageFi extends Language {
 			$final .= ' ' . $item;
 		}
 
-		return htmlspecialchars( trim( $final ) );
+		return trim( $final );
 	}
 }

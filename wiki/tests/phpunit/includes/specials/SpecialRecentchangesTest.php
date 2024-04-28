@@ -1,123 +1,101 @@
 <?php
+
+use MediaWiki\MediaWikiServices;
+use Wikimedia\TestingAccessWrapper;
+
 /**
  * Test class for SpecialRecentchanges class
  *
- * Copyright © 2011, Antoine Musso
- *
- * @author Antoine Musso
  * @group Database
  *
  * @covers SpecialRecentChanges
  */
-class SpecialRecentchangesTest extends MediaWikiTestCase {
+class SpecialRecentchangesTest extends AbstractChangesListSpecialPageTestCase {
+	protected function getPage() {
+		return TestingAccessWrapper::newFromObject(
+			new SpecialRecentChanges
+		);
+	}
 
-	/**
-	 * @var SpecialRecentChanges
-	 */
-	protected $rc;
+	// Below providers should only be for features specific to
+	// RecentChanges.  Otherwise, it should go in ChangesListSpecialPageTest
 
-	/** helper to test SpecialRecentchanges::buildMainQueryConds() */
-	private function assertConditions( $expected, $requestOptions = null, $message = '' ) {
+	public function provideParseParameters() {
+		return [
+			[ 'limit=123', [ 'limit' => '123' ] ],
+
+			[ '234', [ 'limit' => '234' ] ],
+
+			[ 'days=3', [ 'days' => '3' ] ],
+
+			[ 'days=0.25', [ 'days' => '0.25' ] ],
+
+			[ 'namespace=5', [ 'namespace' => '5' ] ],
+
+			[ 'namespace=5|3', [ 'namespace' => '5|3' ] ],
+
+			[ 'tagfilter=foo', [ 'tagfilter' => 'foo' ] ],
+
+			[ 'tagfilter=foo;bar', [ 'tagfilter' => 'foo;bar' ] ],
+		];
+	}
+
+	public function validateOptionsProvider() {
+		return [
+			[
+				// hidebots=1 is default for Special:RecentChanges
+				[ 'hideanons' => 1, 'hideliu' => 1 ],
+				true,
+				[ 'hideliu' => 1 ],
+				false,
+			],
+		];
+	}
+
+	public function testAddWatchlistJoins() {
+		// Edit a test page so that it shows up in RC.
+		$testTitle = Title::newFromText( 'Test page' );
+		$testPage = WikiPage::factory( $testTitle );
+		$testPage->doEditContent( ContentHandler::makeContent( 'Test content', $testTitle ), '' );
+
+		// Set up RC.
 		$context = new RequestContext;
-		$context->setRequest( new FauxRequest( $requestOptions ) );
+		$context->setTitle( Title::newFromText( __METHOD__ ) );
+		$context->setUser( $this->getTestUser()->getUser() );
+		$context->setRequest( new FauxRequest );
 
-		# setup the rc object
-		$this->rc = new SpecialRecentChanges();
-		$this->rc->setContext( $context );
-		$formOptions = $this->rc->setup( null );
+		// Confirm that the test page is in RC.
+		$rc1 = new SpecialRecentChanges;
+		$rc1->setContext( $context );
+		$rc1->execute( null );
+		$this->assertStringContainsString( 'Test page', $rc1->getOutput()->getHTML() );
+		$this->assertStringContainsString( 'mw-changeslist-line-not-watched', $rc1->getOutput()->getHTML() );
 
-		# Filter out rc_timestamp conditions which depends on the test runtime
-		# This condition is not needed as of march 2, 2011 -- hashar
-		# @todo FIXME: Find a way to generate the correct rc_timestamp
-		$queryConditions = array_filter(
-			$this->rc->buildMainQueryConds( $formOptions ),
-			'SpecialRecentchangesTest::filterOutRcTimestampCondition'
+		// Watch the page, and check that it's now watched in RC.
+		$watchedItemStore = MediaWikiServices::getInstance()->getWatchedItemStore();
+		$watchedItemStore->addWatch( $context->getUser(), $testTitle );
+		$rc2 = new SpecialRecentChanges;
+		$rc2->setContext( $context );
+		$rc2->execute( null );
+		$this->assertStringContainsString( 'Test page', $rc2->getOutput()->getHTML() );
+		$this->assertStringContainsString( 'mw-changeslist-line-watched', $rc2->getOutput()->getHTML() );
+
+		// Force a past expiry date on the watchlist item.
+		$db = wfGetDB( DB_MASTER );
+		$queryConds = [ 'wl_namespace' => $testTitle->getNamespace(), 'wl_title' => $testTitle->getDBkey() ];
+		$watchedItemId = $db->selectField( 'watchlist', 'wl_id', $queryConds, __METHOD__ );
+		$db->update(
+			'watchlist_expiry',
+			[ 'we_expiry' => $db->timestamp( '20200101000000' ) ],
+			[ 'we_item' => $watchedItemId ],
+			__METHOD__
 		);
 
-		$this->assertEquals(
-			$expected,
-			$queryConditions,
-			$message
-		);
-	}
-
-	/** return false if condition begin with 'rc_timestamp ' */
-	private static function filterOutRcTimestampCondition( $var ) {
-		return ( false === strpos( $var, 'rc_timestamp ' ) );
-	}
-
-	public function testRcNsFilter() {
-		$this->assertConditions(
-			array( # expected
-				'rc_bot' => 0,
-				0 => "rc_namespace = '0'",
-			),
-			array(
-				'namespace' => NS_MAIN,
-			),
-			"rc conditions with no options (aka default setting)"
-		);
-	}
-
-	public function testRcNsFilterInversion() {
-		$this->assertConditions(
-			array( # expected
-				'rc_bot' => 0,
-				0 => sprintf( "rc_namespace != '%s'", NS_MAIN ),
-			),
-			array(
-				'namespace' => NS_MAIN,
-				'invert' => 1,
-			),
-			"rc conditions with namespace inverted"
-		);
-	}
-
-	/**
-	 * @bug 2429
-	 * @dataProvider provideNamespacesAssociations
-	 */
-	public function testRcNsFilterAssociation( $ns1, $ns2 ) {
-		$this->assertConditions(
-			array( # expected
-				'rc_bot' => 0,
-				0 => sprintf( "(rc_namespace = '%s' OR rc_namespace = '%s')", $ns1, $ns2 ),
-			),
-			array(
-				'namespace' => $ns1,
-				'associated' => 1,
-			),
-			"rc conditions with namespace inverted"
-		);
-	}
-
-	/**
-	 * @bug 2429
-	 * @dataProvider provideNamespacesAssociations
-	 */
-	public function testRcNsFilterAssociationWithInversion( $ns1, $ns2 ) {
-		$this->assertConditions(
-			array( # expected
-				'rc_bot' => 0,
-				0 => sprintf( "(rc_namespace != '%s' AND rc_namespace != '%s')", $ns1, $ns2 ),
-			),
-			array(
-				'namespace' => $ns1,
-				'associated' => 1,
-				'invert' => 1,
-			),
-			"rc conditions with namespace inverted"
-		);
-	}
-
-	/**
-	 * Provides associated namespaces to test recent changes
-	 * namespaces association filtering.
-	 */
-	public static function provideNamespacesAssociations() {
-		return array( # (NS => Associated_NS)
-			array( NS_MAIN, NS_TALK ),
-			array( NS_TALK, NS_MAIN ),
-		);
+		// Check that the page is still in RC, but that it's no longer watched.
+		$rc3 = new SpecialRecentChanges;
+		$rc3->setContext( $context );
+		$rc3->execute( null );
+		$this->assertStringContainsString( 'Test page', $rc3->getOutput()->getHTML() );
+		$this->assertStringContainsString( 'mw-changeslist-line-not-watched', $rc3->getOutput()->getHTML() );
 	}
 }

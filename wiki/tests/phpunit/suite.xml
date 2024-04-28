@@ -1,22 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="./bootstrap.maintenance.php"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="http://schema.phpunit.de/4.8/phpunit.xsd"
 
-<!--
-Colors don't work on Windows!
-phpunit.php enables colors for other OSs at runtime
--->
-<phpunit bootstrap="./bootstrap.php"
-	colors="false"
+	colors="true"
 	backupGlobals="false"
+	convertDeprecationsToExceptions="true"
 	convertErrorsToExceptions="true"
 	convertNoticesToExceptions="true"
 	convertWarningsToExceptions="true"
 	forceCoversAnnotation="true"
+	failOnWarning="true"
 	stopOnFailure="false"
-	timeoutForSmallTests="10"
-	timeoutForMediumTests="30"
-	timeoutForLargeTests="60"
-	strict="true"
-	verbose="true">
+	failOnRisky="true"
+	beStrictAboutTestsThatDoNotTestAnything="true"
+	beStrictAboutOutputDuringTests="true"
+	verbose="false">
 	<testsuites>
 		<testsuite name="includes">
 			<directory>includes</directory>
@@ -25,22 +24,24 @@ phpunit.php enables colors for other OSs at runtime
 			<directory>languages</directory>
 		</testsuite>
 		<testsuite name="parsertests">
-			<file>includes/parser/MediaWikiParserTest.php</file>
+			<file>suites/CoreParserTestSuite.php</file>
 			<file>suites/ExtensionsParserTestSuite.php</file>
 		</testsuite>
 		<testsuite name="skins">
 			<directory>skins</directory>
+			<directory>structure</directory>
+			<file>suites/ExtensionsTestSuite.php</file>
+			<file>suites/LessTestSuite.php</file>
 		</testsuite>
-		<!-- As there is a class Maintenance, we cannot use the
-		     name "maintenance" directly -->
+		<!-- As there is a class Maintenance, we cannot use the name "maintenance" directly -->
 		<testsuite name="maintenance_suite">
 			<directory>maintenance</directory>
 		</testsuite>
 		<testsuite name="structure">
 			<directory>structure</directory>
 		</testsuite>
-		<testsuite name="uploadfromurl">
-			<file>suites/UploadFromUrlTestSuite.php</file>
+		<testsuite name="tests">
+			<directory>tests</directory>
 		</testsuite>
 		<testsuite name="extensions">
 			<directory>structure</directory>
@@ -48,13 +49,19 @@ phpunit.php enables colors for other OSs at runtime
 			<file>suites/ExtensionsParserTestSuite.php</file>
 			<file>suites/LessTestSuite.php</file>
 		</testsuite>
+		<testsuite name="documentation">
+			<directory>documentation</directory>
+		</testsuite>
+		<testsuite name="unit">
+			<directory>unit</directory>
+		</testsuite>
+		<testsuite name="integration">
+			<directory>integration</directory>
+		</testsuite>
 	</testsuites>
 	<groups>
 		<exclude>
-			<group>Utility</group>
 			<group>Broken</group>
-			<group>ParserFuzz</group>
-			<group>Stub</group>
 		</exclude>
 	</groups>
 	<filter>
@@ -62,7 +69,26 @@ phpunit.php enables colors for other OSs at runtime
 			<directory suffix=".php">../../includes</directory>
 			<directory suffix=".php">../../languages</directory>
 			<directory suffix=".php">../../maintenance</directory>
-			<directory suffix=".php">../../skins</directory>
+			<exclude>
+				<directory suffix=".php">../../languages/messages</directory>
+				<directory suffix=".php">../../maintenance/benchmarks</directory>
+				<file>../../languages/data/normalize-ar.php</file>
+				<file>../../languages/data/normalize-ml.php</file>
+			</exclude>
 		</whitelist>
 	</filter>
+	<listeners>
+		<listener class="JohnKary\PHPUnit\Listener\SpeedTrapListener">
+			<arguments>
+				<array>
+					<element key="slowThreshold">
+						<integer>50</integer>
+					</element>
+					<element key="reportLength">
+						<integer>50</integer>
+					</element>
+				</array>
+			</arguments>
+		</listener>
+	</listeners>
 </phpunit>

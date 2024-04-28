@@ -1,5 +1,7 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * Represents a single site.
  *
@@ -23,21 +25,21 @@
  * @file
  * @ingroup Site
  *
- * @license GNU GPL v2+
+ * @license GPL-2.0-or-later
  * @author Jeroen De Dauw < jeroendedauw@gmail.com >
  */
 class Site implements Serializable {
-	const TYPE_UNKNOWN = 'unknown';
-	const TYPE_MEDIAWIKI = 'mediawiki';
+	public const TYPE_UNKNOWN = 'unknown';
+	public const TYPE_MEDIAWIKI = 'mediawiki';
 
-	const GROUP_NONE = 'none';
+	public const GROUP_NONE = 'none';
 
-	const ID_INTERWIKI = 'interwiki';
-	const ID_EQUIVALENT = 'equivalent';
+	public const ID_INTERWIKI = 'interwiki';
+	public const ID_EQUIVALENT = 'equivalent';
 
-	const SOURCE_LOCAL = 'local';
+	public const SOURCE_LOCAL = 'local';
 
-	const PATH_LINK = 'link';
+	public const PATH_LINK = 'link';
 
 	/**
 	 * A version ID that identifies the serialization structure used by getSerializationData()
@@ -46,7 +48,7 @@ class Site implements Serializable {
 	 *
 	 * @var string A string uniquely identifying the version of the serialization structure.
 	 */
-	const SERIAL_VERSION_ID = '2013-01-23';
+	public const SERIAL_VERSION_ID = '2013-01-23';
 
 	/**
 	 * @since 1.21
@@ -89,23 +91,23 @@ class Site implements Serializable {
 	 *
 	 * @since 1.21
 	 *
-	 * @var array[]
+	 * @var array[]|false
 	 */
-	protected $localIds = array();
+	protected $localIds = [];
 
 	/**
 	 * @since 1.21
 	 *
 	 * @var array
 	 */
-	protected $extraData = array();
+	protected $extraData = [];
 
 	/**
 	 * @since 1.21
 	 *
 	 * @var array
 	 */
-	protected $extraConfig = array();
+	protected $extraConfig = [];
 
 	/**
 	 * @since 1.21
@@ -122,8 +124,6 @@ class Site implements Serializable {
 	protected $internalId = null;
 
 	/**
-	 * Constructor.
-	 *
 	 * @since 1.21
 	 *
 	 * @param string $type
@@ -172,7 +172,7 @@ class Site implements Serializable {
 	}
 
 	/**
-	 * Gets the type of the site (ie wikipedia).
+	 * Gets the group of the site (ie wikipedia).
 	 *
 	 * @since 1.21
 	 *
@@ -183,7 +183,7 @@ class Site implements Serializable {
 	}
 
 	/**
-	 * Sets the type of the site (ie wikipedia).
+	 * Sets the group of the site (ie wikipedia).
 	 *
 	 * @since 1.21
 	 *
@@ -259,20 +259,26 @@ class Site implements Serializable {
 
 	/**
 	 * Returns the domain of the site, ie en.wikipedia.org
-	 * Or false if it's not known.
+	 * Or null if it's not known.
 	 *
 	 * @since 1.21
 	 *
 	 * @return string|null
 	 */
-	public function getDomain() {
+	public function getDomain(): ?string {
 		$path = $this->getLinkPath();
 
 		if ( $path === null ) {
 			return null;
 		}
 
-		return parse_url( $path, PHP_URL_HOST );
+		$domain = parse_url( $path, PHP_URL_HOST );
+
+		if ( $domain === false ) {
+			$domain = null;
+		}
+
+		return $domain;
 	}
 
 	/**
@@ -335,7 +341,7 @@ class Site implements Serializable {
 	 */
 	public function getLinkPath() {
 		$type = $this->getLinkPathType();
-		return $type === null ? null: $this->getPath( $type );
+		return $type === null ? null : $this->getPath( $type );
 	}
 
 	/**
@@ -356,7 +362,7 @@ class Site implements Serializable {
 
 	/**
 	 * Returns the full URL for the given page on the site.
-	 * Or false if the needed information is not known.
+	 * Or null if the needed information is not known.
 	 *
 	 * This generated URL is usually based upon the path returned by getLinkPath(),
 	 * but this is not a requirement.
@@ -367,13 +373,13 @@ class Site implements Serializable {
 	 *
 	 * @param bool|string $pageName
 	 *
-	 * @return string|bool
+	 * @return string|null
 	 */
 	public function getPageUrl( $pageName = false ) {
 		$url = $this->getLinkPath();
 
-		if ( $url === false ) {
-			return false;
+		if ( $url === null ) {
+			return null;
 		}
 
 		if ( $pageName !== false ) {
@@ -384,8 +390,10 @@ class Site implements Serializable {
 	}
 
 	/**
-	 * Returns $pageName without changes.
-	 * Subclasses may override this to apply some kind of normalization.
+	 * Attempt to normalize the page name in some fashion.
+	 * May return false to indicate various kinds of failure.
+	 *
+	 * This implementation returns $pageName without changes.
 	 *
 	 * @see Site::normalizePageName
 	 *
@@ -393,7 +401,7 @@ class Site implements Serializable {
 	 *
 	 * @param string $pageName
 	 *
-	 * @return string
+	 * @return string|false
 	 */
 	public function normalizePageName( $pageName ) {
 		return $pageName;
@@ -460,9 +468,16 @@ class Site implements Serializable {
 	 *
 	 * @since 1.21
 	 *
-	 * @param string $languageCode
+	 * @param string|null $languageCode
 	 */
 	public function setLanguageCode( $languageCode ) {
+		if ( $languageCode !== null
+			&& !MediaWikiServices::getInstance()
+				->getLanguageNameUtils()
+				->isValidCode( $languageCode )
+		) {
+			throw new InvalidArgumentException( "$languageCode is not a valid language code." );
+		}
 		$this->languageCode = $languageCode;
 	}
 
@@ -499,11 +514,11 @@ class Site implements Serializable {
 	 */
 	public function addLocalId( $type, $identifier ) {
 		if ( $this->localIds === false ) {
-			$this->localIds = array();
+			$this->localIds = [];
 		}
 
 		if ( !array_key_exists( $type, $this->localIds ) ) {
-			$this->localIds[$type] = array();
+			$this->localIds[$type] = [];
 		}
 
 		if ( !in_array( $identifier, $this->localIds[$type] ) ) {
@@ -543,7 +558,7 @@ class Site implements Serializable {
 	public function getInterwikiIds() {
 		return array_key_exists( self::ID_INTERWIKI, $this->localIds )
 			? $this->localIds[self::ID_INTERWIKI]
-			: array();
+			: [];
 	}
 
 	/**
@@ -557,7 +572,7 @@ class Site implements Serializable {
 	public function getNavigationIds() {
 		return array_key_exists( self::ID_EQUIVALENT, $this->localIds )
 			? $this->localIds[self::ID_EQUIVALENT] :
-			array();
+			[];
 	}
 
 	/**
@@ -588,7 +603,7 @@ class Site implements Serializable {
 		}
 
 		if ( !array_key_exists( 'paths', $this->extraData ) ) {
-			$this->extraData['paths'] = array();
+			$this->extraData['paths'] = [];
 		}
 
 		$this->extraData['paths'][$pathType] = $fullUrl;
@@ -617,7 +632,7 @@ class Site implements Serializable {
 	 * @return string[]
 	 */
 	public function getAllPaths() {
-		return array_key_exists( 'paths', $this->extraData ) ? $this->extraData['paths'] : array();
+		return array_key_exists( 'paths', $this->extraData ) ? $this->extraData['paths'] : [];
 	}
 
 	/**
@@ -657,8 +672,19 @@ class Site implements Serializable {
 	 *
 	 * @return string
 	 */
-	public function serialize() {
-		$fields = array(
+	public function serialize(): string {
+		return serialize( $this->__serialize() );
+	}
+
+	/**
+	 * @see Serializable::serialize
+	 *
+	 * @since 1.35.6
+	 *
+	 * @return array
+	 */
+	public function __serialize() {
+		return [
 			'globalid' => $this->globalId,
 			'type' => $this->type,
 			'group' => $this->group,
@@ -669,10 +695,7 @@ class Site implements Serializable {
 			'data' => $this->extraData,
 			'forward' => $this->forward,
 			'internalid' => $this->internalId,
-
-		);
-
-		return serialize( $fields );
+		];
 	}
 
 	/**
@@ -682,9 +705,18 @@ class Site implements Serializable {
 	 *
 	 * @param string $serialized
 	 */
-	public function unserialize( $serialized ) {
-		$fields = unserialize( $serialized );
+	public function unserialize( $serialized ): void {
+		$this->__unserialize( unserialize( $serialized ) );
+	}
 
+	/**
+	 * @see Serializable::unserialize
+	 *
+	 * @since 1.35.6
+	 *
+	 * @param array $fields
+	 */
+	public function __unserialize( $fields ) {
 		$this->__construct( $fields['type'] );
 
 		$this->setGlobalId( $fields['globalid'] );
@@ -697,10 +729,4 @@ class Site implements Serializable {
 		$this->setForward( $fields['forward'] );
 		$this->setInternalId( $fields['internalid'] );
 	}
-}
-
-/**
- * @deprecated since 1.21
- */
-class SiteObject extends Site {
 }

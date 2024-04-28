@@ -20,6 +20,7 @@
 
 namespace MediaWiki\Logger\Monolog;
 
+use DateTimeInterface;
 use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Logger;
 
@@ -30,8 +31,8 @@ use Monolog\Logger;
  * Monolog's SyslogUdpHandler creates a partial RFC 5424 header (PRI and
  * VERSION) and relies on the associated formatter to complete the header and
  * message payload. This makes using it with a fixed format formatter like
- * Monolog\Formatter\LogstashFormatter impossible. Additionally, the direct
- * syslog input for Logstash only handles RFC 3164 syslog packets.
+ * \Monolog\Formatter\LogstashFormatter impossible. Additionally, the
+ * direct syslog input for Logstash only handles RFC 3164 syslog packets.
  *
  * This Handler should work with any Formatter. The formatted message will be
  * prepended with an RFC 3164 message header and a partial message body. The
@@ -43,28 +44,26 @@ use Monolog\Logger;
  * default Logstash syslog input handler.
  *
  * @since 1.25
- * @author Bryan Davis <bd808@wikimedia.org>
- * @copyright © 2015 Bryan Davis and Wikimedia Foundation.
+ * @copyright © 2015 Wikimedia Foundation and contributors
  */
 class SyslogHandler extends SyslogUdpHandler {
 
 	/**
-	 * @var string $appname
+	 * @var string
 	 */
 	private $appname;
 
 	/**
-	 * @var string $hostname
+	 * @var string
 	 */
 	private $hostname;
-
 
 	/**
 	 * @param string $appname Application name to report to syslog
 	 * @param string $host Syslog host
 	 * @param int $port Syslog port
 	 * @param int $facility Syslog message facility
-	 * @param string $level The minimum logging level at which this handler
+	 * @param int $level The minimum logging level at which this handler
 	 *   will be triggered
 	 * @param bool $bubble Whether the messages that are handled can bubble up
 	 *   the stack or not
@@ -82,7 +81,7 @@ class SyslogHandler extends SyslogUdpHandler {
 		$this->hostname = php_uname( 'n' );
 	}
 
-	protected function makeCommonSyslogHeader( $severity ) {
+	protected function makeCommonSyslogHeader( int $severity, DateTimeInterface $datetime ): string {
 		$pri = $severity + $this->facility;
 
 		// Goofy date format courtesy of RFC 3164 :(

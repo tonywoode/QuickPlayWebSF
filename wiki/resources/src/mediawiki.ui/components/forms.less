@@ -1,8 +1,9 @@
 // Form elements and layouts
 
-@import "mediawiki.mixins";
-@import "mediawiki.ui/variables";
-@import "mediawiki.ui/mixins";
+@import 'mediawiki.mixins.less';
+@import 'mediawiki.ui/variables.less';
+
+/* stylelint-disable selector-class-pattern */
 
 // --------------------------------------------------------------------------
 // Layouts
@@ -14,8 +15,6 @@
 @defaultFormWidth: @captchaContainerWidth;
 
 // Forms
-//
-// Styleguide 5.
 
 // VForm
 //
@@ -30,21 +29,18 @@
 //     <input class="mw-ui-input" value="input">
 //   </div>
 //   <div class="mw-ui-vform-field">
-//     <button class="mw-ui-button mw-ui-constructive">Button in vform</button>
+//     <button class="mw-ui-button mw-ui-progressive">Button in vform</button>
 //   </div>
 // </form>
-//
-// Styleguide 5.1.
 .mw-ui-vform {
-	.box-sizing(border-box);
-
+	.box-sizing( border-box );
 	width: @defaultFormWidth;
 
 	// MW currently doesn't use the type attribute everywhere on inputs.
 	select,
 	.mw-ui-button {
 		display: block;
-		.box-sizing(border-box);
+		.box-sizing( border-box );
 		margin: 0;
 		width: 100%;
 	}
@@ -52,26 +48,30 @@
 	// Give dropdown lists the same spacing as input fields for consistency.
 	// Values taken from .agora-field-styling() in mixins/form.less
 	select {
-		padding: 0.35em 0.5em 0.35em 0.5em;
+		padding: 0.35em 0.5em;
 		vertical-align: middle;
 	}
 
 	> label {
 		display: block;
-		.box-sizing(border-box);
-		.agora-label-styling();
+		color: @color-base;
+		.box-sizing( border-box );
 		width: auto;
 		margin: 0 0 0.2em;
 		padding: 0;
+		font-size: 0.9em;
+
+		* {
+			font-weight: normal;
+		}
 	}
 
 	// Override input styling just for checkboxes and radio inputs.
-	input[type="radio"] {
+	input[ type='radio' ] {
 		display: inline;
-		.box-sizing(content-box);
+		.box-sizing( content-box );
 		width: auto;
 	}
-
 
 	// Styles for information boxes
 	//
@@ -80,13 +80,11 @@
 	//
 	// Markup:
 	// <form class="mw-ui-vform">
-	//   <div class="errorbox">An error occurred</div>
+	//   <div class="errorbox">
+	//     <ul><li>An error occurred. There are problems with some of your input.</li></ul>
+	//   </div>
 	//   <div class="warningbox">A warning to be noted</div>
 	//   <div class="successbox">Action successful!</div>
-	//   <div class="error">A different kind of error</div>
-	//   <div class="error">
-	//     <ul><li>There are problems with some of your input.</li></ul>
-	//   </div>
 	//   <div class="mw-ui-vform-field">
 	//     <input type="text" value="input" class="mw-ui-input">
 	//   </div>
@@ -101,35 +99,16 @@
 	//     <button class="mw-ui-button">Button in vform</button>
 	//   </div>
 	// </form>
-	//
-	// Styleguide 5.2.
-	.error,
-	.errorbox,
-	.warningbox,
-	.successbox {
-		.box-sizing(border-box);
-		font-size: 0.9em;
-		margin: 0 0 1em 0;
-		padding: 0.5em;
-		word-wrap: break-word;
-	}
-
-	// Colours taken from those for .errorbox in shared.css
-	.error {
-		color: #cc0000;
-		border: 1px solid #fac5c5;
-		background-color: #fae3e3;
-		text-shadow: 0 1px #fae3e3;
-	}
 
 	// This specifies styling for individual field validation error messages.
 	// Show them below the fields to prevent line break glitches, and leave
 	// some space between the field and the error message box.
-	.mw-ui-vform-field .error {
-		display: block;
-		margin-top: 5px;
+	.mw-ui-vform-field {
+		.errorbox,
+		.warningbox {
+			margin-top: 5px;
+		}
 	}
-
 }
 
 // --------------------------------------------------------------------------
@@ -142,7 +121,8 @@
 //
 // (We use a broad definition of 'field' here: a purely textual information
 // block is also a "field".)
-.mw-ui-vform-field {
+.mw-ui-vform-field,
+.mw-ui-vform .htmlform-tip {
 	display: block;
 	margin: 0 0 15px;
 	padding: 0;
@@ -153,15 +133,10 @@
 // You generally don't need to use this class if <label> is within an Agora
 // form container such as mw-ui-vform
 .mw-ui-label {
-	.agora-label-styling();
-}
+	color: @color-base;
+	font-size: 0.9em;
 
-// Nesting an input  inside a label with this class
-// improves alignment, e.g.
-//
-// <label class="mw-ui-radio-label">
-//   <input type="radio">The label text
-// </label>
-.mw-ui-radio-label {
-	.agora-inline-label-styling();
+	* {
+		font-weight: normal;
+	}
 }

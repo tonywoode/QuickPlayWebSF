@@ -29,8 +29,8 @@
  *
  * @ingroup SpecialPage
  */
-class UnusedtemplatesPage extends QueryPage {
-	function __construct( $name = 'Unusedtemplates' ) {
+class SpecialUnusedTemplates extends QueryPage {
+	public function __construct( $name = 'Unusedtemplates' ) {
 		parent::__construct( $name );
 	}
 
@@ -38,31 +38,34 @@ class UnusedtemplatesPage extends QueryPage {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
+	}
+
+	protected function getOrderFields() {
+		return [ 'title' ];
 	}
 
 	public function getQueryInfo() {
-		return array(
-			'tables' => array( 'page', 'templatelinks' ),
-			'fields' => array(
+		return [
+			'tables' => [ 'page', 'templatelinks' ],
+			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
-				'value' => 'page_title'
-			),
-			'conds' => array(
+			],
+			'conds' => [
 				'page_namespace' => NS_TEMPLATE,
 				'tl_from IS NULL',
 				'page_is_redirect' => 0
-			),
-			'join_conds' => array( 'templatelinks' => array(
-				'LEFT JOIN', array( 'tl_title = page_title',
-					'tl_namespace = page_namespace' ) ) )
-		);
+			],
+			'join_conds' => [ 'templatelinks' => [
+				'LEFT JOIN', [ 'tl_title = page_title',
+					'tl_namespace = page_namespace' ] ] ]
+		];
 	}
 
 	/**
@@ -70,23 +73,24 @@ class UnusedtemplatesPage extends QueryPage {
 	 * @param object $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
+	public function formatResult( $skin, $result ) {
+		$linkRenderer = $this->getLinkRenderer();
 		$title = Title::makeTitle( NS_TEMPLATE, $result->title );
-		$pageLink = Linker::linkKnown(
+		$pageLink = $linkRenderer->makeKnownLink(
 			$title,
 			null,
-			array(),
-			array( 'redirect' => 'no' )
+			[],
+			[ 'redirect' => 'no' ]
 		);
-		$wlhLink = Linker::linkKnown(
+		$wlhLink = $linkRenderer->makeKnownLink(
 			SpecialPage::getTitleFor( 'Whatlinkshere', $title->getPrefixedText() ),
-			$this->msg( 'unusedtemplateswlh' )->escaped()
+			$this->msg( 'unusedtemplateswlh' )->text()
 		);
 
 		return $this->getLanguage()->specialList( $pageLink, $wlhLink );
 	}
 
-	function getPageHeader() {
+	protected function getPageHeader() {
 		return $this->msg( 'unusedtemplatestext' )->parseAsBlock();
 	}
 

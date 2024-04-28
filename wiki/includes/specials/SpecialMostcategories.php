@@ -24,13 +24,17 @@
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
 
+use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IResultWrapper;
+
 /**
  * A special page that list pages that have highest category count
  *
  * @ingroup SpecialPage
  */
-class MostcategoriesPage extends QueryPage {
-	function __construct( $name = 'Mostcategories' ) {
+class SpecialMostCategories extends QueryPage {
+	public function __construct( $name = 'Mostcategories' ) {
 		parent::__construct( $name );
 	}
 
@@ -38,50 +42,39 @@ class MostcategoriesPage extends QueryPage {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
 	public function getQueryInfo() {
-		return array(
-			'tables' => array( 'categorylinks', 'page' ),
-			'fields' => array(
+		return [
+			'tables' => [ 'categorylinks', 'page' ],
+			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
 				'value' => 'COUNT(*)'
-			),
-			'conds' => array( 'page_namespace' => MWNamespace::getContentNamespaces() ),
-			'options' => array(
+			],
+			'conds' => [ 'page_namespace' =>
+				MediaWikiServices::getInstance()->getNamespaceInfo()->getContentNamespaces() ],
+			'options' => [
 				'HAVING' => 'COUNT(*) > 1',
-				'GROUP BY' => array( 'page_namespace', 'page_title' )
-			),
-			'join_conds' => array(
-				'page' => array(
+				'GROUP BY' => [ 'page_namespace', 'page_title' ]
+			],
+			'join_conds' => [
+				'page' => [
 					'LEFT JOIN',
 					'page_id = cl_from'
-				)
-			)
-		);
+				]
+			]
+		];
 	}
 
 	/**
 	 * @param IDatabase $db
-	 * @param ResultWrapper $res
+	 * @param IResultWrapper $res
 	 */
-	function preprocessResults( $db, $res ) {
-		# There's no point doing a batch check if we aren't caching results;
-		# the page must exist for it to have been pulled out of the table
-		if ( !$this->isCached() || !$res->numRows() ) {
-			return;
-		}
-
-		$batch = new LinkBatch();
-		foreach ( $res as $row ) {
-			$batch->add( $row->namespace, $row->title );
-		}
-		$batch->execute();
-
-		$res->seek( 0 );
+	public function preprocessResults( $db, $res ) {
+		$this->executeLBFromResultWrapper( $res );
 	}
 
 	/**
@@ -89,12 +82,12 @@ class MostcategoriesPage extends QueryPage {
 	 * @param object $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
+	public function formatResult( $skin, $result ) {
 		$title = Title::makeTitleSafe( $result->namespace, $result->title );
 		if ( !$title ) {
 			return Html::element(
 				'span',
-				array( 'class' => 'mw-invalidtitle' ),
+				[ 'class' => 'mw-invalidtitle' ],
 				Linker::getInvalidTitleDescription(
 					$this->getContext(),
 					$result->namespace,
@@ -103,10 +96,11 @@ class MostcategoriesPage extends QueryPage {
 			);
 		}
 
+		$linkRenderer = $this->getLinkRenderer();
 		if ( $this->isCached() ) {
-			$link = Linker::link( $title );
+			$link = $linkRenderer->makeLink( $title );
 		} else {
-			$link = Linker::linkKnown( $title );
+			$link = $linkRenderer->makeKnownLink( $title );
 		}
 
 		$count = $this->msg( 'ncategories' )->numParams( $result->value )->escaped();

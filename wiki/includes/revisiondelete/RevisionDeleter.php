@@ -21,6 +21,8 @@
  * @ingroup RevisionDelete
  */
 
+use MediaWiki\Revision\RevisionRecord;
+
 /**
  * General controller for RevDel, used by both SpecialRevisiondelete and
  * ApiRevisionDelete.
@@ -28,22 +30,22 @@
  */
 class RevisionDeleter {
 	/** List of known revdel types, with their corresponding list classes */
-	private static $allowedTypes = array(
-		'revision' => 'RevDelRevisionList',
-		'archive' => 'RevDelArchiveList',
-		'oldimage' => 'RevDelFileList',
-		'filearchive' => 'RevDelArchivedFileList',
-		'logging' => 'RevDelLogList',
-	);
+	private const ALLOWED_TYPES = [
+		'revision' => RevDelRevisionList::class,
+		'archive' => RevDelArchiveList::class,
+		'oldimage' => RevDelFileList::class,
+		'filearchive' => RevDelArchivedFileList::class,
+		'logging' => RevDelLogList::class,
+	];
 
 	/** Type map to support old log entries */
-	private static $deprecatedTypeMap = array(
+	private const DEPRECATED_TYPE_MAP = [
 		'oldid' => 'revision',
 		'artimestamp' => 'archive',
 		'oldimage' => 'oldimage',
 		'fileid' => 'filearchive',
 		'logid' => 'logging',
-	);
+	];
 
 	/**
 	 * Lists the valid possible types for revision deletion.
@@ -52,7 +54,7 @@ class RevisionDeleter {
 	 * @return array
 	 */
 	public static function getTypes() {
-		return array_keys( self::$allowedTypes );
+		return array_keys( self::ALLOWED_TYPES );
 	}
 
 	/**
@@ -63,10 +65,10 @@ class RevisionDeleter {
 	 * @return string|null
 	 */
 	public static function getCanonicalTypeName( $typeName ) {
-		if ( isset( self::$deprecatedTypeMap[$typeName] ) ) {
-			$typeName = self::$deprecatedTypeMap[$typeName];
+		if ( isset( self::DEPRECATED_TYPE_MAP[$typeName] ) ) {
+			$typeName = self::DEPRECATED_TYPE_MAP[$typeName];
 		}
-		return isset( self::$allowedTypes[$typeName] ) ? $typeName : null;
+		return isset( self::ALLOWED_TYPES[$typeName] ) ? $typeName : null;
 	}
 
 	/**
@@ -85,7 +87,8 @@ class RevisionDeleter {
 		if ( !$typeName ) {
 			throw new MWException( __METHOD__ . ": Unknown RevDel type '$typeName'" );
 		}
-		return new self::$allowedTypes[$typeName]( $context, $title, $ids );
+		$class = self::ALLOWED_TYPES[$typeName];
+		return new $class( $context, $title, $ids );
 	}
 
 	/**
@@ -97,7 +100,7 @@ class RevisionDeleter {
 	 * @param int $field The bitmask describing the single option.
 	 * @param int $diff The xor of the old and new bitfields.
 	 * @param int $new The new bitfield
-	 * @param array $arr The array to update.
+	 * @param array &$arr The array to update.
 	 */
 	protected static function checkItem( $desc, $field, $diff, $new, &$arr ) {
 		if ( $diff & $field ) {
@@ -125,17 +128,17 @@ class RevisionDeleter {
 	 */
 	public static function getChanges( $n, $o ) {
 		$diff = $n ^ $o;
-		$ret = array( 0 => array(), 1 => array(), 2 => array() );
+		$ret = [ 0 => [], 1 => [], 2 => [] ];
 		// Build bitfield changes in language
 		self::checkItem( 'revdelete-content',
-			Revision::DELETED_TEXT, $diff, $n, $ret );
+			RevisionRecord::DELETED_TEXT, $diff, $n, $ret );
 		self::checkItem( 'revdelete-summary',
-			Revision::DELETED_COMMENT, $diff, $n, $ret );
+			RevisionRecord::DELETED_COMMENT, $diff, $n, $ret );
 		self::checkItem( 'revdelete-uname',
-			Revision::DELETED_USER, $diff, $n, $ret );
+			RevisionRecord::DELETED_USER, $diff, $n, $ret );
 		// Restriction application to sysops
-		if ( $diff & Revision::DELETED_RESTRICTED ) {
-			if ( $n & Revision::DELETED_RESTRICTED ) {
+		if ( $diff & RevisionRecord::DELETED_RESTRICTED ) {
+			if ( $n & RevisionRecord::DELETED_RESTRICTED ) {
 				$ret[2][] = 'revdelete-restricted';
 			} else {
 				$ret[2][] = 'revdelete-unrestricted';
@@ -155,7 +158,7 @@ class RevisionDeleter {
 		if ( !$typeName ) {
 			return null;
 		}
-		return call_user_func( array( self::$allowedTypes[$typeName], 'getRelationType' ) );
+		return call_user_func( [ self::ALLOWED_TYPES[$typeName], 'getRelationType' ] );
 	}
 
 	/**
@@ -169,7 +172,7 @@ class RevisionDeleter {
 		if ( !$typeName ) {
 			return null;
 		}
-		return call_user_func( array( self::$allowedTypes[$typeName], 'getRestriction' ) );
+		return call_user_func( [ self::ALLOWED_TYPES[$typeName], 'getRestriction' ] );
 	}
 
 	/**
@@ -183,7 +186,7 @@ class RevisionDeleter {
 		if ( !$typeName ) {
 			return null;
 		}
-		return call_user_func( array( self::$allowedTypes[$typeName], 'getRevdelConstant' ) );
+		return call_user_func( [ self::ALLOWED_TYPES[$typeName], 'getRevdelConstant' ] );
 	}
 
 	/**
@@ -199,7 +202,7 @@ class RevisionDeleter {
 		if ( !$typeName ) {
 			return $target;
 		}
-		return call_user_func( array( self::$allowedTypes[$typeName], 'suggestTarget' ), $target, $ids );
+		return call_user_func( [ self::ALLOWED_TYPES[$typeName], 'suggestTarget' ], $target, $ids );
 	}
 
 	/**
@@ -212,18 +215,18 @@ class RevisionDeleter {
 	 * @return bool|mixed
 	 */
 	public static function checkRevisionExistence( $title, $revid ) {
-		$dbr = wfGetDB( DB_SLAVE );
+		$dbr = wfGetDB( DB_REPLICA );
 		$exists = $dbr->selectField( 'revision', '1',
-				array( 'rev_id' => $revid ), __METHOD__ );
+				[ 'rev_id' => $revid ], __METHOD__ );
 
 		if ( $exists ) {
 			return true;
 		}
 
 		$timestamp = $dbr->selectField( 'archive', 'ar_timestamp',
-				array( 'ar_namespace' => $title->getNamespace(),
+				[ 'ar_namespace' => $title->getNamespace(),
 					'ar_title' => $title->getDBkey(),
-					'ar_rev_id' => $revid ), __METHOD__ );
+					'ar_rev_id' => $revid ], __METHOD__ );
 
 		return $timestamp;
 	}
@@ -233,7 +236,7 @@ class RevisionDeleter {
 	 * @since 1.22
 	 * @param array $bitPars ExtractBitParams() params
 	 * @param int $oldfield Current bitfield
-	 * @return integer
+	 * @return int
 	 */
 	public static function extractBitfield( array $bitPars, $oldfield ) {
 		// Build the actual new rev_deleted bitfield

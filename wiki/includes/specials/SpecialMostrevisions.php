@@ -24,12 +24,12 @@
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
 
-class MostrevisionsPage extends FewestrevisionsPage {
-	function __construct( $name = 'Mostrevisions' ) {
+class SpecialMostRevisions extends SpecialFewestRevisions {
+	public function __construct( $name = 'Mostrevisions' ) {
 		parent::__construct( $name );
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return true;
 	}
 

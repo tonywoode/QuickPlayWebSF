@@ -1,27 +1,24 @@
 <?php
 /**
- * Unit tests for HTMLAutoCompleteSelectField
- *
  * @covers HTMLAutoCompleteSelectField
  */
-class HtmlAutoCompleteSelectFieldTest extends MediaWikiTestCase {
+class HTMLAutoCompleteSelectFieldTest extends MediaWikiIntegrationTestCase {
 
-	public $options = array(
+	public $options = [
 		'Bulgaria'     => 'BGR',
 		'Burkina Faso' => 'BFA',
 		'Burundi'      => 'BDI',
-	);
+	];
 
 	/**
 	 * Verify that attempting to instantiate an HTMLAutoCompleteSelectField
 	 * without providing any autocomplete options causes an exception to be
 	 * thrown.
-	 *
-	 * @expectedException        MWException
-	 * @expectedExceptionMessage called without any autocompletions
 	 */
-	function testMissingAutocompletions() {
-		new HTMLAutoCompleteSelectField( array( 'fieldname' => 'Test' ) );
+	public function testMissingAutocompletions() {
+		$this->expectException( MWException::class );
+		$this->expectExceptionMessage( "called without any autocompletions" );
+		new HTMLAutoCompleteSelectField( [ 'fieldname' => 'Test' ] );
 	}
 
 	/**
@@ -30,13 +27,13 @@ class HtmlAutoCompleteSelectFieldTest extends MediaWikiTestCase {
 	 *
 	 * @covers HTMLAutoCompleteSelectField::getAttributes
 	 */
-	function testGetAttributes() {
-		$field = new HTMLAutoCompleteSelectField( array(
+	public function testGetAttributes() {
+		$field = new HTMLAutoCompleteSelectField( [
 			'fieldname'    => 'Test',
 			'autocomplete' => $this->options,
-		) );
+		] );
 
-		$attributes = $field->getAttributes( array() );
+		$attributes = $field->getAttributes( [] );
 		$this->assertEquals( array_keys( $this->options ),
 			FormatJson::decode( $attributes['data-autocomplete'] ),
 			"The 'data-autocomplete' attribute encodes autocomplete option keys as a JSON array."
@@ -47,12 +44,12 @@ class HtmlAutoCompleteSelectFieldTest extends MediaWikiTestCase {
 	 * Test that the optional select dropdown is included or excluded based on
 	 * the presence or absence of the 'options' parameter.
 	 */
-	function testOptionalSelectElement() {
-		$params = array(
-			'fieldname'    => 'Test',
-			'autocomplete' => $this->options,
-			'options'      => $this->options,
-		);
+	public function testOptionalSelectElement() {
+		$params = [
+			'fieldname'         => 'Test',
+			'autocomplete-data' => $this->options,
+			'options'           => $this->options,
+		];
 
 		$field = new HTMLAutoCompleteSelectField( $params );
 		$html = $field->getInputHTML( false );

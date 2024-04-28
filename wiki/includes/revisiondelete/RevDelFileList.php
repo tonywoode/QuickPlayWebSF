@@ -19,6 +19,9 @@
  * @ingroup RevisionDelete
  */
 
+use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\IDatabase;
+
 /**
  * List for oldimage table items
  */
@@ -53,20 +56,22 @@ class RevDelFileList extends RevDelList {
 	 * @return mixed
 	 */
 	public function doQuery( $db ) {
-		$archiveNames = array();
+		$archiveNames = [];
 		foreach ( $this->ids as $timestamp ) {
 			$archiveNames[] = $timestamp . '!' . $this->title->getDBkey();
 		}
 
+		$oiQuery = OldLocalFile::getQueryInfo();
 		return $db->select(
-			'oldimage',
-			OldLocalFile::selectFields(),
-			array(
+			$oiQuery['tables'],
+			$oiQuery['fields'],
+			[
 				'oi_name' => $this->title->getDBkey(),
 				'oi_archive_name' => $archiveNames
-			),
+			],
 			__METHOD__,
-			array( 'ORDER BY' => 'oi_timestamp DESC' )
+			[ 'ORDER BY' => 'oi_timestamp DESC' ],
+			$oiQuery['joins']
 		);
 	}
 
@@ -75,14 +80,14 @@ class RevDelFileList extends RevDelList {
 	}
 
 	public function clearFileOps() {
-		$this->deleteBatch = array();
-		$this->storeBatch = array();
-		$this->cleanupBatch = array();
+		$this->deleteBatch = [];
+		$this->storeBatch = [];
+		$this->cleanupBatch = [];
 	}
 
 	public function doPreCommitUpdates() {
 		$status = Status::newGood();
-		$repo = RepoGroup::singleton()->getLocalRepo();
+		$repo = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo();
 		if ( $this->storeBatch ) {
 			$status->merge( $repo->storeBatch( $this->storeBatch, FileRepo::OVERWRITE_SAME ) );
 		}
@@ -104,20 +109,22 @@ class RevDelFileList extends RevDelList {
 		return $status;
 	}
 
-	public function doPostCommitUpdates() {
-		$file = wfLocalFile( $this->title );
+	public function doPostCommitUpdates( array $visibilityChangeMap ) {
+		$file = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo()
+			->newFile( $this->title );
 		$file->purgeCache();
 		$file->purgeDescription();
-		$purgeUrls = array();
+
+		// Purge full images from cache
+		$purgeUrls = [];
 		foreach ( $this->ids as $timestamp ) {
 			$archiveName = $timestamp . '!' . $this->title->getDBkey();
 			$file->purgeOldThumbnails( $archiveName );
 			$purgeUrls[] = $file->getArchiveUrl( $archiveName );
 		}
-		if ( $this->getConfig()->get( 'UseSquid' ) ) {
-			// purge full images from cache
-			SquidUpdate::purge( $purgeUrls );
-		}
+
+		$hcu = MediaWikiServices::getInstance()->getHtmlCacheUpdater();
+		$hcu->purgeUrls( $purgeUrls, $hcu::PURGE_INTENT_TXROUND_REFLECTED );
 
 		return Status::newGood();
 	}

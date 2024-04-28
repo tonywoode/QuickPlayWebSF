@@ -1,6 +1,6 @@
 <?php
 /**
- * Object caching using PHP arrays.
+ * Per-process memory cache for storing items.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,54 +22,154 @@
  */
 
 /**
- * This is a test of the interface, mainly. It stores things in an associative
- * array, which is not going to persist between program runs.
+ * Simple store for keeping values in an associative array for the current process.
  *
+ * Data will not persist and is not shared with other processes.
+ *
+ * @newable
  * @ingroup Cache
  */
-class HashBagOStuff extends BagOStuff {
-	/** @var array */
-	protected $bag;
+class HashBagOStuff extends MediumSpecificBagOStuff {
+	/** @var mixed[] */
+	protected $bag = [];
+	/** @var int|double Max entries allowed, INF for unlimited */
+	protected $maxCacheKeys;
 
-	function __construct( $params = array() ) {
+	/** @var string CAS token prefix for this instance */
+	private $token;
+
+	/** @var int CAS token counter */
+	private static $casCounter = 0;
+
+	public const KEY_VAL = 0;
+	public const KEY_EXP = 1;
+	public const KEY_CAS = 2;
+
+	/**
+	 * @stable to call
+	 * @param array $params Additional parameters include:
+	 *   - maxKeys : only allow this many keys (using oldest-first eviction)
+	 * @codingStandardsIgnoreStart
+	 * @phan-param array{logger?:Psr\Log\LoggerInterface,asyncHandler?:callable,keyspace?:string,reportDupes?:bool,syncTimeout?:int,segmentationSize?:int,segmentedValueMaxSize?:int,maxKeys?:int} $params
+	 * @codingStandardsIgnoreEnd
+	 */
+	public function __construct( $params = [] ) {
+		$params['segmentationSize'] = $params['segmentationSize'] ?? INF;
 		parent::__construct( $params );
-		$this->bag = array();
+
+		$this->token = microtime( true ) . ':' . mt_rand();
+		$maxKeys = $params['maxKeys'] ?? INF;
+		if ( $maxKeys !== INF && ( !is_int( $maxKeys ) || $maxKeys <= 0 ) ) {
+			throw new InvalidArgumentException( '$maxKeys parameter must be above zero' );
+		}
+		$this->maxCacheKeys = $maxKeys;
 	}
 
-	protected function expire( $key ) {
-		$et = $this->bag[$key][1];
+	protected function doGet( $key, $flags = 0, &$casToken = null ) {
+		$casToken = null;
 
-		if ( ( $et == 0 ) || ( $et > time() ) ) {
+		if ( !$this->hasKey( $key ) || $this->expire( $key ) ) {
 			return false;
 		}
 
-		$this->delete( $key );
+		// Refresh key position for maxCacheKeys eviction
+		$temp = $this->bag[$key];
+		unset( $this->bag[$key] );
+		$this->bag[$key] = $temp;
+
+		$casToken = $this->bag[$key][self::KEY_CAS];
+
+		return $this->bag[$key][self::KEY_VAL];
+	}
+
+	protected function doSet( $key, $value, $exptime = 0, $flags = 0 ) {
+		// Refresh key position for maxCacheKeys eviction
+		unset( $this->bag[$key] );
+		$this->bag[$key] = [
+			self::KEY_VAL => $value,
+			self::KEY_EXP => $this->getExpirationAsTimestamp( $exptime ),
+			self::KEY_CAS => $this->token . ':' . ++self::$casCounter
+		];
+
+		if ( count( $this->bag ) > $this->maxCacheKeys ) {
+			reset( $this->bag );
+			$evictKey = key( $this->bag );
+			unset( $this->bag[$evictKey] );
+		}
 
 		return true;
 	}
 
-	public function get( $key, &$casToken = null, $flags = 0 ) {
-		if ( !isset( $this->bag[$key] ) ) {
-			return false;
+	protected function doAdd( $key, $value, $exptime = 0, $flags = 0 ) {
+		if ( $this->hasKey( $key ) && !$this->expire( $key ) ) {
+			return false; // key already set
 		}
 
-		if ( $this->expire( $key ) ) {
-			return false;
-		}
-
-		$casToken = $this->bag[$key][0];
-
-		return $this->bag[$key][0];
+		return $this->doSet( $key, $value, $exptime, $flags );
 	}
 
-	public function set( $key, $value, $exptime = 0 ) {
-		$this->bag[$key] = array( $value, $this->convertExpiry( $exptime ) );
-		return true;
-	}
-
-	function delete( $key ) {
+	protected function doDelete( $key, $flags = 0 ) {
 		unset( $this->bag[$key] );
 
 		return true;
+	}
+
+	public function incr( $key, $value = 1, $flags = 0 ) {
+		$n = $this->get( $key );
+		if ( $this->isInteger( $n ) ) {
+			$n = max( $n + (int)$value, 0 );
+			$this->bag[$key][self::KEY_VAL] = $n;
+
+			return $n;
+		}
+
+		return false;
+	}
+
+	public function decr( $key, $value = 1, $flags = 0 ) {
+		return $this->incr( $key, -$value, $flags );
+	}
+
+	/**
+	 * Clear all values in cache
+	 */
+	public function clear() {
+		$this->bag = [];
+	}
+
+	/**
+	 * @param string $key
+	 * @return bool
+	 */
+	protected function expire( $key ) {
+		$et = $this->bag[$key][self::KEY_EXP];
+		if ( $et == self::TTL_INDEFINITE || $et > $this->getCurrentTime() ) {
+			return false;
+		}
+
+		$this->doDelete( $key );
+
+		return true;
+	}
+
+	public function setNewPreparedValues( array $valueByKey ) {
+		// Do not bother with serialization as this class does not serialize values
+		$sizes = [];
+		foreach ( $valueByKey as $value ) {
+			$sizes[] = $this->guessSerialValueSize( $value );
+		}
+
+		return $sizes;
+	}
+
+	/**
+	 * Does this bag have a non-null value for the given key?
+	 *
+	 * @param string $key
+	 * @return bool
+	 * @since 1.27
+	 */
+	public function hasKey( $key ) {
+		return isset( $this->bag[$key] );
 	}
 }

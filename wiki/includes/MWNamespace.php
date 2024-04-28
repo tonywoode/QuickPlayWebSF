@@ -19,45 +19,12 @@
  *
  * @file
  */
+use MediaWiki\MediaWikiServices;
 
 /**
- * This is a utility class with only static functions
- * for dealing with namespaces that encodes all the
- * "magic" behaviors of them based on index.  The textual
- * names of the namespaces are handled by Language.php.
- *
- * These are synonyms for the names given in the language file
- * Users and translators should not change them
- *
+ * @deprecated since 1.34, use NamespaceInfo instead
  */
 class MWNamespace {
-
-	/**
-	 * These namespaces should always be first-letter capitalized, now and
-	 * forevermore. Historically, they could've probably been lowercased too,
-	 * but some things are just too ingrained now. :)
-	 */
-	private static $alwaysCapitalizedNamespaces = array( NS_SPECIAL, NS_USER, NS_MEDIAWIKI );
-
-	/**
-	 * Throw an exception when trying to get the subject or talk page
-	 * for a given namespace where it does not make sense.
-	 * Special namespaces are defined in includes/Defines.php and have
-	 * a value below 0 (ex: NS_SPECIAL = -1 , NS_MEDIA = -2)
-	 *
-	 * @param int $index
-	 * @param string $method
-	 *
-	 * @throws MWException
-	 * @return bool
-	 */
-	private static function isMethodValidFor( $index, $method ) {
-		if ( $index < NS_MAIN ) {
-			throw new MWException( "$method does not make any sense for given namespace $index" );
-		}
-		return true;
-	}
-
 	/**
 	 * Can pages in the given namespace be moved?
 	 *
@@ -65,16 +32,7 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function isMovable( $index ) {
-		global $wgAllowImageMoving;
-
-		$result = !( $index < NS_MAIN || ( $index == NS_FILE && !$wgAllowImageMoving ) );
-
-		/**
-		 * @since 1.20
-		 */
-		Hooks::run( 'NamespaceIsMovable', array( $index, &$result ) );
-
-		return $result;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->isMovable( $index );
 	}
 
 	/**
@@ -85,7 +43,7 @@ class MWNamespace {
 	 * @since 1.19
 	 */
 	public static function isSubject( $index ) {
-		return !self::isTalk( $index );
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->isSubject( $index );
 	}
 
 	/**
@@ -95,8 +53,7 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function isTalk( $index ) {
-		return $index > NS_MAIN
-			&& $index % 2;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->isTalk( $index );
 	}
 
 	/**
@@ -106,10 +63,7 @@ class MWNamespace {
 	 * @return int
 	 */
 	public static function getTalk( $index ) {
-		self::isMethodValidFor( $index, __METHOD__ );
-		return self::isTalk( $index )
-			? $index
-			: $index + 1;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getTalk( $index );
 	}
 
 	/**
@@ -120,14 +74,7 @@ class MWNamespace {
 	 * @return int
 	 */
 	public static function getSubject( $index ) {
-		# Handle special namespaces
-		if ( $index < NS_MAIN ) {
-			return $index;
-		}
-
-		return self::isTalk( $index )
-			? $index - 1
-			: $index;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getSubject( $index );
 	}
 
 	/**
@@ -139,15 +86,7 @@ class MWNamespace {
 	 * @return int|null If no associated namespace could be found
 	 */
 	public static function getAssociated( $index ) {
-		self::isMethodValidFor( $index, __METHOD__ );
-
-		if ( self::isSubject( $index ) ) {
-			return self::getTalk( $index );
-		} elseif ( self::isTalk( $index ) ) {
-			return self::getSubject( $index );
-		} else {
-			return null;
-		}
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getAssociated( $index );
 	}
 
 	/**
@@ -159,8 +98,7 @@ class MWNamespace {
 	 * @since 1.19
 	 */
 	public static function exists( $index ) {
-		$nslist = self::getCanonicalNamespaces();
-		return isset( $nslist[$index] );
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->exists( $index );
 	}
 
 	/**
@@ -178,7 +116,7 @@ class MWNamespace {
 	 * @since 1.19
 	 */
 	public static function equals( $ns1, $ns2 ) {
-		return $ns1 == $ns2;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->equals( $ns1, $ns2 );
 	}
 
 	/**
@@ -193,31 +131,19 @@ class MWNamespace {
 	 * @since 1.19
 	 */
 	public static function subjectEquals( $ns1, $ns2 ) {
-		return self::getSubject( $ns1 ) == self::getSubject( $ns2 );
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->
+			subjectEquals( $ns1, $ns2 );
 	}
 
 	/**
 	 * Returns array of all defined namespaces with their canonical
 	 * (English) names.
 	 *
-	 * @param bool $rebuild Rebuild namespace list (default = false). Used for testing.
-	 *
 	 * @return array
 	 * @since 1.17
 	 */
-	public static function getCanonicalNamespaces( $rebuild = false ) {
-		static $namespaces = null;
-		if ( $namespaces === null || $rebuild ) {
-			global $wgExtraNamespaces, $wgCanonicalNamespaceNames;
-			$namespaces = array( NS_MAIN => '' ) + $wgCanonicalNamespaceNames;
-			// Add extension namespaces
-			$namespaces += ExtensionRegistry::getInstance()->getAttribute( 'ExtensionNamespaces' );
-			if ( is_array( $wgExtraNamespaces ) ) {
-				$namespaces += $wgExtraNamespaces;
-			}
-			Hooks::run( 'CanonicalNamespaces', array( &$namespaces ) );
-		}
-		return $namespaces;
+	public static function getCanonicalNamespaces() {
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getCanonicalNamespaces();
 	}
 
 	/**
@@ -227,12 +153,7 @@ class MWNamespace {
 	 * @return string|bool If no canonical definition.
 	 */
 	public static function getCanonicalName( $index ) {
-		$nslist = self::getCanonicalNamespaces();
-		if ( isset( $nslist[$index] ) ) {
-			return $nslist[$index];
-		} else {
-			return false;
-		}
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getCanonicalName( $index );
 	}
 
 	/**
@@ -243,18 +164,7 @@ class MWNamespace {
 	 * @return int
 	 */
 	public static function getCanonicalIndex( $name ) {
-		static $xNamespaces = false;
-		if ( $xNamespaces === false ) {
-			$xNamespaces = array();
-			foreach ( self::getCanonicalNamespaces() as $i => $text ) {
-				$xNamespaces[strtolower( $text )] = $i;
-			}
-		}
-		if ( array_key_exists( $name, $xNamespaces ) ) {
-			return $xNamespaces[$name];
-		} else {
-			return null;
-		}
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getCanonicalIndex( $name );
 	}
 
 	/**
@@ -263,27 +173,19 @@ class MWNamespace {
 	 * @return array
 	 */
 	public static function getValidNamespaces() {
-		static $mValidNamespaces = null;
-
-		if ( is_null( $mValidNamespaces ) ) {
-			foreach ( array_keys( self::getCanonicalNamespaces() ) as $ns ) {
-				if ( $ns >= 0 ) {
-					$mValidNamespaces[] = $ns;
-				}
-			}
-		}
-
-		return $mValidNamespaces;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getValidNamespaces();
 	}
 
 	/**
-	 * Can this namespace ever have a talk namespace?
+	 * Does this namespace ever have a talk namespace?
 	 *
-	 * @param int $index Namespace index
-	 * @return bool
+	 * @since 1.30
+	 *
+	 * @param int $index Namespace ID
+	 * @return bool True if this namespace either is or has a corresponding talk namespace.
 	 */
-	public static function canTalk( $index ) {
-		return $index >= NS_MAIN;
+	public static function hasTalkNamespace( $index ) {
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->hasTalkNamespace( $index );
 	}
 
 	/**
@@ -294,8 +196,7 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function isContent( $index ) {
-		global $wgContentNamespaces;
-		return $index == NS_MAIN || in_array( $index, $wgContentNamespaces );
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->isContent( $index );
 	}
 
 	/**
@@ -306,8 +207,7 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function wantSignatures( $index ) {
-		global $wgExtraSignatureNamespaces;
-		return self::isTalk( $index ) || in_array( $index, $wgExtraSignatureNamespaces );
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->wantSignatures( $index );
 	}
 
 	/**
@@ -317,7 +217,7 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function isWatchable( $index ) {
-		return $index >= NS_MAIN;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->isWatchable( $index );
 	}
 
 	/**
@@ -327,8 +227,7 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function hasSubpages( $index ) {
-		global $wgNamespacesWithSubpages;
-		return !empty( $wgNamespacesWithSubpages[$index] );
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->hasSubpages( $index );
 	}
 
 	/**
@@ -336,15 +235,7 @@ class MWNamespace {
 	 * @return array Array of namespace indices
 	 */
 	public static function getContentNamespaces() {
-		global $wgContentNamespaces;
-		if ( !is_array( $wgContentNamespaces ) || $wgContentNamespaces === array() ) {
-			return array( NS_MAIN );
-		} elseif ( !in_array( NS_MAIN, $wgContentNamespaces ) ) {
-			// always force NS_MAIN to be part of array (to match the algorithm used by isContent)
-			return array_merge( array( NS_MAIN ), $wgContentNamespaces );
-		} else {
-			return $wgContentNamespaces;
-		}
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getContentNamespaces();
 	}
 
 	/**
@@ -354,10 +245,7 @@ class MWNamespace {
 	 * @return array Array of namespace indices
 	 */
 	public static function getSubjectNamespaces() {
-		return array_filter(
-			MWNamespace::getValidNamespaces(),
-			'MWNamespace::isSubject'
-		);
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getSubjectNamespaces();
 	}
 
 	/**
@@ -367,10 +255,7 @@ class MWNamespace {
 	 * @return array Array of namespace indices
 	 */
 	public static function getTalkNamespaces() {
-		return array_filter(
-			MWNamespace::getValidNamespaces(),
-			'MWNamespace::isTalk'
-		);
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->getTalkNamespaces();
 	}
 
 	/**
@@ -380,23 +265,7 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function isCapitalized( $index ) {
-		global $wgCapitalLinks, $wgCapitalLinkOverrides;
-		// Turn NS_MEDIA into NS_FILE
-		$index = $index === NS_MEDIA ? NS_FILE : $index;
-
-		// Make sure to get the subject of our namespace
-		$index = self::getSubject( $index );
-
-		// Some namespaces are special and should always be upper case
-		if ( in_array( $index, self::$alwaysCapitalizedNamespaces ) ) {
-			return true;
-		}
-		if ( isset( $wgCapitalLinkOverrides[$index] ) ) {
-			// $wgCapitalLinkOverrides is explicitly set
-			return $wgCapitalLinkOverrides[$index];
-		}
-		// Default to the global setting
-		return $wgCapitalLinks;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->isCapitalized( $index );
 	}
 
 	/**
@@ -408,7 +277,8 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function hasGenderDistinction( $index ) {
-		return $index == NS_USER || $index == NS_USER_TALK;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->
+			hasGenderDistinction( $index );
 	}
 
 	/**
@@ -419,23 +289,23 @@ class MWNamespace {
 	 * @return bool
 	 */
 	public static function isNonincludable( $index ) {
-		global $wgNonincludableNamespaces;
-		return $wgNonincludableNamespaces && in_array( $index, $wgNonincludableNamespaces );
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->isNonincludable( $index );
 	}
 
 	/**
 	 * Get the default content model for a namespace
 	 * This does not mean that all pages in that namespace have the model
 	 *
+	 * @note To determine the default model for a new page's main slot, or any slot in general,
+	 * use SlotRoleHandler::getDefaultModel() together with SlotRoleRegistry::getRoleHandler().
+	 *
 	 * @since 1.21
 	 * @param int $index Index to check
 	 * @return null|string Default model name for the given namespace, if set
 	 */
 	public static function getNamespaceContentModel( $index ) {
-		global $wgNamespaceContentModels;
-		return isset( $wgNamespaceContentModels[$index] )
-			? $wgNamespaceContentModels[$index]
-			: null;
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->
+			getNamespaceContentModel( $index );
 	}
 
 	/**
@@ -444,67 +314,27 @@ class MWNamespace {
 	 *
 	 * @since 1.23
 	 * @param int $index Index to check
-	 * @param User $user User to check
+	 * @param User|null $user User to check
 	 * @return array
 	 */
 	public static function getRestrictionLevels( $index, User $user = null ) {
-		global $wgNamespaceProtection, $wgRestrictionLevels;
+		return MediaWikiServices::getInstance()
+			->getPermissionManager()
+			->getNamespaceRestrictionLevels( $index, $user );
+	}
 
-		if ( !isset( $wgNamespaceProtection[$index] ) ) {
-			// All levels are valid if there's no namespace restriction.
-			// But still filter by user, if necessary
-			$levels = $wgRestrictionLevels;
-			if ( $user ) {
-				$levels = array_values( array_filter( $levels, function ( $level ) use ( $user ) {
-					$right = $level;
-					if ( $right == 'sysop' ) {
-						$right = 'editprotected'; // BC
-					}
-					if ( $right == 'autoconfirmed' ) {
-						$right = 'editsemiprotected'; // BC
-					}
-					return ( $right == '' || $user->isAllowed( $right ) );
-				} ) );
-			}
-			return $levels;
-		}
-
-		// First, get the list of groups that can edit this namespace.
-		$namespaceGroups = array();
-		$combine = 'array_merge';
-		foreach ( (array)$wgNamespaceProtection[$index] as $right ) {
-			if ( $right == 'sysop' ) {
-				$right = 'editprotected'; // BC
-			}
-			if ( $right == 'autoconfirmed' ) {
-				$right = 'editsemiprotected'; // BC
-			}
-			if ( $right != '' ) {
-				$namespaceGroups = call_user_func( $combine, $namespaceGroups,
-					User::getGroupsWithPermission( $right ) );
-				$combine = 'array_intersect';
-			}
-		}
-
-		// Now, keep only those restriction levels where there is at least one
-		// group that can edit the namespace but would be blocked by the
-		// restriction.
-		$usableLevels = array( '' );
-		foreach ( $wgRestrictionLevels as $level ) {
-			$right = $level;
-			if ( $right == 'sysop' ) {
-				$right = 'editprotected'; // BC
-			}
-			if ( $right == 'autoconfirmed' ) {
-				$right = 'editsemiprotected'; // BC
-			}
-			if ( $right != '' && ( !$user || $user->isAllowed( $right ) ) &&
-				array_diff( $namespaceGroups, User::getGroupsWithPermission( $right ) )
-			) {
-				$usableLevels[] = $level;
-			}
-		}
-
-		return $usableLevels;
+	/**
+	 * Returns the link type to be used for categories.
+	 *
+	 * This determines which section of a category page titles
+	 * in the namespace will appear within.
+	 *
+	 * @since 1.32
+	 * @param int $index Namespace index
+	 * @return string One of 'subcat', 'file', 'page'
+	 */
+	public static function getCategoryLinkType( $index ) {
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->
+			getCategoryLinkType( $index );
 	}
 }

@@ -39,17 +39,21 @@ class ChangeTagsRevisionItem extends RevisionItem {
 		$difflink = $this->list->msg( 'parentheses' )
 			->rawParams( $this->getDiffLink() )->escaped();
 		$revlink = $this->getRevisionLink();
-		$userlink = Linker::revUserLink( $this->revision );
-		$comment = Linker::revComment( $this->revision );
+		$userlink = Linker::revUserLink( $this->getRevisionRecord() );
+		$comment = Linker::revComment( $this->getRevisionRecord() );
 		if ( $this->isDeleted() ) {
 			$revlink = "<span class=\"history-deleted\">$revlink</span>";
 		}
 
 		$content = "$difflink $revlink $userlink $comment";
-		$attribs = array();
+		$attribs = [];
 		$tags = $this->getTags();
 		if ( $tags ) {
-			list( $tagSummary, $classes ) = ChangeTags::formatSummaryRow( $tags, 'edittags' );
+			list( $tagSummary, $classes ) = ChangeTags::formatSummaryRow(
+				$tags,
+				'edittags',
+				$this->list->getContext()
+			);
 			$content .= " $tagSummary";
 			$attribs['class'] = implode( ' ', $classes );
 		}

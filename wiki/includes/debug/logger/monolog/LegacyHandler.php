@@ -27,7 +27,7 @@ use Monolog\Logger;
 use UnexpectedValueException;
 
 /**
- * Log handler that replicates the behavior of MediaWiki's wfErrorLog()
+ * Log handler that replicates the behavior of MediaWiki's former wfErrorLog()
  * logging service. Log output can be directed to a local file, a PHP stream,
  * or a udp2log server.
  *
@@ -41,52 +41,50 @@ use UnexpectedValueException;
  * channel as the prefix value.
  *
  * When not targeting a udp2log stream this class will act as a drop-in
- * replacement for Monolog's StreamHandler.
+ * replacement for \Monolog\Handler\StreamHandler.
  *
  * @since 1.25
- * @author Bryan Davis <bd808@wikimedia.org>
- * @copyright © 2013 Bryan Davis and Wikimedia Foundation.
+ * @copyright © 2013 Wikimedia Foundation and contributors
  */
 class LegacyHandler extends AbstractProcessingHandler {
 
 	/**
 	 * Log sink descriptor
-	 * @var string $uri
+	 * @var string
 	 */
 	protected $uri;
 
 	/**
 	 * Filter log events using legacy rules
-	 * @var bool $useLegacyFilter
+	 * @var bool
 	 */
 	protected $useLegacyFilter;
 
 	/**
 	 * Log sink
-	 * @var resource $sink
+	 * @var resource
 	 */
 	protected $sink;
 
 	/**
-	 * @var string $error
+	 * @var string
 	 */
 	protected $error;
 
 	/**
-	 * @var string $host
+	 * @var string
 	 */
 	protected $host;
 
 	/**
-	 * @var int $port
+	 * @var int
 	 */
 	protected $port;
 
 	/**
-	 * @var string $prefix
+	 * @var string
 	 */
 	protected $prefix;
-
 
 	/**
 	 * @param string $stream Stream URI
@@ -114,7 +112,7 @@ class LegacyHandler extends AbstractProcessingHandler {
 				'Missing stream uri, the stream can not be opened.' );
 		}
 		$this->error = null;
-		set_error_handler( array( $this, 'errorTrap' ) );
+		set_error_handler( [ $this, 'errorTrap' ] );
 
 		if ( substr( $this->uri, 0, 4 ) == 'udp:' ) {
 			$parsed = parse_url( $this->uri );
@@ -151,7 +149,7 @@ class LegacyHandler extends AbstractProcessingHandler {
 		}
 		restore_error_handler();
 
-		if ( !is_resource( $this->sink ) ) {
+		if ( !$this->sink ) {
 			$this->sink = null;
 			throw new UnexpectedValueException( sprintf(
 				'The stream or file "%s" could not be opened: %s',
@@ -159,7 +157,6 @@ class LegacyHandler extends AbstractProcessingHandler {
 			) );
 		}
 	}
-
 
 	/**
 	 * Custom error handler.
@@ -170,7 +167,6 @@ class LegacyHandler extends AbstractProcessingHandler {
 		$this->error = $msg;
 	}
 
-
 	/**
 	 * Should we use UDP to send messages to the sink?
 	 * @return bool
@@ -179,8 +175,7 @@ class LegacyHandler extends AbstractProcessingHandler {
 		return $this->host !== null;
 	}
 
-
-	protected function write( array $record ) {
+	protected function write( array $record ): void {
 		if ( $this->useLegacyFilter &&
 			!LegacyLogger::shouldEmit(
 				$record['channel'], $record['message'],
@@ -199,7 +194,6 @@ class LegacyHandler extends AbstractProcessingHandler {
 
 		$text = (string)$record['formatted'];
 		if ( $this->useUdp() ) {
-
 			// Clean it up for the multiplexer
 			if ( $this->prefix !== '' ) {
 				$leader = ( $this->prefix === '{channel}' ) ?
@@ -228,9 +222,8 @@ class LegacyHandler extends AbstractProcessingHandler {
 		}
 	}
 
-
-	public function close() {
-		if ( is_resource( $this->sink ) ) {
+	public function close(): void {
+		if ( $this->sink ) {
 			if ( $this->useUdp() ) {
 				socket_close( $this->sink );
 

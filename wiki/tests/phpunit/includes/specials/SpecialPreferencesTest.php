@@ -7,11 +7,12 @@
  */
 
 /**
+ * @group Preferences
  * @group Database
  *
  * @covers SpecialPreferences
  */
-class SpecialPreferencesTest extends MediaWikiTestCase {
+class SpecialPreferencesTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * Make sure a nickname which is longer than $wgMaxSigChars
@@ -20,12 +21,10 @@ class SpecialPreferencesTest extends MediaWikiTestCase {
 	 * Test specifications by Alexandre "ialex" Emsenhuber.
 	 * @todo give this test a real name explaining what is being tested here
 	 */
-	public function testBug41337() {
-
+	public function testT43337() {
 		// Set a low limit
 		$this->setMwGlobals( 'wgMaxSigChars', 2 );
-
-		$user = $this->getMock( 'User' );
+		$user = $this->createMock( User::class );
 		$user->expects( $this->any() )
 			->method( 'isAnon' )
 			->will( $this->returnValue( false ) );
@@ -33,15 +32,23 @@ class SpecialPreferencesTest extends MediaWikiTestCase {
 		# Yeah foreach requires an array, not NULL =(
 		$user->expects( $this->any() )
 			->method( 'getEffectiveGroups' )
-			->will( $this->returnValue( array() ) );
+			->will( $this->returnValue( [] ) );
 
 		# The mocked user has a long nickname
 		$user->expects( $this->any() )
 			->method( 'getOption' )
-			->will( $this->returnValueMap( array(
-				array( 'nickname', null, false, 'superlongnickname' ),
-			)
+			->will( $this->returnValueMap( [
+				[ 'nickname', null, false, 'superlongnickname' ],
+			]
 			) );
+
+		# Needs to return something
+		$user->method( 'getOptions' )
+			->willReturn( [] );
+
+		// isAnyAllowed used to return null from the mock,
+		// thus revoke it's permissions.
+		$this->overrideUserPermissions( $user, [] );
 
 		# Forge a request to call the special page
 		$context = new RequestContext();
@@ -52,7 +59,7 @@ class SpecialPreferencesTest extends MediaWikiTestCase {
 		# Do the call, should not spurt a fatal error.
 		$special = new SpecialPreferences();
 		$special->setContext( $context );
-		$this->assertNull( $special->execute( array() ) );
+		$this->assertNull( $special->execute( [] ) );
 	}
 
 }

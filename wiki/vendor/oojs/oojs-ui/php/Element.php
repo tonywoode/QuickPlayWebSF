@@ -39,33 +39,46 @@ class Element extends Tag {
 	protected $data = null;
 
 	/**
-	 * CSS classes explicitly configured for this element (as opposed to #$classes, which contains all
-	 * classes for this element).
-	 *
-	 * @var string[]
+	 * @var bool
 	 */
-	protected $ownClasses = array();
+	protected $visible = true;
 
 	/**
-	 * Mixins.
+	 * Strings of the CSS classes explicitly configured for this element (as opposed to #$classes,
+	 * which contains all classes for this element).
 	 *
-	 * @var ElementMixin[] List mixed in objects.
+	 * @var array
 	 */
-	protected $mixins = array();
+	protected $ownClasses = [];
+
+	/**
+	 * @var callable[]
+	 */
+	protected $configCallbacks = [];
+
+	/* Static methods */
+
+	/**
+	 * Emits a deprecation warning with provided message.
+	 *
+	 * @param string $message Message about the deprecation
+	 */
+	public static function warnDeprecation( $message = '' ) {
+		trigger_error( $message, E_USER_DEPRECATED );
+	}
 
 	/* Methods */
 
 	/**
 	 * @param array $config Configuration options
-	 * @param string[] $config['classes'] CSS class names to add
-	 * @param string $config['id'] HTML id attribute
-	 * @param string $config['text'] Text to insert
-	 * @param array $config['content'] Content to append (after text), strings
-	 *   or Element objects. Strings will be HTML-escaped for output, use an
-	 *   HtmlSnippet instance to prevent that.
-	 * @param mixed $config['data'] Element data
+	 *      - string[] $config['classes'] CSS class names to add
+	 *      - string $config['id'] HTML id attribute
+	 *      - string $config['text'] Text to insert
+	 *      - string[]|HtmlSnippet[]|Element[] $config['content'] Content to append (after text).
+	 *          Strings will be HTML-escaped for output, use an HtmlSnippet instance to prevent that.
+	 *      - mixed $config['data'] Element data
 	 */
-	public function __construct( array $config = array() ) {
+	public function __construct( array $config = [] ) {
 		// Parent constructor
 		parent::__construct( $this->getTagName() );
 
@@ -81,7 +94,7 @@ class Element extends Tag {
 			$this->addClasses( $this->ownClasses );
 		}
 		if ( isset( $config['id'] ) ) {
-			$this->setAttributes( array( 'id' => $config['id'] ) );
+			$this->setAttributes( [ 'id' => $config['id'] ] );
 		}
 		if ( isset( $config['text'] ) ) {
 			// JS compatibility
@@ -93,71 +106,6 @@ class Element extends Tag {
 	}
 
 	/**
-	 * Call a mixed-in method.
-	 *
-	 * This makes the methods of a mixin accessible through the element being mixed into.
-	 *
-	 * Triggers an error if the method is not found, as normal.
-	 *
-	 * @param string $method Method name
-	 * @param array $arguments Method arguments
-	 * @return mixed Result of method call
-	 */
-	public function __call( $method, $arguments ) {
-		// Search mixins for methods
-		foreach ( $this->mixins as $mixin ) {
-			if ( method_exists( $mixin, $method ) ) {
-				return call_user_func_array( array( $mixin, $method ), $arguments );
-			}
-		}
-		// Fail normally
-		trigger_error(
-			'Call to undefined method ' . __CLASS__ . '::' . $method . '()',
-			E_USER_ERROR
-		);
-	}
-
-	/**
-	 * Get a mixed-in target property.
-	 *
-	 * This makes the target of a mixin accessible through the element being mixed into.
-	 *
-	 * The target's property name is statically configured by the mixin class.
-	 *
-	 * Triggers a notice if the property is not found, as normal.
-	 *
-	 * @param string $name Property name
-	 * @return Tag|null Target property or null if not found
-	 */
-	public function __get( $name ) {
-		// Search mixins for the property
-		foreach ( $this->mixins as $mixin ) {
-			if ( isset( $mixin::$targetPropertyName ) && $mixin::$targetPropertyName === $name ) {
-				return $mixin->target;
-			}
-		}
-		// Fail normally
-		trigger_error( 'Undefined property: ' . $name, E_USER_NOTICE );
-		return null;
-	}
-
-	/**
-	 * Check for existence of a mixed-in target property.
-	 *
-	 * @param string $name Property name
-	 * @return bool Whether property exists
-	 */
-	public function __isset( $name ) {
-		// Search mixins for the property
-		foreach ( $this->mixins as $mixin ) {
-			if ( isset( $mixin::$targetPropertyName ) && $mixin::$targetPropertyName === $name ) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * Get the HTML tag name.
 	 *
 	 * Override this method to base the result on instance information.
@@ -166,6 +114,21 @@ class Element extends Tag {
 	 */
 	public function getTagName() {
 		return $this::$tagName;
+	}
+
+	/**
+	 * Toggle visiblity of an element.
+	 *
+	 * @param bool|null $show Make element visible, omit to toggle visibility
+	 * @return $this
+	 */
+	public function toggle( $show = null ) {
+		$show = $show === null ? !$this->visible : $show;
+
+		$this->visible = $show;
+		$this->toggleClasses( [ 'oo-ui-element-hidden' ], !$this->visible );
+
+		return $this;
 	}
 
 	/**
@@ -181,7 +144,7 @@ class Element extends Tag {
 	 * Set element data.
 	 *
 	 * @param mixed $data Element data
-	 * @chainable
+	 * @return $this
 	 */
 	public function setData( $data ) {
 		$this->data = $data;
@@ -192,7 +155,7 @@ class Element extends Tag {
 	 * Check if element supports one or more methods.
 	 *
 	 * @param string|string[] $methods Method or list of methods to check
-	 * @return boolean All methods are supported
+	 * @return bool All methods are supported
 	 */
 	public function supports( $methods ) {
 		$support = 0;
@@ -203,49 +166,41 @@ class Element extends Tag {
 				$support++;
 				continue;
 			}
-
-			// Search mixins for methods
-			foreach ( $this->mixins as $mixin ) {
-				if ( method_exists( $mixin, $method ) ) {
-					$support++;
-					break;
-				}
-			}
 		}
 
 		return count( $methods ) === $support;
 	}
 
 	/**
-	 * Mixin a class.
+	 * Register an additional function to call when building the config. See ::getConfig().
 	 *
-	 * @param ElementMixin $mixin Mixin object
+	 * @param callable $func The function. Parameters and return value are the same as ::getConfig().
 	 */
-	public function mixin( ElementMixin $mixin ) {
-		$this->mixins[] = $mixin;
+	public function registerConfigCallback( callable $func ) {
+		$this->configCallbacks[] = $func;
 	}
 
 	/**
 	 * Add the necessary properties to the given `$config` array to allow
 	 * reconstruction of this widget via its constructor.
-	 * @param array &$config
-	 *   An array which will be mutated to add the necessary configuration
+	 * @param array &$config An array which will be mutated to add the necessary configuration
 	 *   properties.  Unless you are implementing a subclass, you should
-	 *   always pass a new empty `array()`.
-	 * @return array
-	 *   A configuration array which can be passed to this object's
+	 *   always pass a new empty array `[]`.
+	 * @return array A configuration array which can be passed to this object's
 	 *   constructor to recreate it.  This is a return value to allow
 	 *   the safe use of copy-by-value functions like `array_merge` in
 	 *   the implementation.
 	 */
 	public function getConfig( &$config ) {
-		foreach ( $this->mixins as $mixin ) {
-			$config = $mixin->getConfig( $config );
+		// If there are traits, add their config
+		foreach ( $this->configCallbacks as $func ) {
+			call_user_func_array( $func, [ &$config ] );
 		}
+
 		if ( $this->data !== null ) {
 			$config['data'] = $this->data;
 		}
-		if ( $this->ownClasses !== array() ) {
+		if ( $this->ownClasses !== [] ) {
 			$config['classes'] = $this->ownClasses;
 		}
 		return $config;
@@ -256,21 +211,20 @@ class Element extends Tag {
 	 * JSON serialization by replacing `Tag` references and
 	 * `HtmlSnippet`s.
 	 *
-	 * @return array
-	 *   A serialized configuration array.
+	 * @return array A serialized configuration array.
 	 */
 	private function getSerializedConfig() {
 		// Ensure that '_' comes first in the output.
-		$config = array( '_' => true );
+		$config = [ '_' => true ];
 		$config = $this->getConfig( $config );
 		// Post-process config array to turn Tag references into ID references
 		// and HtmlSnippet references into a { html: 'string' } JSON form.
-		$replaceElements = function( &$item ) {
+		$replaceElements = function ( &$item ) {
 			if ( $item instanceof Tag ) {
 				$item->ensureInfusableId();
-				$item = array( 'tag' => $item->getAttribute( 'id' ) );
+				$item = [ 'tag' => $item->getAttribute( 'id' ) ];
 			} elseif ( $item instanceof HtmlSnippet ) {
-				$item = array( 'html' => (string) $item );
+				$item = [ 'html' => (string)$item ];
 			}
 		};
 		array_walk_recursive( $config, $replaceElements );
@@ -325,9 +279,45 @@ class Element extends Tag {
 	/**
 	 * Set the default direction of the user interface.
 	 *
-	 * @return string Text direction, either 'ltr' or 'rtl'
+	 * @param string $dir Text direction, either 'ltr' or 'rtl'
 	 */
 	public static function setDefaultDir( $dir ) {
 		self::$defaultDir = $dir === 'rtl' ? 'rtl' : 'ltr';
+	}
+
+	/**
+	 * A helper method to massage an array of HTML attributes into a format that is more likely to
+	 * work with an OOUI PHP element, camel-casing attribute names and setting values of boolean
+	 * ones to true. Intended as a convenience to be used when refactoring legacy systems using HTML
+	 * to use OOUI.
+	 *
+	 * @param array $attrs HTML attributes, e.g. `[ 'disabled' => '', 'accesskey' => 'k' ]`
+	 * @return array OOUI PHP element config, e.g. `[ 'disabled' => true, 'accessKey' => 'k' ]`
+	 */
+	public static function configFromHtmlAttributes( array $attrs ) {
+		$booleanAttrs = [
+			'disabled' => true,
+			'required' => true,
+			'autofocus' => true,
+			'multiple' => true,
+			'readonly' => true,
+		];
+		$attributeToConfig = [
+			'maxlength' => 'maxLength',
+			'readonly' => 'readOnly',
+			'tabindex' => 'tabIndex',
+			'accesskey' => 'accessKey',
+		];
+		$config = [];
+		foreach ( $attrs as $key => $value ) {
+			if ( isset( $booleanAttrs[$key] ) && $value !== false && $value !== null ) {
+				$value = true;
+			}
+			if ( isset( $attributeToConfig[$key] ) ) {
+				$key = $attributeToConfig[$key];
+			}
+			$config[$key] = $value;
+		}
+		return $config;
 	}
 }

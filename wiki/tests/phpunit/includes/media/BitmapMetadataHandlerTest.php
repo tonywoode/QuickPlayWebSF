@@ -3,9 +3,9 @@
 /**
  * @group Media
  */
-class BitmapMetadataHandlerTest extends MediaWikiTestCase {
+class BitmapMetadataHandlerTest extends MediaWikiIntegrationTestCase {
 
-	protected function setUp() {
+	protected function setUp() : void {
 		parent::setUp();
 
 		$this->setMwGlobals( 'wgShowEXIF', false );
@@ -31,11 +31,11 @@ class BitmapMetadataHandlerTest extends MediaWikiTestCase {
 		$meta = BitmapMetadataHandler::Jpeg( $this->filePath .
 			'/Xmp-exif-multilingual_test.jpg' );
 
-		$expected = array(
+		$expected = [
 			'x-default' => 'right(iptc)',
 			'en' => 'right translation',
 			'_type' => 'lang'
-		);
+		];
 
 		$this->assertArrayHasKey( 'ImageDescription', $meta,
 			'Did not extract any ImageDescription info?!' );
@@ -77,21 +77,18 @@ class BitmapMetadataHandlerTest extends MediaWikiTestCase {
 		$meta = BitmapMetadataHandler::Jpeg( $this->filePath .
 			'iptc-timetest.jpg' );
 
+		// raw date is 2020:07:13 14:04:05+11:32
 		$this->assertEquals( '2020:07:14 01:36:05', $meta['DateTimeDigitized'] );
+		// raw date is 1997:03:02 03:01:02-03:00
 		$this->assertEquals( '1997:03:02 00:01:02', $meta['DateTimeOriginal'] );
-	}
 
-	/**
-	 * File has an invalid time (+ one valid but really weird time)
-	 * that shouldn't be included
-	 * @covers BitmapMetadataHandler::Jpeg
-	 */
-	public function testIPTCDatesInvalid() {
 		$meta = BitmapMetadataHandler::Jpeg( $this->filePath .
 			'iptc-timetest-invalid.jpg' );
 
+		// raw date is 1845:03:02 03:01:02-03:00
 		$this->assertEquals( '1845:03:02 00:01:02', $meta['DateTimeOriginal'] );
-		$this->assertFalse( isset( $meta['DateTimeDigitized'] ) );
+		// raw date is 1942:07:13 25:05:02+00:00
+		$this->assertSame( '1942:07:14 01:05:02', $meta['DateTimeDigitized'] );
 	}
 
 	/**
@@ -103,23 +100,23 @@ class BitmapMetadataHandlerTest extends MediaWikiTestCase {
 	 */
 	public function testMerging() {
 		$merger = new BitmapMetadataHandler();
-		$merger->addMetadata( array( 'foo' => 'xmp' ), 'xmp-general' );
-		$merger->addMetadata( array( 'bar' => 'xmp' ), 'xmp-general' );
-		$merger->addMetadata( array( 'baz' => 'xmp' ), 'xmp-general' );
-		$merger->addMetadata( array( 'fred' => 'xmp' ), 'xmp-general' );
-		$merger->addMetadata( array( 'foo' => 'iptc (hash)' ), 'iptc-good-hash' );
-		$merger->addMetadata( array( 'bar' => 'iptc (bad hash)' ), 'iptc-bad-hash' );
-		$merger->addMetadata( array( 'baz' => 'iptc (bad hash)' ), 'iptc-bad-hash' );
-		$merger->addMetadata( array( 'fred' => 'iptc (no hash)' ), 'iptc-no-hash' );
-		$merger->addMetadata( array( 'baz' => 'exif' ), 'exif' );
+		$merger->addMetadata( [ 'foo' => 'xmp' ], 'xmp-general' );
+		$merger->addMetadata( [ 'bar' => 'xmp' ], 'xmp-general' );
+		$merger->addMetadata( [ 'baz' => 'xmp' ], 'xmp-general' );
+		$merger->addMetadata( [ 'fred' => 'xmp' ], 'xmp-general' );
+		$merger->addMetadata( [ 'foo' => 'iptc (hash)' ], 'iptc-good-hash' );
+		$merger->addMetadata( [ 'bar' => 'iptc (bad hash)' ], 'iptc-bad-hash' );
+		$merger->addMetadata( [ 'baz' => 'iptc (bad hash)' ], 'iptc-bad-hash' );
+		$merger->addMetadata( [ 'fred' => 'iptc (no hash)' ], 'iptc-no-hash' );
+		$merger->addMetadata( [ 'baz' => 'exif' ], 'exif' );
 
 		$actual = $merger->getMetadataArray();
-		$expected = array(
+		$expected = [
 			'foo' => 'xmp',
 			'bar' => 'iptc (bad hash)',
 			'baz' => 'exif',
 			'fred' => 'xmp',
-		);
+		];
 		$this->assertEquals( $expected, $actual );
 	}
 
@@ -127,22 +124,20 @@ class BitmapMetadataHandlerTest extends MediaWikiTestCase {
 	 * @covers BitmapMetadataHandler::png
 	 */
 	public function testPNGXMP() {
-		if ( !extension_loaded( 'xml' ) ) {
-			$this->markTestSkipped( "This test needs the xml extension." );
-		}
-		$handler = new BitmapMetadataHandler();
-		$result = $handler->png( $this->filePath . 'xmp.png' );
-		$expected = array(
+		$this->checkPHPExtension( 'xml' );
+
+		$result = BitmapMetadataHandler::PNG( $this->filePath . 'xmp.png' );
+		$expected = [
 			'frameCount' => 0,
 			'loopCount' => 1,
 			'duration' => 0,
 			'bitDepth' => 1,
 			'colorType' => 'index-coloured',
-			'metadata' => array(
+			'metadata' => [
 				'SerialNumber' => '123456789',
 				'_MW_PNG_VERSION' => 1,
-			),
-		);
+			],
+		];
 		$this->assertEquals( $expected, $result );
 	}
 
@@ -150,8 +145,7 @@ class BitmapMetadataHandlerTest extends MediaWikiTestCase {
 	 * @covers BitmapMetadataHandler::png
 	 */
 	public function testPNGNative() {
-		$handler = new BitmapMetadataHandler();
-		$result = $handler->png( $this->filePath . 'Png-native-test.png' );
+		$result = BitmapMetadataHandler::PNG( $this->filePath . 'Png-native-test.png' );
 		$expected = 'http://example.com/url';
 		$this->assertEquals( $expected, $result['metadata']['Identifier']['x-default'] );
 	}
@@ -160,8 +154,7 @@ class BitmapMetadataHandlerTest extends MediaWikiTestCase {
 	 * @covers BitmapMetadataHandler::getTiffByteOrder
 	 */
 	public function testTiffByteOrder() {
-		$handler = new BitmapMetadataHandler();
-		$res = $handler->getTiffByteOrder( $this->filePath . 'test.tiff' );
+		$res = BitmapMetadataHandler::getTiffByteOrder( $this->filePath . 'test.tiff' );
 		$this->assertEquals( 'LE', $res );
 	}
 }

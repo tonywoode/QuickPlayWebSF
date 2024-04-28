@@ -25,8 +25,8 @@
  * @since 1.20
  */
 class UserCache {
-	protected $cache = array(); // (uid => property => value)
-	protected $typesCached = array(); // (uid => cache type => 1)
+	protected $cache = []; // (uid => property => value)
+	protected $typesCached = []; // (uid => cache type => 1)
 
 	/**
 	 * @return UserCache
@@ -52,13 +52,11 @@ class UserCache {
 	 */
 	public function getProp( $userId, $prop ) {
 		if ( !isset( $this->cache[$userId][$prop] ) ) {
-			wfDebug( __METHOD__ . ": querying DB for prop '$prop' for user ID '$userId'.\n" );
-			$this->doQuery( array( $userId ) ); // cache miss
+			wfDebug( __METHOD__ . ": querying DB for prop '$prop' for user ID '$userId'." );
+			$this->doQuery( [ $userId ] ); // cache miss
 		}
 
-		return isset( $this->cache[$userId][$prop] )
-			? $this->cache[$userId][$prop]
-			: false; // user does not exist?
+		return $this->cache[$userId][$prop] ?? false; // user does not exist?
 	}
 
 	/**
@@ -79,10 +77,9 @@ class UserCache {
 	 * @param array $options Option flags; include 'userpage' and 'usertalk'
 	 * @param string $caller The calling method
 	 */
-	public function doQuery( array $userIds, $options = array(), $caller = '' ) {
-
-		$usersToCheck = array();
-		$usersToQuery = array();
+	public function doQuery( array $userIds, $options = [], $caller = '' ) {
+		$usersToCheck = [];
+		$usersToQuery = [];
 
 		$userIds = array_unique( $userIds );
 
@@ -100,22 +97,26 @@ class UserCache {
 
 		// Lookup basic info for users not yet loaded...
 		if ( count( $usersToQuery ) ) {
-			$dbr = wfGetDB( DB_SLAVE );
-			$table = array( 'user' );
-			$conds = array( 'user_id' => $usersToQuery );
-			$fields = array( 'user_name', 'user_real_name', 'user_registration', 'user_id' );
+			$dbr = wfGetDB( DB_REPLICA );
+			$tables = [ 'user', 'actor' ];
+			$conds = [ 'user_id' => $usersToQuery ];
+			$fields = [ 'user_name', 'user_real_name', 'user_registration', 'user_id', 'actor_id' ];
+			$joinConds = [
+				'actor' => [ 'JOIN', 'actor_user = user_id' ],
+			];
 
 			$comment = __METHOD__;
 			if ( strval( $caller ) !== '' ) {
 				$comment .= "/$caller";
 			}
 
-			$res = $dbr->select( $table, $fields, $conds, $comment );
+			$res = $dbr->select( $tables, $fields, $conds, $comment, [], $joinConds );
 			foreach ( $res as $row ) { // load each user into cache
 				$userId = (int)$row->user_id;
 				$this->cache[$userId]['name'] = $row->user_name;
 				$this->cache[$userId]['real_name'] = $row->user_real_name;
 				$this->cache[$userId]['registration'] = $row->user_registration;
+				$this->cache[$userId]['actor'] = $row->actor_id;
 				$usersToCheck[$userId] = $row->user_name;
 			}
 		}
@@ -132,7 +133,6 @@ class UserCache {
 			}
 		}
 		$lb->execute();
-
 	}
 
 	/**

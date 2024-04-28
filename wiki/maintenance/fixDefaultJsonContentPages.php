@@ -21,6 +21,10 @@
  * @ingroup Maintenance
  */
 
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Revision\RevisionRecord;
+use MediaWiki\Revision\SlotRecord;
+
 require_once __DIR__ . '/Maintenance.php';
 
 /**
@@ -32,8 +36,8 @@ require_once __DIR__ . '/Maintenance.php';
 class FixDefaultJsonContentPages extends LoggedUpdateMaintenance {
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription =
-				'Fix instances of JSON pages prior to them being the ContentHandler default';
+		$this->addDescription(
+			'Fix instances of JSON pages prior to them being the ContentHandler default' );
 		$this->setBatchSize( 100 );
 	}
 
@@ -42,34 +46,29 @@ class FixDefaultJsonContentPages extends LoggedUpdateMaintenance {
 	}
 
 	protected function doDBUpdates() {
-		if ( !$this->getConfig()->get( 'ContentHandlerUseDB' ) ) {
-			$this->output( "\$wgContentHandlerUseDB is not enabled, nothing to do.\n" );
-			return true;
-		}
-
-		$dbr = wfGetDB( DB_SLAVE );
-		$namespaces = array(
+		$dbr = $this->getDB( DB_REPLICA );
+		$namespaces = [
 			NS_MEDIAWIKI => $dbr->buildLike( $dbr->anyString(), '.json' ),
 			NS_USER => $dbr->buildLike( $dbr->anyString(), '/', $dbr->anyString(), '.json' ),
-		);
+		];
 		foreach ( $namespaces as $ns => $like ) {
 			$lastPage = 0;
 			do {
 				$rows = $dbr->select(
-						'page',
-						array( 'page_id', 'page_title', 'page_namespace', 'page_content_model' ),
-						array(
-								'page_namespace' => $ns,
-								'page_title ' . $like,
-								'page_id > ' . $dbr->addQuotes( $lastPage )
-						),
-						__METHOD__,
-						array( 'ORDER BY' => 'page_id', 'LIMIT' => $this->mBatchSize )
+					'page',
+					[ 'page_id', 'page_title', 'page_namespace', 'page_content_model' ],
+					[
+						'page_namespace' => $ns,
+						'page_title ' . $like,
+						'page_id > ' . $dbr->addQuotes( $lastPage )
+					],
+					__METHOD__,
+					[ 'ORDER BY' => 'page_id', 'LIMIT' => $this->getBatchSize() ]
 				);
 				foreach ( $rows as $row ) {
 					$this->handleRow( $row );
 				}
-			} while ( $rows->numRows() >= $this->mBatchSize );
+			} while ( $rows->numRows() >= $this->getBatchSize() );
 		}
 
 		return true;
@@ -78,10 +77,13 @@ class FixDefaultJsonContentPages extends LoggedUpdateMaintenance {
 	protected function handleRow( stdClass $row ) {
 		$title = Title::makeTitle( $row->page_namespace, $row->page_title );
 		$this->output( "Processing {$title} ({$row->page_id})...\n" );
-		$rev = Revision::newFromTitle( $title );
-		$content = $rev->getContent( Revision::RAW );
-		$dbw = wfGetDB( DB_MASTER );
+		$rev = MediaWikiServices::getInstance()
+			->getRevisionLookup()
+			->getRevisionByTitle( $title );
+		$content = $rev->getContent( SlotRecord::MAIN, RevisionRecord::RAW );
+		$dbw = $this->getDB( DB_MASTER );
 		if ( $content instanceof JsonContent ) {
+			$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 			if ( $content->isValid() ) {
 				// Yay, actually JSON. We need to just change the
 				// page_content_model because revision will automatically
@@ -89,12 +91,12 @@ class FixDefaultJsonContentPages extends LoggedUpdateMaintenance {
 				$this->output( "Setting page_content_model to json..." );
 				$dbw->update(
 					'page',
-					array( 'page_content_model' => CONTENT_MODEL_JSON ),
-					array( 'page_id' => $row->page_id ),
+					[ 'page_content_model' => CONTENT_MODEL_JSON ],
+					[ 'page_id' => $row->page_id ],
 					__METHOD__
 				);
 				$this->output( "done.\n" );
-				wfWaitForSlaves();
+				$lbFactory->waitForReplication();
 			} else {
 				// Not JSON...force it to wikitext. We need to update the
 				// revision table so that these revisions are always processed
@@ -105,16 +107,17 @@ class FixDefaultJsonContentPages extends LoggedUpdateMaintenance {
 				$ids = $dbw->selectFieldValues(
 					'revision',
 					'rev_id',
-					array( 'rev_page' => $row->page_id ),
+					[ 'rev_page' => $row->page_id ],
 					__METHOD__
 				);
 				foreach ( array_chunk( $ids, 50 ) as $chunk ) {
 					$dbw->update(
 						'revision',
-						array( 'rev_content_model' => CONTENT_MODEL_WIKITEXT ),
-						array( 'rev_page' => $row->page_id, 'rev_id' => $chunk )
+						[ 'rev_content_model' => CONTENT_MODEL_WIKITEXT ],
+						[ 'rev_page' => $row->page_id, 'rev_id' => $chunk ],
+						__METHOD__
 					);
-					wfWaitForSlaves();
+					$lbFactory->waitForReplication();
 				}
 				$this->output( "done.\n" );
 			}
@@ -124,5 +127,5 @@ class FixDefaultJsonContentPages extends LoggedUpdateMaintenance {
 	}
 }
 
-$maintClass = 'FixDefaultJsonContentPages';
+$maintClass = FixDefaultJsonContentPages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

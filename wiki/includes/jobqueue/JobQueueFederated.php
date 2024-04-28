@@ -18,7 +18,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @author Aaron Schulz
  */
 
 /**
@@ -29,7 +28,7 @@
  * For example, one can set $wgJobTypeConf['refreshLinks'] to point to a
  * JobQueueFederated instance, which itself would consist of three JobQueueRedis
  * instances, each using their own redis server. This would allow for the jobs
- * to be split (evenly or based on weights) accross multiple servers if a single
+ * to be split (evenly or based on weights) across multiple servers if a single
  * server becomes impractical or expensive. Different JobQueue classes can be mixed.
  *
  * The basic queue configuration (e.g. "order", "claimTTL") of a federated queue
@@ -49,8 +48,8 @@
 class JobQueueFederated extends JobQueue {
 	/** @var HashRing */
 	protected $partitionRing;
-	/** @var array (partition name => JobQueue) reverse sorted by weight */
-	protected $partitionQueues = array();
+	/** @var JobQueue[] (partition name => JobQueue) reverse sorted by weight */
+	protected $partitionQueues = [];
 
 	/** @var int Maximum number of partitions to try */
 	protected $maxPartitionsTry;
@@ -74,27 +73,21 @@ class JobQueueFederated extends JobQueue {
 	 */
 	protected function __construct( array $params ) {
 		parent::__construct( $params );
-		$section = isset( $params['sectionsByWiki'][$this->wiki] )
-			? $params['sectionsByWiki'][$this->wiki]
-			: 'default';
+		$section = $params['sectionsByWiki'][$this->domain] ?? 'default';
 		if ( !isset( $params['partitionsBySection'][$section] ) ) {
 			throw new MWException( "No configuration for section '$section'." );
 		}
-		$this->maxPartitionsTry = isset( $params['maxPartitionsTry'] )
-			? $params['maxPartitionsTry']
-			: 2;
+		$this->maxPartitionsTry = $params['maxPartitionsTry'] ?? 2;
 		// Get the full partition map
 		$partitionMap = $params['partitionsBySection'][$section];
 		arsort( $partitionMap, SORT_NUMERIC );
 		// Get the config to pass to merge into each partition queue config
 		$baseConfig = $params;
-		foreach ( array( 'class', 'sectionsByWiki', 'maxPartitionsTry',
-			'partitionsBySection', 'configByPartition', ) as $o
+		foreach ( [ 'class', 'sectionsByWiki', 'maxPartitionsTry',
+			'partitionsBySection', 'configByPartition', ] as $o
 		) {
 			unset( $baseConfig[$o] ); // partition queue doesn't care about this
 		}
-		// The class handles all aggregator calls already
-		unset( $baseConfig['aggregator'] );
 		// Get the partition queue objects
 		foreach ( $partitionMap as $partition => $w ) {
 			if ( !isset( $params['configByPartition'][$partition] ) ) {
@@ -109,7 +102,7 @@ class JobQueueFederated extends JobQueue {
 
 	protected function supportedOrders() {
 		// No FIFO due to partitioning, though "rough timestamp order" is supported
-		return array( 'undefined', 'random', 'timestamp' );
+		return [ 'undefined', 'random', 'timestamp' ];
 	}
 
 	protected function optimalOrder() {
@@ -185,11 +178,9 @@ class JobQueueFederated extends JobQueue {
 		// Try to insert the jobs and update $partitionsTry on any failures.
 		// Retry to insert any remaning jobs again, ignoring the bad partitions.
 		$jobsLeft = $jobs;
-		// @codingStandardsIgnoreStart Generic.CodeAnalysis.ForLoopWithTestFunctionCall.NotAllowed
 		for ( $i = $this->maxPartitionsTry; $i > 0 && count( $jobsLeft ); --$i ) {
-			// @codingStandardsIgnoreEnd
 			try {
-				$partitionRing->getLiveRing();
+				$partitionRing->getLiveLocationWeights();
 			} catch ( UnexpectedValueException $e ) {
 				break; // all servers down; nothing to insert to
 			}
@@ -203,18 +194,18 @@ class JobQueueFederated extends JobQueue {
 
 	/**
 	 * @param array $jobs
-	 * @param HashRing $partitionRing
+	 * @param HashRing &$partitionRing
 	 * @param int $flags
 	 * @throws JobQueueError
-	 * @return array List of Job object that could not be inserted
+	 * @return IJobSpecification[] List of Job object that could not be inserted
 	 */
 	protected function tryJobInsertions( array $jobs, HashRing &$partitionRing, $flags ) {
-		$jobsLeft = array();
+		$jobsLeft = [];
 
 		// Because jobs are spread across partitions, per-job de-duplication needs
 		// to use a consistent hash to avoid allowing duplicate jobs per partition.
 		// When inserting a batch of de-duplicated jobs, QOS_ATOMIC is disregarded.
-		$uJobsByPartition = array(); // (partition name => job list)
+		$uJobsByPartition = []; // (partition name => job list)
 		/** @var Job $job */
 		foreach ( $jobs as $key => $job ) {
 			if ( $job->ignoreDuplicates() ) {
@@ -225,7 +216,7 @@ class JobQueueFederated extends JobQueue {
 		}
 		// Get the batches of jobs that are not de-duplicated
 		if ( $flags & self::QOS_ATOMIC ) {
-			$nuJobBatches = array( $jobs ); // all or nothing
+			$nuJobBatches = [ $jobs ]; // all or nothing
 		} else {
 			// Split the jobs into batches and spread them out over servers if there
 			// are many jobs. This helps keep the partitions even. Otherwise, send all
@@ -294,7 +285,7 @@ class JobQueueFederated extends JobQueue {
 				$job = false;
 			}
 			if ( $job ) {
-				$job->metadata['QueuePartition'] = $partition;
+				$job->setMetadata( 'QueuePartition', $partition );
 
 				return $job;
 			} else {
@@ -306,23 +297,23 @@ class JobQueueFederated extends JobQueue {
 		return false;
 	}
 
-	protected function doAck( Job $job ) {
-		if ( !isset( $job->metadata['QueuePartition'] ) ) {
+	protected function doAck( RunnableJob $job ) {
+		$partition = $job->getMetadata( 'QueuePartition' );
+		if ( $partition === null ) {
 			throw new MWException( "The given job has no defined partition name." );
 		}
 
-		return $this->partitionQueues[$job->metadata['QueuePartition']]->ack( $job );
+		$this->partitionQueues[$partition]->ack( $job );
 	}
 
-	protected function doIsRootJobOldDuplicate( Job $job ) {
-		$params = $job->getRootJobParams();
-		$sigature = $params['rootJobSignature'];
-		$partition = $this->partitionRing->getLiveLocation( $sigature );
+	protected function doIsRootJobOldDuplicate( IJobSpecification $job ) {
+		$signature = $job->getRootJobParams()['rootJobSignature'];
+		$partition = $this->partitionRing->getLiveLocation( $signature );
 		try {
 			return $this->partitionQueues[$partition]->doIsRootJobOldDuplicate( $job );
 		} catch ( JobQueueError $e ) {
 			if ( $this->partitionRing->ejectFromLiveRing( $partition, 5 ) ) {
-				$partition = $this->partitionRing->getLiveLocation( $sigature );
+				$partition = $this->partitionRing->getLiveLocation( $signature );
 				return $this->partitionQueues[$partition]->doIsRootJobOldDuplicate( $job );
 			}
 		}
@@ -331,14 +322,13 @@ class JobQueueFederated extends JobQueue {
 	}
 
 	protected function doDeduplicateRootJob( IJobSpecification $job ) {
-		$params = $job->getRootJobParams();
-		$sigature = $params['rootJobSignature'];
-		$partition = $this->partitionRing->getLiveLocation( $sigature );
+		$signature = $job->getRootJobParams()['rootJobSignature'];
+		$partition = $this->partitionRing->getLiveLocation( $signature );
 		try {
 			return $this->partitionQueues[$partition]->doDeduplicateRootJob( $job );
 		} catch ( JobQueueError $e ) {
 			if ( $this->partitionRing->ejectFromLiveRing( $partition, 5 ) ) {
-				$partition = $this->partitionRing->getLiveLocation( $sigature );
+				$partition = $this->partitionRing->getLiveLocation( $signature );
 				return $this->partitionQueues[$partition]->doDeduplicateRootJob( $job );
 			}
 		}
@@ -427,12 +417,12 @@ class JobQueueFederated extends JobQueue {
 	}
 
 	public function getCoalesceLocationInternal() {
-		return "JobQueueFederated:wiki:{$this->wiki}" .
+		return "JobQueueFederated:wiki:{$this->domain}" .
 			sha1( serialize( array_keys( $this->partitionQueues ) ) );
 	}
 
 	protected function doGetSiblingQueuesWithJobs( array $types ) {
-		$result = array();
+		$result = [];
 
 		$failed = 0;
 		/** @var JobQueue $queue */
@@ -458,7 +448,7 @@ class JobQueueFederated extends JobQueue {
 	}
 
 	protected function doGetSiblingQueueSizes( array $types ) {
-		$result = array();
+		$result = [];
 		$failed = 0;
 		/** @var JobQueue $queue */
 		foreach ( $this->partitionQueues as $queue ) {
@@ -495,13 +485,6 @@ class JobQueueFederated extends JobQueue {
 	protected function throwErrorIfAllPartitionsDown( $down ) {
 		if ( $down >= count( $this->partitionQueues ) ) {
 			throw new JobQueueError( 'No queue partitions available.' );
-		}
-	}
-
-	public function setTestingPrefix( $key ) {
-		/** @var JobQueue $queue */
-		foreach ( $this->partitionQueues as $queue ) {
-			$queue->setTestingPrefix( $key );
 		}
 	}
 }

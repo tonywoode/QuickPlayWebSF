@@ -1,18 +1,12 @@
-( function ( mw ) {
+( function () {
 	QUnit.module( 'mediawiki.ForeignApi', QUnit.newMwEnvironment( {
 		setup: function () {
 			this.server = this.sandbox.useFakeServer();
 			this.server.respondImmediately = true;
-			this.clock = this.sandbox.useFakeTimers();
-		},
-		teardown: function () {
-			// https://github.com/jquery/jquery/issues/2453
-			this.clock.tick();
 		}
 	} ) );
 
 	QUnit.test( 'origin is included in GET requests', function ( assert ) {
-		QUnit.expect( 1 );
 		var api = new mw.ForeignApi( '//localhost:4242/w/api.php' );
 
 		this.server.respond( function ( request ) {
@@ -20,11 +14,10 @@
 			request.respond( 200, { 'Content-Type': 'application/json' }, '[]' );
 		} );
 
-		api.get( {} );
+		return api.get( {} );
 	} );
 
 	QUnit.test( 'origin is included in POST requests', function ( assert ) {
-		QUnit.expect( 2 );
 		var api = new mw.ForeignApi( '//localhost:4242/w/api.php' );
 
 		this.server.respond( function ( request ) {
@@ -33,7 +26,32 @@
 			request.respond( 200, { 'Content-Type': 'application/json' }, '[]' );
 		} );
 
-		api.post( {} );
+		return api.post( {} );
 	} );
 
-}( mediaWiki ) );
+	QUnit.test( 'origin is not included in same-origin GET requests', function ( assert ) {
+		var apiUrl = location.protocol + '//' + location.host + '/w/api.php',
+			api = new mw.ForeignApi( apiUrl );
+
+		this.server.respond( function ( request ) {
+			assert.strictEqual( request.url.match( /origin=.*?(?:&|$)/ ), null, 'origin is not included in GET requests' );
+			request.respond( 200, { 'Content-Type': 'application/json' }, '[]' );
+		} );
+
+		return api.get( {} );
+	} );
+
+	QUnit.test( 'origin is not included in same-origin POST requests', function ( assert ) {
+		var apiUrl = location.protocol + '//' + location.host + '/w/api.php',
+			api = new mw.ForeignApi( apiUrl );
+
+		this.server.respond( function ( request ) {
+			assert.strictEqual( request.requestBody.match( /origin=.*?(?:&|$)/ ), null, 'origin is not included in POST request body' );
+			assert.strictEqual( request.url.match( /origin=.*?(?:&|$)/ ), null, 'origin is not included in POST request URL, either' );
+			request.respond( 200, { 'Content-Type': 'application/json' }, '[]' );
+		} );
+
+		return api.post( {} );
+	} );
+
+}() );

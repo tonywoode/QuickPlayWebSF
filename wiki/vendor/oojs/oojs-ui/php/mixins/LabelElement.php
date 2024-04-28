@@ -7,30 +7,50 @@ namespace OOUI;
  *
  * @abstract
  */
-class LabelElement extends ElementMixin {
+trait LabelElement {
 	/**
 	 * Label value.
 	 *
 	 * @var string|HtmlSnippet|null
 	 */
-	protected $label = null;
-
-	public static $targetPropertyName = 'label';
+	protected $labelValue = null;
 
 	/**
-	 * @param Element $element Element being mixed into
-	 * @param array $config Configuration options
-	 * @param string|HtmlSnippet $config['label'] Label text
+	 * Label value.
+	 *
+	 * @var bool
 	 */
-	public function __construct( Element $element, array $config = array() ) {
-		// Parent constructor
+	protected $invisibleLabel = false;
+
+	/**
+	 * @var Tag
+	 */
+	protected $label;
+
+	/**
+	 * @param array $config Configuration options
+	 *      - string|HtmlSnippet $config['label'] Label text
+	 *      - bool $config['invisibleLabel'] Whether the label should be visually hidden (but still
+	 *          accessible to screen-readers). (default: false)
+	 */
+	public function initializeLabelElement( array $config = [] ) {
+		// Properties
 		// FIXME 'labelElement' is a very stupid way to call '$label'
-		$target = isset( $config['labelElement'] ) ? $config['labelElement'] : new Tag( 'span' );
-		parent::__construct( $element, $target, $config );
+		$this->label = $config['labelElement'] ?? new Tag( 'span' );
 
 		// Initialization
-		$this->target->addClasses( array( 'oo-ui-labelElement-label' ) );
-		$this->setLabel( isset( $config['label'] ) ? $config['label'] : null );
+		$this->label->addClasses( [ 'oo-ui-labelElement-label' ] );
+		$this->setLabel( $config['label'] ?? null );
+		$this->setInvisibleLabel( $config['invisibleLabel'] ?? false );
+
+		$this->registerConfigCallback( function ( &$config ) {
+			if ( $this->labelValue !== null ) {
+				$config['label'] = $this->labelValue;
+			}
+			if ( $this->invisibleLabel !== false ) {
+				$config['invisibleLabel'] = $this->invisibleLabel;
+			}
+		} );
 	}
 
 	/**
@@ -40,21 +60,42 @@ class LabelElement extends ElementMixin {
 	 * be converted to a single `&nbsp;`.
 	 *
 	 * @param string|HtmlSnippet|null $label Label text
-	 * @chainable
+	 * @return $this
 	 */
 	public function setLabel( $label ) {
-		$this->label = $label;
+		$this->labelValue = (string)$label !== '' ? $label : null;
 
-		$this->target->clearContent();
-		if ( $this->label !== null ) {
-			if ( is_string( $this->label ) && $this->label !== '' && trim( $this->label ) === '' ) {
-				$this->target->appendContent( new HtmlSnippet( '&nbsp;' ) );
+		$this->label->clearContent();
+		if ( $this->labelValue !== null ) {
+			if ( is_string( $this->labelValue ) && trim( $this->labelValue ) === '' ) {
+				$this->label->appendContent( new HtmlSnippet( '&nbsp;' ) );
 			} else {
-				$this->target->appendContent( $label );
+				$this->label->appendContent( $label );
 			}
 		}
 
-		$this->element->toggleClasses( array( 'oo-ui-labelElement' ), !!$this->label );
+		$visibleLabel = $this->labelValue !== null && !$this->invisibleLabel;
+		$this->toggleClasses( [ 'oo-ui-labelElement' ], $visibleLabel );
+
+		return $this;
+	}
+
+	/**
+	 * Set whether the label should be visually hidden (but still accessible to screen-readers).
+	 *
+	 * An empty string will result in the label being hidden. A string containing only whitespace will
+	 * be converted to a single `&nbsp;`.
+	 *
+	 * @param bool $invisibleLabel
+	 * @return $this
+	 */
+	public function setInvisibleLabel( $invisibleLabel ) {
+		$this->invisibleLabel = (bool)$invisibleLabel;
+
+		$this->label->toggleClasses( [ 'oo-ui-labelElement-invisible' ], $this->invisibleLabel );
+		// Pretend that there is no label, a lot of CSS has been written with this assumption
+		$visibleLabel = $this->labelValue !== null && !$this->invisibleLabel;
+		$this->toggleClasses( [ 'oo-ui-labelElement' ], $visibleLabel );
 
 		return $this;
 	}
@@ -65,13 +106,6 @@ class LabelElement extends ElementMixin {
 	 * @return string|HtmlSnippet|null Label text
 	 */
 	public function getLabel() {
-		return $this->label;
-	}
-
-	public function getConfig( &$config ) {
-		if ( $this->label !== null ) {
-			$config['label'] = $this->label;
-		}
-		return parent::getConfig( $config );
+		return $this->labelValue;
 	}
 }

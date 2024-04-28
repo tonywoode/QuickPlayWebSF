@@ -1,9 +1,5 @@
 <?php
 /**
- *
- *
- * Created on June 14, 2007
- *
  * Copyright © 2006 Yuri Astrakhan "<Firstname><Lastname>@gmail.com"
  *
  * This program is free software; you can redistribute it and/or modify
@@ -53,11 +49,11 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 	 */
 	private function validateHexSortkey( $hexSortkey ) {
 		// A hex sortkey has an unbound number of 2 letter pairs
-		return preg_match( '/^(?:[a-fA-F0-9]{2})*$/', $hexSortkey );
+		return (bool)preg_match( '/^(?:[a-fA-F0-9]{2})*$/D', $hexSortkey );
 	}
 
 	/**
-	 * @param ApiPageSet $resultPageSet
+	 * @param ApiPageSet|null $resultPageSet
 	 * @return void
 	 */
 	private function run( $resultPageSet = null ) {
@@ -65,7 +61,7 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 
 		$categoryTitle = $this->getTitleOrPageId( $params )->getTitle();
 		if ( $categoryTitle->getNamespace() != NS_CATEGORY ) {
-			$this->dieUsage( 'The category name you entered is not valid', 'invalidcategory' );
+			$this->dieWithError( 'apierror-invalidcategory' );
 		}
 
 		$prop = array_flip( $params['prop'] );
@@ -76,18 +72,18 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 		$fld_timestamp = isset( $prop['timestamp'] );
 		$fld_type = isset( $prop['type'] );
 
-		if ( is_null( $resultPageSet ) ) {
-			$this->addFields( array( 'cl_from', 'cl_sortkey', 'cl_type', 'page_namespace', 'page_title' ) );
+		if ( $resultPageSet === null ) {
+			$this->addFields( [ 'cl_from', 'cl_sortkey', 'cl_type', 'page_namespace', 'page_title' ] );
 			$this->addFieldsIf( 'page_id', $fld_ids );
 			$this->addFieldsIf( 'cl_sortkey_prefix', $fld_sortkeyprefix );
 		} else {
 			$this->addFields( $resultPageSet->getPageTableFields() ); // will include page_ id, ns, title
-			$this->addFields( array( 'cl_from', 'cl_sortkey', 'cl_type' ) );
+			$this->addFields( [ 'cl_from', 'cl_sortkey', 'cl_type' ] );
 		}
 
 		$this->addFieldsIf( 'cl_timestamp', $fld_timestamp || $params['sort'] == 'timestamp' );
 
-		$this->addTables( array( 'page', 'categorylinks' ) ); // must be in this order for 'USE INDEX'
+		$this->addTables( [ 'page', 'categorylinks' ] ); // must be in this order for 'USE INDEX'
 
 		$this->addWhereFld( 'cl_to', $categoryTitle->getDBkey() );
 		$queryTypes = $params['type'];
@@ -95,14 +91,14 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 
 		// Scanning large datasets for rare categories sucks, and I already told
 		// how to have efficient subcategory access :-) ~~~~ (oh well, domas)
-		$miser_ns = array();
+		$miser_ns = [];
 		if ( $this->getConfig()->get( 'MiserMode' ) ) {
-			$miser_ns = $params['namespace'];
+			$miser_ns = $params['namespace'] ?: [];
 		} else {
 			$this->addWhereFld( 'page_namespace', $params['namespace'] );
 		}
 
-		$dir = in_array( $params['dir'], array( 'asc', 'ascending', 'newer' ) ) ? 'newer' : 'older';
+		$dir = in_array( $params['dir'], [ 'asc', 'ascending', 'newer' ] ) ? 'newer' : 'older';
 
 		if ( $params['sort'] == 'timestamp' ) {
 			$this->addTimestampWhereRange( 'cl_timestamp',
@@ -112,7 +108,7 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 			// Include in ORDER BY for uniqueness
 			$this->addWhereRange( 'cl_from', $dir, null, null );
 
-			if ( !is_null( $params['continue'] ) ) {
+			if ( $params['continue'] !== null ) {
 				$cont = explode( '|', $params['continue'] );
 				$this->dieContinueUsageIf( count( $cont ) != 2 );
 				$op = ( $dir === 'newer' ? '>' : '<' );
@@ -138,9 +134,8 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 
 				// Add a WHERE clause for sortkey and from
 				$this->dieContinueUsageIf( !$this->validateHexSortkey( $cont[1] ) );
-				// pack( "H*", $foo ) is used to convert hex back to binary
-				$escSortkey = $this->getDB()->addQuotes( pack( 'H*', $cont[1] ) );
-				$from = intval( $cont[2] );
+				$escSortkey = $this->getDB()->addQuotes( hex2bin( $cont[1] ) );
+				$from = (int)$cont[2];
 				$op = $dir == 'newer' ? '>' : '<';
 				// $contWhere is used further down
 				$contWhere = "cl_sortkey $op $escSortkey OR " .
@@ -151,29 +146,25 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 				$this->addWhereRange( 'cl_from', $dir, null, null );
 			} else {
 				if ( $params['startsortkeyprefix'] !== null ) {
-					$startsortkey = Collation::singleton()->getSortkey( $params['startsortkeyprefix'] );
+					$startsortkey = Collation::singleton()->getSortKey( $params['startsortkeyprefix'] );
 				} elseif ( $params['starthexsortkey'] !== null ) {
 					if ( !$this->validateHexSortkey( $params['starthexsortkey'] ) ) {
-						$this->dieUsage( 'The starthexsortkey provided is not valid', 'bad_starthexsortkey' );
+						$encParamName = $this->encodeParamName( 'starthexsortkey' );
+						$this->dieWithError( [ 'apierror-badparameter', $encParamName ], "badvalue_$encParamName" );
 					}
-					$startsortkey = pack( 'H*', $params['starthexsortkey'] );
+					$startsortkey = hex2bin( $params['starthexsortkey'] );
 				} else {
-					if ( $params['startsortkey'] !== null ) {
-						$this->logFeatureUsage( 'list=categorymembers&cmstartsortkey' );
-					}
 					$startsortkey = $params['startsortkey'];
 				}
 				if ( $params['endsortkeyprefix'] !== null ) {
-					$endsortkey = Collation::singleton()->getSortkey( $params['endsortkeyprefix'] );
+					$endsortkey = Collation::singleton()->getSortKey( $params['endsortkeyprefix'] );
 				} elseif ( $params['endhexsortkey'] !== null ) {
 					if ( !$this->validateHexSortkey( $params['endhexsortkey'] ) ) {
-						$this->dieUsage( 'The endhexsortkey provided is not valid', 'bad_endhexsortkey' );
+						$encParamName = $this->encodeParamName( 'endhexsortkey' );
+						$this->dieWithError( [ 'apierror-badparameter', $encParamName ], "badvalue_$encParamName" );
 					}
-					$endsortkey = pack( 'H*', $params['endhexsortkey'] );
+					$endsortkey = hex2bin( $params['endhexsortkey'] );
 				} else {
-					if ( $params['endsortkey'] !== null ) {
-						$this->logFeatureUsage( 'list=categorymembers&cmendsortkey' );
-					}
 					$endsortkey = $params['endsortkey'];
 				}
 
@@ -198,16 +189,19 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 			// inconsistencies between ORDER BY cl_type and
 			// WHERE cl_type >= 'foo' making proper paging impossible
 			// and unindexed.
-			$rows = array();
+			$rows = [];
 			$first = true;
 			foreach ( $queryTypes as $type ) {
-				$extraConds = array( 'cl_type' => $type );
+				$extraConds = [ 'cl_type' => $type ];
 				if ( $first && $contWhere ) {
 					// Continuation condition. Only added to the
 					// first query, otherwise we'll skip things
 					$extraConds[] = $contWhere;
 				}
-				$res = $this->select( __METHOD__, array( 'where' => $extraConds ) );
+				$res = $this->select( __METHOD__, [ 'where' => $extraConds ] );
+				if ( $type === 'page' && $resultPageSet === null ) {
+					$this->executeGenderCacheFromResultWrapper( $res, __METHOD__ );
+				}
 				$rows = array_merge( $rows, iterator_to_array( $res ) );
 				if ( count( $rows ) >= $limit + 1 ) {
 					break;
@@ -219,6 +213,9 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 			// No need to worry about per-type queries because we
 			// aren't sorting or filtering by type anyway
 			$res = $this->select( __METHOD__ );
+			if ( $resultPageSet === null ) {
+				$this->executeGenderCacheFromResultWrapper( $res, __METHOD__ );
+			}
 			$rows = iterator_to_array( $res );
 		}
 
@@ -249,12 +246,12 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 				continue;
 			}
 
-			if ( is_null( $resultPageSet ) ) {
-				$vals = array(
+			if ( $resultPageSet === null ) {
+				$vals = [
 					ApiResult::META_TYPE => 'assoc',
-				);
+				];
 				if ( $fld_ids ) {
-					$vals['pageid'] = intval( $row->page_id );
+					$vals['pageid'] = (int)$row->page_id;
 				}
 				if ( $fld_title ) {
 					$title = Title::makeTitle( $row->page_namespace, $row->page_title );
@@ -272,7 +269,7 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 				if ( $fld_timestamp ) {
 					$vals['timestamp'] = wfTimestamp( TS_ISO_8601, $row->cl_timestamp );
 				}
-				$fit = $result->addValue( array( 'query', $this->getModuleName() ),
+				$fit = $result->addValue( [ 'query', $this->getModuleName() ],
 					null, $vals );
 				if ( !$fit ) {
 					if ( $params['sort'] == 'timestamp' ) {
@@ -290,66 +287,66 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 			}
 		}
 
-		if ( is_null( $resultPageSet ) ) {
+		if ( $resultPageSet === null ) {
 			$result->addIndexedTagName(
-				array( 'query', $this->getModuleName() ), 'cm' );
+				[ 'query', $this->getModuleName() ], 'cm' );
 		}
 	}
 
 	public function getAllowedParams() {
-		$ret = array(
-			'title' => array(
+		$ret = [
+			'title' => [
 				ApiBase::PARAM_TYPE => 'string',
-			),
-			'pageid' => array(
+			],
+			'pageid' => [
 				ApiBase::PARAM_TYPE => 'integer'
-			),
-			'prop' => array(
+			],
+			'prop' => [
 				ApiBase::PARAM_DFLT => 'ids|title',
 				ApiBase::PARAM_ISMULTI => true,
-				ApiBase::PARAM_TYPE => array(
+				ApiBase::PARAM_TYPE => [
 					'ids',
 					'title',
 					'sortkey',
 					'sortkeyprefix',
 					'type',
 					'timestamp',
-				),
-				ApiBase::PARAM_HELP_MSG_PER_VALUE => array(),
-			),
-			'namespace' => array(
+				],
+				ApiBase::PARAM_HELP_MSG_PER_VALUE => [],
+			],
+			'namespace' => [
 				ApiBase::PARAM_ISMULTI => true,
 				ApiBase::PARAM_TYPE => 'namespace',
-			),
-			'type' => array(
+			],
+			'type' => [
 				ApiBase::PARAM_ISMULTI => true,
 				ApiBase::PARAM_DFLT => 'page|subcat|file',
-				ApiBase::PARAM_TYPE => array(
+				ApiBase::PARAM_TYPE => [
 					'page',
 					'subcat',
 					'file'
-				)
-			),
-			'continue' => array(
+				]
+			],
+			'continue' => [
 				ApiBase::PARAM_HELP_MSG => 'api-help-param-continue',
-			),
-			'limit' => array(
+			],
+			'limit' => [
 				ApiBase::PARAM_TYPE => 'limit',
 				ApiBase::PARAM_DFLT => 10,
 				ApiBase::PARAM_MIN => 1,
 				ApiBase::PARAM_MAX => ApiBase::LIMIT_BIG1,
 				ApiBase::PARAM_MAX2 => ApiBase::LIMIT_BIG2
-			),
-			'sort' => array(
+			],
+			'sort' => [
 				ApiBase::PARAM_DFLT => 'sortkey',
-				ApiBase::PARAM_TYPE => array(
+				ApiBase::PARAM_TYPE => [
 					'sortkey',
 					'timestamp'
-				)
-			),
-			'dir' => array(
+				]
+			],
+			'dir' => [
 				ApiBase::PARAM_DFLT => 'ascending',
-				ApiBase::PARAM_TYPE => array(
+				ApiBase::PARAM_TYPE => [
 					'asc',
 					'desc',
 					// Normalising with other modules
@@ -357,45 +354,45 @@ class ApiQueryCategoryMembers extends ApiQueryGeneratorBase {
 					'descending',
 					'newer',
 					'older',
-				)
-			),
-			'start' => array(
+				]
+			],
+			'start' => [
 				ApiBase::PARAM_TYPE => 'timestamp'
-			),
-			'end' => array(
+			],
+			'end' => [
 				ApiBase::PARAM_TYPE => 'timestamp'
-			),
+			],
 			'starthexsortkey' => null,
 			'endhexsortkey' => null,
 			'startsortkeyprefix' => null,
 			'endsortkeyprefix' => null,
-			'startsortkey' => array(
+			'startsortkey' => [
 				ApiBase::PARAM_DEPRECATED => true,
-			),
-			'endsortkey' => array(
+			],
+			'endsortkey' => [
 				ApiBase::PARAM_DEPRECATED => true,
-			),
-		);
+			],
+		];
 
 		if ( $this->getConfig()->get( 'MiserMode' ) ) {
-			$ret['namespace'][ApiBase::PARAM_HELP_MSG_APPEND] = array(
+			$ret['namespace'][ApiBase::PARAM_HELP_MSG_APPEND] = [
 				'api-help-param-limited-in-miser-mode',
-			);
+			];
 		}
 
 		return $ret;
 	}
 
 	protected function getExamplesMessages() {
-		return array(
+		return [
 			'action=query&list=categorymembers&cmtitle=Category:Physics'
 				=> 'apihelp-query+categorymembers-example-simple',
 			'action=query&generator=categorymembers&gcmtitle=Category:Physics&prop=info'
 				=> 'apihelp-query+categorymembers-example-generator',
-		);
+		];
 	}
 
 	public function getHelpUrls() {
-		return 'https://www.mediawiki.org/wiki/API:Categorymembers';
+		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Categorymembers';
 	}
 }

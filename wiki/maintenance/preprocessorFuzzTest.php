@@ -21,12 +21,15 @@
  * @ingroup Maintenance
  */
 
+use MediaWiki\MediaWikiServices;
+
+use Wikimedia\TestingAccessWrapper;
+
+$optionsWithoutArgs = [ 'verbose' ];
 require_once __DIR__ . '/commandLine.inc';
 
-$wgHooks['BeforeParserFetchTemplateAndtitle'][] = 'PPFuzzTester::templateHook';
-
 class PPFuzzTester {
-	public $hairs = array(
+	public $hairs = [
 		'[[', ']]', '{{', '{{', '}}', '}}', '{{{', '}}}',
 		'<', '>', '<nowiki', '<gallery', '</nowiki>', '</gallery>', '<nOwIkI>', '</NoWiKi>',
 		'<!--', '-->',
@@ -38,17 +41,20 @@ class PPFuzzTester {
 
 		// extensions
 		// '<ref>', '</ref>', '<references/>',
-	);
+	];
 	public $minLength = 0;
 	public $maxLength = 20;
 	public $maxTemplates = 5;
-	// public $outputTypes = array( 'OT_HTML', 'OT_WIKI', 'OT_PREPROCESS' );
-	public $entryPoints = array( 'testSrvus', 'testPst', 'testPreprocess' );
+	// public $outputTypes = [ 'OT_HTML', 'OT_WIKI', 'OT_PREPROCESS' ];
+	public $entryPoints = [ 'fuzzTestSrvus', 'fuzzTestPst', 'fuzzTestPreprocess' ];
 	public $verbose = false;
 
+	/**
+	 * @var bool|PPFuzzTest
+	 */
 	private static $currentTest = false;
 
-	function execute() {
+	public function execute() {
 		if ( !file_exists( 'results' ) ) {
 			mkdir( 'results' );
 		}
@@ -58,6 +64,7 @@ class PPFuzzTester {
 		}
 		$overallStart = microtime( true );
 		$reportInterval = 1000;
+		// @phan-suppress-next-line PhanInfiniteLoop
 		for ( $i = 1; true; $i++ ) {
 			$t = -microtime( true );
 			try {
@@ -66,7 +73,7 @@ class PPFuzzTester {
 				$passed = 'passed';
 			} catch ( Exception $e ) {
 				$testReport = self::$currentTest->getReport();
-				$exceptionReport = $e->getText();
+				$exceptionReport = $e instanceof MWException ? $e->getText() : (string)$e;
 				$hash = md5( $testReport );
 				file_put_contents( "results/ppft-$hash.in", serialize( self::$currentTest ) );
 				file_put_contents( "results/ppft-$hash.fail",
@@ -105,7 +112,7 @@ class PPFuzzTester {
 		}
 	}
 
-	function makeInputText( $max = false ) {
+	public function makeInputText( $max = false ) {
 		if ( $max === false ) {
 			$max = $this->maxLength;
 		}
@@ -119,23 +126,22 @@ class PPFuzzTester {
 		// This resolves a few differences between the old preprocessor and the
 		// XML-based one, which doesn't like illegals and converts line endings.
 		// It's done by the MW UI, so it's a reasonably legitimate thing to do.
-		global $wgContLang;
-		$s = $wgContLang->normalize( $s );
+		$s = MediaWikiServices::getInstance()->getContentLanguage()->normalize( $s );
 
 		return $s;
 	}
 
-	function makeTitle() {
+	public function makeTitle() {
 		return Title::newFromText( mt_rand( 0, 1000000 ), mt_rand( 0, 10 ) );
 	}
 
 	/*
-	function pickOutputType() {
+	public function pickOutputType() {
 		$count = count( $this->outputTypes );
 		return $this->outputTypes[ mt_rand( 0, $count - 1 ) ];
 	}*/
 
-	function pickEntryPoint() {
+	public function pickEntryPoint() {
 		$count = count( $this->entryPoints );
 
 		return $this->entryPoints[mt_rand( 0, $count - 1 )];
@@ -143,9 +149,24 @@ class PPFuzzTester {
 }
 
 class PPFuzzTest {
-	public $templates, $mainText, $title, $entryPoint, $output;
+	/**
+	 * @var array[]
+	 * @phan-var array<string,array{text:string|false,finalTitle:Title}>
+	 */
+	public $templates;
+	public $mainText, $title, $entryPoint, $output;
 
-	function __construct( $tester ) {
+	/** @var PPFuzzTester */
+	private $parent;
+	/** @var string */
+	public $nickname;
+	/** @var bool */
+	public $fancySig;
+
+	/**
+	 * @param PPFuzzTester $tester
+	 */
+	public function __construct( $tester ) {
 		global $wgMaxSigChars;
 		$this->parent = $tester;
 		$this->mainText = $tester->makeInputText();
@@ -154,14 +175,14 @@ class PPFuzzTest {
 		$this->entryPoint = $tester->pickEntryPoint();
 		$this->nickname = $tester->makeInputText( $wgMaxSigChars + 10 );
 		$this->fancySig = (bool)mt_rand( 0, 1 );
-		$this->templates = array();
+		$this->templates = [];
 	}
 
 	/**
 	 * @param Title $title
 	 * @return array
 	 */
-	function templateHook( $title ) {
+	public function templateHook( $title ) {
 		$titleText = $title->getPrefixedDBkey();
 
 		if ( !isset( $this->templates[$titleText] ) ) {
@@ -181,27 +202,31 @@ class PPFuzzTest {
 					$text = $this->parent->makeInputText();
 				}
 			}
-			$this->templates[$titleText] = array(
+			$this->templates[$titleText] = [
 				'text' => $text,
-				'finalTitle' => $finalTitle );
+				'finalTitle' => $finalTitle ];
 		}
 
 		return $this->templates[$titleText];
 	}
 
-	function execute() {
-		global $wgParser, $wgUser;
+	public function execute() {
+		global $wgUser;
 
-		$wgUser = new PPFuzzUser;
-		$wgUser->mName = 'Fuzz';
-		$wgUser->mFrom = 'name';
-		$wgUser->ppfz_test = $this;
+		$user = new PPFuzzUser;
+		$user->mName = 'Fuzz';
+		$user->mFrom = 'name';
+		$user->ppfz_test = $this;
 
-		$options = ParserOptions::newFromUser( $wgUser );
-		$options->setTemplateCallback( array( $this, 'templateHook' ) );
+		$wgUser = $user;
+
+		$options = ParserOptions::newFromUser( $user );
+		$options->setTemplateCallback( [ $this, 'templateHook' ] );
 		$options->setTimestamp( wfTimestampNow() );
 		$this->output = call_user_func(
-			array( $wgParser, $this->entryPoint ),
+			[ TestingAccessWrapper::newFromObject(
+				MediaWikiServices::getInstance()->getParser()
+			), $this->entryPoint ],
 			$this->mainText,
 			$this->title,
 			$options
@@ -210,9 +235,9 @@ class PPFuzzTest {
 		return $this->output;
 	}
 
-	function getReport() {
+	public function getReport() {
 		$s = "Title: " . $this->title->getPrefixedDBkey() . "\n" .
-//			"Output type: {$this->outputType}\n" .
+			// "Output type: {$this->outputType}\n" .
 			"Entry point: {$this->entryPoint}\n" .
 			"User: " . ( $this->fancySig ? 'fancy' : 'no-fancy' ) .
 			' ' . var_export( $this->nickname, true ) . "\n" .
@@ -234,7 +259,7 @@ class PPFuzzTest {
 class PPFuzzUser extends User {
 	public $ppfz_test, $mDataLoaded;
 
-	function load() {
+	public function load( $flags = null ) {
 		if ( $this->mDataLoaded ) {
 			return;
 		}
@@ -242,7 +267,7 @@ class PPFuzzUser extends User {
 		$this->loadDefaults( $this->mName );
 	}
 
-	function getOption( $oname, $defaultOverride = null, $ignoreHidden = false ) {
+	public function getOption( $oname, $defaultOverride = null, $ignoreHidden = false ) {
 		if ( $oname === 'fancysig' ) {
 			return $this->ppfz_test->fancySig;
 		} elseif ( $oname === 'nickname' ) {

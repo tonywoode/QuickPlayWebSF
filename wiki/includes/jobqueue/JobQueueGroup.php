@@ -18,8 +18,8 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @author Aaron Schulz
  */
+use MediaWiki\MediaWikiServices;
 
 /**
  * Class to handle enqueueing of background jobs
@@ -29,48 +29,65 @@
  */
 class JobQueueGroup {
 	/** @var JobQueueGroup[] */
-	protected static $instances = array();
+	protected static $instances = [];
 
-	/** @var ProcessCacheLRU */
+	/** @var MapCacheLRU */
 	protected $cache;
 
-	/** @var string Wiki ID */
-	protected $wiki;
+	/** @var string Wiki domain ID */
+	protected $domain;
+	/** @var string|bool Read only rationale (or false if r/w) */
+	protected $readOnlyReason;
+	/** @var bool Whether the wiki is not recognized in configuration */
+	protected $invalidDomain = false;
 
 	/** @var array Map of (bucket => (queue => JobQueue, types => list of types) */
 	protected $coalescedQueues;
 
-	/** @var Job[] */
-	protected $bufferedJobs = array();
+	public const TYPE_DEFAULT = 1; // integer; jobs popped by default
+	private const TYPE_ANY = 2; // integer; any job
 
-	const TYPE_DEFAULT = 1; // integer; jobs popped by default
-	const TYPE_ANY = 2; // integer; any job
+	public const USE_CACHE = 1; // integer; use process or persistent cache
 
-	const USE_CACHE = 1; // integer; use process or persistent cache
+	private const PROC_CACHE_TTL = 15; // integer; seconds
 
-	const PROC_CACHE_TTL = 15; // integer; seconds
-
-	const CACHE_VERSION = 1; // integer; cache version
+	private const CACHE_VERSION = 1; // integer; cache version
 
 	/**
-	 * @param string $wiki Wiki ID
+	 * @param string $domain Wiki domain ID
+	 * @param string|bool $readOnlyReason Read-only reason or false
 	 */
-	protected function __construct( $wiki ) {
-		$this->wiki = $wiki;
-		$this->cache = new ProcessCacheLRU( 10 );
+	protected function __construct( $domain, $readOnlyReason ) {
+		$this->domain = $domain;
+		$this->readOnlyReason = $readOnlyReason;
+		$this->cache = new MapCacheLRU( 10 );
 	}
 
 	/**
-	 * @param bool|string $wiki Wiki ID
+	 * @param bool|string $domain Wiki domain ID
 	 * @return JobQueueGroup
 	 */
-	public static function singleton( $wiki = false ) {
-		$wiki = ( $wiki === false ) ? wfWikiID() : $wiki;
-		if ( !isset( self::$instances[$wiki] ) ) {
-			self::$instances[$wiki] = new self( $wiki );
+	public static function singleton( $domain = false ) {
+		global $wgLocalDatabases;
+
+		if ( $domain === false ) {
+			$domain = WikiMap::getCurrentWikiDbDomain()->getId();
 		}
 
-		return self::$instances[$wiki];
+		if ( !isset( self::$instances[$domain] ) ) {
+			self::$instances[$domain] = new self( $domain, wfConfiguredReadOnlyReason() );
+			// Make sure jobs are not getting pushed to bogus wikis. This can confuse
+			// the job runner system into spawning endless RPC requests that fail (T171371).
+			$wikiId = WikiMap::getWikiIdFromDbDomain( $domain );
+			if (
+				!WikiMap::isCurrentWikiDbDomain( $domain ) &&
+				!in_array( $wikiId, $wgLocalDatabases )
+			) {
+				self::$instances[$domain]->invalidDomain = true;
+			}
+		}
+
+		return self::$instances[$domain];
 	}
 
 	/**
@@ -79,7 +96,7 @@ class JobQueueGroup {
 	 * @return void
 	 */
 	public static function destroySingletons() {
-		self::$instances = array();
+		self::$instances = [];
 	}
 
 	/**
@@ -91,13 +108,29 @@ class JobQueueGroup {
 	public function get( $type ) {
 		global $wgJobTypeConf;
 
-		$conf = array( 'wiki' => $this->wiki, 'type' => $type );
+		$conf = [ 'domain' => $this->domain, 'type' => $type ];
 		if ( isset( $wgJobTypeConf[$type] ) ) {
-			$conf = $conf + $wgJobTypeConf[$type];
+			$conf += $wgJobTypeConf[$type];
 		} else {
-			$conf = $conf + $wgJobTypeConf['default'];
+			$conf += $wgJobTypeConf['default'];
 		}
-		$conf['aggregator'] = JobQueueAggregator::singleton();
+		if ( !isset( $conf['readOnlyReason'] ) ) {
+			$conf['readOnlyReason'] = $this->readOnlyReason;
+		}
+
+		return $this->factoryJobQueue( $conf );
+	}
+
+	/**
+	 * @param array $conf
+	 * @return JobQueue
+	 * @throws JobQueueError
+	 */
+	private function factoryJobQueue( array $conf ) {
+		$services = MediaWikiServices::getInstance();
+		$conf['stats'] = $services->getStatsdDataFactory();
+		$conf['wanCache'] = $services->getMainWANObjectCache();
+		$conf['idGenerator'] = $services->getGlobalIdGenerator();
 
 		return JobQueue::factory( $conf );
 	}
@@ -113,14 +146,23 @@ class JobQueueGroup {
 	 * @return void
 	 */
 	public function push( $jobs ) {
-		$jobs = is_array( $jobs ) ? $jobs : array( $jobs );
-		if ( !count( $jobs ) ) {
+		global $wgJobTypesExcludedFromDefaultQueue;
+
+		if ( $this->invalidDomain ) {
+			// Do not enqueue job that cannot be run (T171371)
+			$e = new LogicException( "Domain '{$this->domain}' is not recognized." );
+			MWExceptionHandler::logException( $e );
+			return;
+		}
+
+		$jobs = is_array( $jobs ) ? $jobs : [ $jobs ];
+		if ( $jobs === [] ) {
 			return;
 		}
 
 		$this->assertValidJobs( $jobs );
 
-		$jobsByType = array(); // (job type => list of jobs)
+		$jobsByType = []; // (job type => list of jobs)
 		foreach ( $jobs as $job ) {
 			$jobsByType[$job->getType()][] = $job;
 		}
@@ -129,48 +171,52 @@ class JobQueueGroup {
 			$this->get( $type )->push( $jobs );
 		}
 
-		if ( $this->cache->has( 'queues-ready', 'list' ) ) {
-			$list = $this->cache->get( 'queues-ready', 'list' );
+		if ( $this->cache->hasField( 'queues-ready', 'list' ) ) {
+			$list = $this->cache->getField( 'queues-ready', 'list' );
 			if ( count( array_diff( array_keys( $jobsByType ), $list ) ) ) {
 				$this->cache->clear( 'queues-ready' );
 			}
+		}
+
+		$cache = ObjectCache::getLocalClusterInstance();
+		$cache->set(
+			$cache->makeGlobalKey( 'jobqueue', $this->domain, 'hasjobs', self::TYPE_ANY ),
+			'true',
+			15
+		);
+		if ( array_diff( array_keys( $jobsByType ), $wgJobTypesExcludedFromDefaultQueue ) ) {
+			$cache->set(
+				$cache->makeGlobalKey( 'jobqueue', $this->domain, 'hasjobs', self::TYPE_DEFAULT ),
+				'true',
+				15
+			);
 		}
 	}
 
 	/**
 	 * Buffer jobs for insertion via push() or call it now if in CLI mode
 	 *
-	 * Note that MediaWiki::restInPeace() calls pushLazyJobs()
-	 *
 	 * @param IJobSpecification|IJobSpecification[] $jobs A single Job or a list of Jobs
 	 * @return void
 	 * @since 1.26
 	 */
 	public function lazyPush( $jobs ) {
-		if ( PHP_SAPI === 'cli' ) {
+		if ( $this->invalidDomain ) {
+			// Do not enqueue job that cannot be run (T171371)
+			throw new LogicException( "Domain '{$this->domain}' is not recognized." );
+		}
+
+		if ( PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg' ) {
 			$this->push( $jobs );
 			return;
 		}
 
-		$jobs = is_array( $jobs ) ? $jobs : array( $jobs );
+		$jobs = is_array( $jobs ) ? $jobs : [ $jobs ];
 
 		// Throw errors now instead of on push(), when other jobs may be buffered
 		$this->assertValidJobs( $jobs );
 
-		$this->bufferedJobs = array_merge( $this->bufferedJobs, $jobs );
-	}
-
-	/**
-	 * Push all jobs buffered via lazyPush() into their respective queues
-	 *
-	 * @return void
-	 * @since 1.26
-	 */
-	public static function pushLazyJobs() {
-		foreach ( self::$instances as $group ) {
-			$group->push( $group->bufferedJobs );
-			$group->bufferedJobs = array();
-		}
+		DeferredUpdates::addUpdate( new JobQueueEnqueueUpdate( $this->domain, $jobs ) );
 	}
 
 	/**
@@ -182,10 +228,20 @@ class JobQueueGroup {
 	 * @param int|string $qtype JobQueueGroup::TYPE_* constant or job type string
 	 * @param int $flags Bitfield of JobQueueGroup::USE_* constants
 	 * @param array $blacklist List of job types to ignore
-	 * @return Job|bool Returns false on failure
+	 * @return RunnableJob|bool Returns false on failure
 	 */
-	public function pop( $qtype = self::TYPE_DEFAULT, $flags = 0, array $blacklist = array() ) {
+	public function pop( $qtype = self::TYPE_DEFAULT, $flags = 0, array $blacklist = [] ) {
+		global $wgJobClasses;
+
 		$job = false;
+
+		if ( !WikiMap::isCurrentWikiDbDomain( $this->domain ) ) {
+			throw new JobQueueError(
+				"Cannot pop '{$qtype}' job off foreign '{$this->domain}' wiki queue." );
+		} elseif ( is_string( $qtype ) && !isset( $wgJobClasses[$qtype] ) ) {
+			// Do not pop jobs if there is no class for the queue type
+			throw new JobQueueError( "Unrecognized job type '$qtype'." );
+		}
 
 		if ( is_string( $qtype ) ) { // specific job type
 			if ( !in_array( $qtype, $blacklist ) ) {
@@ -193,10 +249,10 @@ class JobQueueGroup {
 			}
 		} else { // any job in the "default" jobs types
 			if ( $flags & self::USE_CACHE ) {
-				if ( !$this->cache->has( 'queues-ready', 'list', self::PROC_CACHE_TTL ) ) {
-					$this->cache->set( 'queues-ready', 'list', $this->getQueuesWithJobs() );
+				if ( !$this->cache->hasField( 'queues-ready', 'list', self::PROC_CACHE_TTL ) ) {
+					$this->cache->setField( 'queues-ready', 'list', $this->getQueuesWithJobs() );
 				}
-				$types = $this->cache->get( 'queues-ready', 'list' );
+				$types = $this->cache->getField( 'queues-ready', 'list' );
 			} else {
 				$types = $this->getQueuesWithJobs();
 			}
@@ -224,10 +280,10 @@ class JobQueueGroup {
 	/**
 	 * Acknowledge that a job was completed
 	 *
-	 * @param Job $job
+	 * @param RunnableJob $job
 	 * @return void
 	 */
-	public function ack( Job $job ) {
+	public function ack( RunnableJob $job ) {
 		$this->get( $job->getType() )->ack( $job );
 	}
 
@@ -235,15 +291,15 @@ class JobQueueGroup {
 	 * Register the "root job" of a given job into the queue for de-duplication.
 	 * This should only be called right *after* all the new jobs have been inserted.
 	 *
-	 * @param Job $job
+	 * @param RunnableJob $job
 	 * @return bool
 	 */
-	public function deduplicateRootJob( Job $job ) {
+	public function deduplicateRootJob( RunnableJob $job ) {
 		return $this->get( $job->getType() )->deduplicateRootJob( $job );
 	}
 
 	/**
-	 * Wait for any slaves or backup queue servers to catch up.
+	 * Wait for any replica DBs or backup queue servers to catch up.
 	 *
 	 * This does nothing for certain queue classes.
 	 *
@@ -286,18 +342,17 @@ class JobQueueGroup {
 	 * @since 1.23
 	 */
 	public function queuesHaveJobs( $type = self::TYPE_ANY ) {
-		global $wgMemc;
+		$cache = ObjectCache::getLocalClusterInstance();
+		$key = $cache->makeGlobalKey( 'jobqueue', $this->domain, 'hasjobs', $type );
 
-		$key = wfMemcKey( 'jobqueue', 'queueshavejobs', $type );
-
-		$value = $wgMemc->get( $key );
+		$value = $cache->get( $key );
 		if ( $value === false ) {
 			$queues = $this->getQueuesWithJobs();
 			if ( $type == self::TYPE_DEFAULT ) {
 				$queues = array_intersect( $queues, $this->getDefaultQueueTypes() );
 			}
 			$value = count( $queues ) ? 'true' : 'false';
-			$wgMemc->add( $key, $value, 15 );
+			$cache->add( $key, $value, 15 );
 		}
 
 		return ( $value === 'true' );
@@ -306,12 +361,14 @@ class JobQueueGroup {
 	/**
 	 * Get the list of job types that have non-empty queues
 	 *
-	 * @return array List of job types that have non-empty queues
+	 * @return string[] List of job types that have non-empty queues
 	 */
 	public function getQueuesWithJobs() {
-		$types = array();
+		$types = [];
 		foreach ( $this->getCoalescedQueues() as $info ) {
-			$nonEmpty = $info['queue']->getSiblingQueuesWithJobs( $this->getQueueTypes() );
+			/** @var JobQueue $queue */
+			$queue = $info['queue'];
+			$nonEmpty = $queue->getSiblingQueuesWithJobs( $this->getQueueTypes() );
 			if ( is_array( $nonEmpty ) ) { // batching features supported
 				$types = array_merge( $types, $nonEmpty );
 			} else { // we have to go through the queues in the bucket one-by-one
@@ -327,16 +384,18 @@ class JobQueueGroup {
 	}
 
 	/**
-	 * Get the size of the queus for a list of job types
+	 * Get the size of the queues for a list of job types
 	 *
-	 * @return array Map of (job type => size)
+	 * @return int[] Map of (job type => size)
 	 */
 	public function getQueueSizes() {
-		$sizeMap = array();
+		$sizeMap = [];
 		foreach ( $this->getCoalescedQueues() as $info ) {
-			$sizes = $info['queue']->getSiblingQueueSizes( $this->getQueueTypes() );
+			/** @var JobQueue $queue */
+			$queue = $info['queue'];
+			$sizes = $queue->getSiblingQueueSizes( $this->getQueueTypes() );
 			if ( is_array( $sizes ) ) { // batching features supported
-				$sizeMap = $sizeMap + $sizes;
+				$sizeMap += $sizes;
 			} else { // we have to go through the queues in the bucket one-by-one
 				foreach ( $info['types'] as $type ) {
 					$sizeMap[$type] = $this->get( $type )->getSize();
@@ -348,20 +407,21 @@ class JobQueueGroup {
 	}
 
 	/**
-	 * @return array
+	 * @return array[]
+	 * @phan-return array<string,array{queue:JobQueue,types:array<string,class-string>}>
 	 */
 	protected function getCoalescedQueues() {
 		global $wgJobTypeConf;
 
 		if ( $this->coalescedQueues === null ) {
-			$this->coalescedQueues = array();
+			$this->coalescedQueues = [];
 			foreach ( $wgJobTypeConf as $type => $conf ) {
-				$queue = JobQueue::factory(
-					array( 'wiki' => $this->wiki, 'type' => 'null' ) + $conf );
+				$queue = $this->factoryJobQueue(
+					[ 'domain' => $this->domain, 'type' => 'null' ] + $conf );
 				$loc = $queue->getCoalesceLocationInternal();
 				if ( !isset( $this->coalescedQueues[$loc] ) ) {
 					$this->coalescedQueues[$loc]['queue'] = $queue;
-					$this->coalescedQueues[$loc]['types'] = array();
+					$this->coalescedQueues[$loc]['types'] = [];
 				}
 				if ( $type === 'default' ) {
 					$this->coalescedQueues[$loc]['types'] = array_merge(
@@ -382,22 +442,24 @@ class JobQueueGroup {
 	 * @return mixed
 	 */
 	private function getCachedConfigVar( $name ) {
-		global $wgConf, $wgMemc;
-
-		if ( $this->wiki === wfWikiID() ) {
+		// @TODO: cleanup this whole method with a proper config system
+		if ( WikiMap::isCurrentWikiDbDomain( $this->domain ) ) {
 			return $GLOBALS[$name]; // common case
 		} else {
-			list( $db, $prefix ) = wfSplitWikiID( $this->wiki );
-			$key = wfForeignMemcKey( $db, $prefix, 'configvalue', $name );
-			$value = $wgMemc->get( $key ); // ('v' => ...) or false
-			if ( is_array( $value ) ) {
-				return $value['v'];
-			} else {
-				$value = $wgConf->getConfig( $this->wiki, $name );
-				$wgMemc->set( $key, array( 'v' => $value ), 86400 + mt_rand( 0, 86400 ) );
+			$wiki = WikiMap::getWikiIdFromDbDomain( $this->domain );
+			$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
+			$value = $cache->getWithSetCallback(
+				$cache->makeGlobalKey( 'jobqueue', 'configvalue', $this->domain, $name ),
+				$cache::TTL_DAY + mt_rand( 0, $cache::TTL_DAY ),
+				function () use ( $wiki, $name ) {
+					global $wgConf;
+					// @TODO: use the full domain ID here
+					return [ 'v' => $wgConf->getConfig( $wiki, $name ) ];
+				},
+				[ 'pcTTL' => WANObjectCache::TTL_PROC_LONG ]
+			);
 
-				return $value;
-			}
+			return $value['v'];
 		}
 	}
 
@@ -410,14 +472,6 @@ class JobQueueGroup {
 			if ( !( $job instanceof IJobSpecification ) ) {
 				throw new InvalidArgumentException( "Expected IJobSpecification objects" );
 			}
-		}
-	}
-
-	function __destruct() {
-		$n = count( $this->bufferedJobs );
-		if ( $n > 0 ) {
-			$type = implode( ', ', array_unique( array_map( 'get_class', $this->bufferedJobs ) ) );
-			trigger_error( __METHOD__ . ": $n buffered job(s) of type(s) $type never inserted." );
 		}
 	}
 }

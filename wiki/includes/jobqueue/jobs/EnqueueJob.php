@@ -24,24 +24,22 @@
 /**
  * Router job that takes jobs and enqueues them to their proper queues
  *
- * This can be used for several things:
- *   - a) Making multi-job enqueues more robust by atomically enqueueing
- *        a single job that pushes the actual jobs (with retry logic)
- *   - b) Masking the latency of pushing jobs to different queues/wikis
- *   - c) Low-latency enqueues to push jobs from warm to hot datacenters
+ * This can be used for getting sets of multiple jobs or sets of jobs intended for multiple
+ * queues to be inserted more robustly. This is a single job that, upon running, enqueues the
+ * wrapped jobs. If some of those fail to enqueue then the EnqueueJob will be retried. Due to
+ * the possibility of duplicate enqueues, the wrapped jobs should be idempotent.
  *
  * @ingroup JobQueue
  * @since 1.25
  */
-final class EnqueueJob extends Job {
+final class EnqueueJob extends Job implements GenericParameterJob {
 	/**
 	 * Callers should use the factory methods instead
 	 *
-	 * @param Title $title
 	 * @param array $params Job parameters
 	 */
-	function __construct( Title $title, array $params ) {
-		parent::__construct( 'enqueue', $title, $params );
+	public function __construct( array $params ) {
+		parent::__construct( 'enqueue', $params );
 	}
 
 	/**
@@ -49,24 +47,26 @@ final class EnqueueJob extends Job {
 	 * @return EnqueueJob
 	 */
 	public static function newFromLocalJobs( $jobs ) {
-		$jobs = is_array( $jobs ) ? $jobs : array( $jobs );
+		$jobs = is_array( $jobs ) ? $jobs : [ $jobs ];
 
-		return self::newFromJobsByWiki( array( wfWikiID() => $jobs ) );
+		return self::newFromJobsByDomain( [
+			WikiMap::getCurrentWikiDbDomain()->getId() => $jobs
+		] );
 	}
 
 	/**
-	 * @param array $jobsByWiki Map of (wiki => JobSpecification list)
+	 * @param array $jobsByDomain Map of (wiki => JobSpecification list)
 	 * @return EnqueueJob
 	 */
-	public static function newFromJobsByWiki( array $jobsByWiki ) {
+	public static function newFromJobsByDomain( array $jobsByDomain ) {
 		$deduplicate = true;
 
-		$jobMapsByWiki = array();
-		foreach ( $jobsByWiki as $wiki => $jobs ) {
-			$jobMapsByWiki[$wiki] = array();
+		$jobMapsByDomain = [];
+		foreach ( $jobsByDomain as $domain => $jobs ) {
+			$jobMapsByDomain[$domain] = [];
 			foreach ( $jobs as $job ) {
 				if ( $job instanceof JobSpecification ) {
-					$jobMapsByWiki[$wiki][] = $job->toSerializableArray();
+					$jobMapsByDomain[$domain][] = $job->toSerializableArray();
 				} else {
 					throw new InvalidArgumentException( "Jobs must be of type JobSpecification." );
 				}
@@ -74,10 +74,7 @@ final class EnqueueJob extends Job {
 			}
 		}
 
-		$eJob = new self(
-			Title::makeTitle( NS_SPECIAL, 'Badtitle/' . __CLASS__ ),
-			array( 'jobsByWiki' => $jobMapsByWiki )
-		);
+		$eJob = new self( [ 'jobsByDomain' => $jobMapsByDomain ] );
 		// If *all* jobs to be pushed are to be de-duplicated (a common case), then
 		// de-duplicate this whole job itself to avoid build up in high traffic cases
 		$eJob->removeDuplicates = $deduplicate;
@@ -85,13 +82,24 @@ final class EnqueueJob extends Job {
 		return $eJob;
 	}
 
+	/**
+	 * @param array $jobsByWiki
+	 * @return EnqueueJob
+	 * @deprecated Since 1.33; use newFromJobsByDomain()
+	 */
+	public static function newFromJobsByWiki( array $jobsByWiki ) {
+		return self::newFromJobsByDomain( $jobsByWiki );
+	}
+
 	public function run() {
-		foreach ( $this->params['jobsByWiki'] as $wiki => $jobMaps ) {
-			$jobSpecs = array();
+		$jobsByDomain = $this->params['jobsByDomain'] ?? $this->params['jobsByWiki']; // b/c
+
+		foreach ( $jobsByDomain as $domain => $jobMaps ) {
+			$jobSpecs = [];
 			foreach ( $jobMaps as $jobMap ) {
 				$jobSpecs[] = JobSpecification::newFromArray( $jobMap );
 			}
-			JobQueueGroup::singleton( $wiki )->push( $jobSpecs );
+			JobQueueGroup::singleton( $domain )->push( $jobSpecs );
 		}
 
 		return true;

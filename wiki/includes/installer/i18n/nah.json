@@ -1,4 +1,11 @@
 {
-	"@metadata": [],
+	"@metadata": {
+		"authors": [
+			"Taresi",
+			"Akapochtli"
+		]
+	},
+	"config-page-language": "Tlahtolli",
+	"config-project-namespace": "Tlatequipanōlli ītōcātlacāuh:",
 	"mainpagetext": "'''MediaHuiqui cualli ōmotlahtlāli.'''"
 }

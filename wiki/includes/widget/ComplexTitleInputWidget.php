@@ -1,17 +1,16 @@
 <?php
-/**
- * MediaWiki Widgets – ComplexTitleInputWidget class.
- *
- * @copyright 2011-2015 MediaWiki Widgets Team and others; see AUTHORS.txt
- * @license The MIT License (MIT); see LICENSE.txt
- */
+
 namespace MediaWiki\Widget;
 
 /**
  * Complex title input widget.
+ *
+ * @copyright 2011-2015 MediaWiki Widgets Team and others; see AUTHORS.txt
+ * @license MIT
  */
 class ComplexTitleInputWidget extends \OOUI\Widget {
-
+	/** @var array */
+	protected $config;
 	protected $namespace = null;
 	protected $title = null;
 
@@ -19,21 +18,21 @@ class ComplexTitleInputWidget extends \OOUI\Widget {
 	 * Like TitleInputWidget, but the namespace has to be input through a separate dropdown field.
 	 *
 	 * @param array $config Configuration options
-	 * @param array $config['namespace'] Configuration for the NamespaceInputWidget dropdown with list
-	 *     of namespaces
-	 * @param array $config['title'] Configuration for the TitleInputWidget text field
+	 *   - array $config['namespace'] Configuration for the NamespaceInputWidget dropdown
+	 *     with list of namespaces
+	 *   - array $config['title'] Configuration for the TitleInputWidget text field
+	 * @phan-param array{namespace?:array,title?:array} $config
 	 */
-	public function __construct( array $config = array() ) {
+	public function __construct( array $config = [] ) {
 		// Configuration initialization
 		$config = array_merge(
-			array(
-				'namespace' => array(),
-				'title' => array(),
-			),
+			[
+				'namespace' => [],
+				'title' => [],
+			],
 			$config
 		);
 
-		// Parent constructor
 		parent::__construct( $config );
 
 		// Properties
@@ -41,17 +40,15 @@ class ComplexTitleInputWidget extends \OOUI\Widget {
 		$this->namespace = new NamespaceInputWidget( $config['namespace'] );
 		$this->title = new TitleInputWidget( array_merge(
 			$config['title'],
-			array(
-				// The inner TitleInputWidget shouldn't be infusable, only the ComplexTitleInputWidget itself can be.
-				'infusable' => false,
+			[
 				'relative' => true,
-				'namespace' => isset( $config['namespace']['value'] ) ? $config['namespace']['value'] : null,
-			)
+				'namespace' => $config['namespace']['value'] ?? null,
+			]
 		) );
 
 		// Initialization
 		$this
-			->addClasses( array( 'mw-widget-complexTitleInputWidget' ) )
+			->addClasses( [ 'mw-widget-complexTitleInputWidget' ] )
 			->appendContent( $this->namespace, $this->title );
 	}
 
@@ -61,7 +58,9 @@ class ComplexTitleInputWidget extends \OOUI\Widget {
 
 	public function getConfig( &$config ) {
 		$config['namespace'] = $this->config['namespace'];
+		$config['namespace']['dropdown']['$overlay'] = true;
 		$config['title'] = $this->config['title'];
+		$config['title']['$overlay'] = true;
 		return parent::getConfig( $config );
 	}
 }

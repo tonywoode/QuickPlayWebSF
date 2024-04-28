@@ -1,55 +1,71 @@
 <?php
 
-class FileRepoTest extends MediaWikiTestCase {
+class FileRepoTest extends MediaWikiIntegrationTestCase {
 
 	/**
-	 * @expectedException MWException
 	 * @covers FileRepo::__construct
 	 */
 	public function testFileRepoConstructionOptionCanNotBeNull() {
+		$this->expectException( MWException::class );
 		new FileRepo();
 	}
 
 	/**
-	 * @expectedException MWException
 	 * @covers FileRepo::__construct
 	 */
 	public function testFileRepoConstructionOptionCanNotBeAnEmptyArray() {
-		new FileRepo( array() );
+		$this->expectException( MWException::class );
+		new FileRepo( [] );
 	}
 
 	/**
-	 * @expectedException MWException
 	 * @covers FileRepo::__construct
 	 */
 	public function testFileRepoConstructionOptionNeedNameKey() {
-		new FileRepo( array(
+		$this->expectException( MWException::class );
+		new FileRepo( [
 			'backend' => 'foobar'
-		) );
+		] );
 	}
 
 	/**
-	 * @expectedException MWException
 	 * @covers FileRepo::__construct
 	 */
 	public function testFileRepoConstructionOptionNeedBackendKey() {
-		new FileRepo( array(
+		$this->expectException( MWException::class );
+		new FileRepo( [
 			'name' => 'foobar'
-		) );
+		] );
 	}
 
 	/**
 	 * @covers FileRepo::__construct
 	 */
 	public function testFileRepoConstructionWithRequiredOptions() {
-		$f = new FileRepo( array(
+		$f = new FileRepo( [
 			'name' => 'FileRepoTestRepository',
-			'backend' => new FSFileBackend( array(
+			'backend' => new FSFileBackend( [
 				'name' => 'local-testing',
 				'wikiId' => 'test_wiki',
-				'containerPaths' => array()
-			) )
-		) );
-		$this->assertInstanceOf( 'FileRepo', $f );
+				'containerPaths' => []
+			] )
+		] );
+		$this->assertInstanceOf( FileRepo::class, $f );
+	}
+
+	/**
+	 * @covers FileRepo::__construct
+	 */
+	public function testFileRepoConstructionWithInvalidCasing() {
+		$this->expectException( InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'File repos with initial capital false' );
+
+		$this->setMwGlobals( 'wgCapitalLinks', true );
+
+		new FileRepo( [
+			'name' => 'foobar',
+			'backend' => 'local-backend',
+			'initialCapital' => false,
+		] );
 	}
 }

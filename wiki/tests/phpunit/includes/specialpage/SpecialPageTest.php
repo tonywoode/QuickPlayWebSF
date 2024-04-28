@@ -1,5 +1,7 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * @covers SpecialPage
  *
@@ -7,15 +9,15 @@
  *
  * @author Katie Filbert < aude.wiki@gmail.com >
  */
-class SpecialPageTest extends MediaWikiTestCase {
+class SpecialPageTest extends MediaWikiIntegrationTestCase {
 
-	protected function setUp() {
+	protected function setUp() : void {
 		parent::setUp();
 
-		$this->setMwGlobals( array(
+		$this->setContentLang( 'en' );
+		$this->setMwGlobals( [
 			'wgScript' => '/index.php',
-			'wgContLang' => Language::factory( 'en' )
-		) );
+		] );
 	}
 
 	/**
@@ -28,33 +30,31 @@ class SpecialPageTest extends MediaWikiTestCase {
 	}
 
 	public function getTitleForProvider() {
-		return array(
-			array( 'UserLogin', 'Userlogin' )
-		);
+		return [
+			[ 'UserLogin', 'Userlogin' ]
+		];
 	}
 
-	/**
-	 * @expectedException PHPUnit_Framework_Error_Notice
-	 */
 	public function testInvalidGetTitleFor() {
+		$this->expectNotice();
 		$title = SpecialPage::getTitleFor( 'cat' );
 		$expected = Title::makeTitle( NS_SPECIAL, 'Cat' );
 		$this->assertEquals( $expected, $title );
 	}
 
 	/**
-	 * @expectedException PHPUnit_Framework_Error_Notice
 	 * @dataProvider getTitleForWithWarningProvider
 	 */
 	public function testGetTitleForWithWarning( $expected, $name ) {
+		$this->expectNotice();
 		$title = SpecialPage::getTitleFor( $name );
 		$this->assertEquals( $expected, $title );
 	}
 
 	public function getTitleForWithWarningProvider() {
-		return array(
-			array( Title::makeTitle( NS_SPECIAL, 'UserLogin' ), 'UserLogin' )
-		);
+		return [
+			[ Title::makeTitle( NS_SPECIAL, 'UserLogin' ), 'UserLogin' ]
+		];
 	}
 
 	/**
@@ -65,15 +65,14 @@ class SpecialPageTest extends MediaWikiTestCase {
 
 		$user = User::newFromId( 0 );
 		$specialPage->getContext()->setUser( $user );
-		$specialPage->getContext()->setLanguage( Language::factory( 'en' ) );
+		$specialPage->getContext()->setLanguage(
+			MediaWikiServices::getInstance()->getLanguageFactory()->getLanguage( 'en' ) );
 
-		$this->setExpectedException( 'UserNotLoggedIn', $expected );
+		$this->expectException( UserNotLoggedIn::class );
+		$this->expectExceptionMessage( $expected );
 
 		// $specialPage->requireLogin( [ $reason [, $title ] ] )
-		call_user_func_array(
-			array( $specialPage, 'requireLogin' ),
-			array_filter( array( $reason, $title ) )
-		);
+		$specialPage->requireLogin( ...array_filter( [ $reason, $title ] ) );
 	}
 
 	public function requireLoginAnonProvider() {
@@ -82,11 +81,11 @@ class SpecialPageTest extends MediaWikiTestCase {
 		$expected1 = wfMessage( 'exception-nologin-text' )->inLanguage( $lang )->text();
 		$expected2 = wfMessage( 'about' )->inLanguage( $lang )->text();
 
-		return array(
-			array( $expected1, null, null ),
-			array( $expected2, 'about', null ),
-			array( $expected2, 'about', 'about' ),
-		);
+		return [
+			[ $expected1, null, null ],
+			[ $expected2, 'about', null ],
+			[ $expected2, 'about', 'about' ],
+		];
 	}
 
 	public function testRequireLoginNotAnon() {
@@ -100,5 +99,4 @@ class SpecialPageTest extends MediaWikiTestCase {
 		// no exception thrown, logged in use can access special page
 		$this->assertTrue( true );
 	}
-
 }

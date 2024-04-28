@@ -18,22 +18,22 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @ingroup Deployment
+ * @ingroup Installer
  */
 
 /**
  * Class for generating LocalSettings.php file.
  *
- * @ingroup Deployment
+ * @ingroup Installer
  * @since 1.17
  */
 class LocalSettingsGenerator {
 
-	protected $extensions = array();
-	protected $values = array();
-	protected $groupPermissions = array();
+	protected $extensions = [];
+	protected $skins = [];
+	protected $values = [];
+	protected $groupPermissions = [];
 	protected $dbSettings = '';
-	protected $safeMode = false;
 	protected $IP;
 
 	/**
@@ -42,8 +42,6 @@ class LocalSettingsGenerator {
 	protected $installer;
 
 	/**
-	 * Constructor.
-	 *
 	 * @param Installer $installer
 	 */
 	public function __construct( Installer $installer ) {
@@ -56,25 +54,29 @@ class LocalSettingsGenerator {
 		$db = $installer->getDBInstaller( $installer->getVar( 'wgDBtype' ) );
 
 		$confItems = array_merge(
-			array(
+			[
 				'wgServer', 'wgScriptPath',
 				'wgPasswordSender', 'wgImageMagickConvertCommand', 'wgShellLocale',
 				'wgLanguageCode', 'wgEnableEmail', 'wgEnableUserEmail', 'wgDiff3',
 				'wgEnotifUserTalk', 'wgEnotifWatchlist', 'wgEmailAuthentication',
 				'wgDBtype', 'wgSecretKey', 'wgRightsUrl', 'wgSitename', 'wgRightsIcon',
-				'wgRightsText', 'wgMainCacheType', 'wgEnableUploads',
-				'wgMainCacheType', '_MemCachedServers', 'wgDBserver', 'wgDBuser',
+				'wgRightsText', '_MainCacheType', 'wgEnableUploads',
+				'_MemCachedServers', 'wgDBserver', 'wgDBuser',
 				'wgDBpassword', 'wgUseInstantCommons', 'wgUpgradeKey', 'wgDefaultSkin',
-				'wgMetaNamespace', 'wgLogo',
-			),
+				'wgMetaNamespace', '_Logo', 'wgAuthenticationTokenVersion', 'wgPingback',
+			],
 			$db->getGlobalNames()
 		);
 
-		$unescaped = array( 'wgRightsIcon', 'wgLogo' );
-		$boolItems = array(
+		// The WebInstaller form field for "Logo" contains a literal "$wgResourceBasePath",
+		// and site admins are told in the help text that they can use $wgStylePath and $wgScriptPath
+		// within their input, such such treat this as raw PHP for now.
+		$unescaped = [ 'wgRightsIcon', '_Logo', '_Caches' ];
+		$boolItems = [
 			'wgEnableEmail', 'wgEnableUserEmail', 'wgEnotifUserTalk',
-			'wgEnotifWatchlist', 'wgEmailAuthentication', 'wgEnableUploads', 'wgUseInstantCommons'
-		);
+			'wgEnotifWatchlist', 'wgEmailAuthentication', 'wgEnableUploads', 'wgUseInstantCommons',
+			'wgPingback',
+		];
 
 		foreach ( $confItems as $c ) {
 			$val = $installer->getVar( $c );
@@ -91,7 +93,6 @@ class LocalSettingsGenerator {
 		}
 
 		$this->dbSettings = $db->getLocalSettings();
-		$this->safeMode = $installer->getVar( '_SafeMode' );
 		$this->values['wgEmergencyContact'] = $this->values['wgPasswordSender'];
 	}
 
@@ -99,7 +100,7 @@ class LocalSettingsGenerator {
 	 * For $wgGroupPermissions, set a given ['group']['permission'] value.
 	 * @param string $group Group name
 	 * @param array $rightsArr An array of permissions, in the form of:
-	 *   array( 'right' => true, 'right2' => false )
+	 *   [ 'right' => true, 'right2' => false ]
 	 */
 	public function setGroupRights( $group, $rightsArr ) {
 		$this->groupPermissions[$group] = $rightsArr;
@@ -110,7 +111,7 @@ class LocalSettingsGenerator {
 	 *
 	 * @param string $string
 	 *
-	 * @return string
+	 * @return string|false
 	 */
 	public static function escapePhpString( $string ) {
 		if ( is_array( $string ) || is_object( $string ) ) {
@@ -119,14 +120,14 @@ class LocalSettingsGenerator {
 
 		return strtr(
 			$string,
-			array(
+			[
 				"\n" => "\\n",
 				"\r" => "\\r",
 				"\t" => "\\t",
 				"\\" => "\\\\",
 				"\$" => "\\\$",
 				"\"" => "\\\""
-			)
+			]
 		);
 	}
 
@@ -153,8 +154,9 @@ class LocalSettingsGenerator {
 
 		if ( count( $this->extensions ) ) {
 			$localSettings .= "
-# Enabled Extensions. Most extensions are enabled by including the base extension file here
-# but check specific extension documentation for more details
+# Enabled extensions. Most of the extensions are enabled by adding
+# wfLoadExtension( 'ExtensionName' );
+# to LocalSettings.php. Check specific extension documentation for more details.
 # The following extensions were automatically enabled:\n";
 
 			foreach ( $this->extensions as $extName ) {
@@ -187,7 +189,7 @@ class LocalSettingsGenerator {
 			$jsonFile = 'skin.json';
 			$function = 'wfLoadSkin';
 		} else {
-			throw new InvalidArgumentException( '$dir was not "extensions" or "skins' );
+			throw new InvalidArgumentException( '$dir was not "extensions" or "skins"' );
 		}
 
 		$encName = self::escapePhpString( $name );
@@ -215,9 +217,9 @@ class LocalSettingsGenerator {
 		$servers = $this->values['_MemCachedServers'];
 
 		if ( !$servers ) {
-			return 'array()';
+			return '[]';
 		} else {
-			$ret = 'array( ';
+			$ret = '[ ';
 			$servers = explode( ',', $servers );
 
 			foreach ( $servers as $srv ) {
@@ -225,7 +227,7 @@ class LocalSettingsGenerator {
 				$ret .= "'$srv', ";
 			}
 
-			return rtrim( $ret, ', ' ) . ' )';
+			return rtrim( $ret, ', ' ) . ' ]';
 		}
 	}
 
@@ -241,13 +243,12 @@ class LocalSettingsGenerator {
 		}
 
 		if ( !$this->values['wgShellLocale'] ) {
-			$this->values['wgShellLocale'] = 'en_US.UTF-8';
+			$this->values['wgShellLocale'] = 'C.UTF-8';
 			$locale = '#';
 		} else {
 			$locale = '';
 		}
 
-		$hashedUploads = $this->safeMode ? '' : '#';
 		$metaNamespace = '';
 		if ( $this->values['wgMetaNamespace'] !== $this->values['wgSitename'] ) {
 			$metaNamespace = "\$wgMetaNamespace = \"{$this->values['wgMetaNamespace']}\";\n";
@@ -286,15 +287,15 @@ class LocalSettingsGenerator {
 		$serverSetting = "";
 		if ( array_key_exists( 'wgServer', $this->values ) && $this->values['wgServer'] !== null ) {
 			$serverSetting = "\n## The protocol and server name to use in fully-qualified URLs\n";
-			$serverSetting .= "\$wgServer = \"{$this->values['wgServer']}\";\n";
+			$serverSetting .= "\$wgServer = \"{$this->values['wgServer']}\";";
 		}
 
-		switch ( $this->values['wgMainCacheType'] ) {
+		switch ( $this->values['_MainCacheType'] ) {
 			case 'anything':
 			case 'db':
 			case 'memcached':
 			case 'accel':
-				$cacheType = 'CACHE_' . strtoupper( $this->values['wgMainCacheType'] );
+				$cacheType = 'CACHE_' . strtoupper( $this->values['_MainCacheType'] );
 				break;
 			case 'none':
 			default:
@@ -302,9 +303,16 @@ class LocalSettingsGenerator {
 		}
 
 		$mcservers = $this->buildMemcachedServerList();
+		if ( file_exists( dirname( __DIR__ ) . '/PlatformSettings.php' ) ) {
+			$platformSettings = "\n## Include platform/distribution defaults";
+			$platformSettings .= "\nrequire_once \"\$IP/includes/PlatformSettings.php\";";
+		} else {
+			$platformSettings = '';
+		}
 
+		$version = MW_VERSION;
 		return "<?php
-# This file was automatically generated by the MediaWiki {$GLOBALS['wgVersion']}
+# This file was automatically generated by the MediaWiki {$version}
 # installer. If you make manual changes, please keep track in case you
 # need to recreate them later.
 #
@@ -319,6 +327,7 @@ class LocalSettingsGenerator {
 if ( !defined( 'MEDIAWIKI' ) ) {
 	exit;
 }
+{$platformSettings}
 
 ## Uncomment this to disable output compression
 # \$wgDisableOutputCompression = true;
@@ -331,14 +340,14 @@ if ( !defined( 'MEDIAWIKI' ) ) {
 ## (like /w/index.php/Page_title to /wiki/Page_title) please see:
 ## https://www.mediawiki.org/wiki/Manual:Short_URL
 \$wgScriptPath = \"{$this->values['wgScriptPath']}\";
-${serverSetting}
+{$serverSetting}
 
 ## The URL path to static resources (images, scripts, etc.)
 \$wgResourceBasePath = \$wgScriptPath;
 
-## The URL path to the logo.  Make sure you change this from the default,
+## The URL paths to the logo.  Make sure you change this from the default,
 ## or else you'll overwrite your logo when you upgrade!
-\$wgLogo = \"{$this->values['wgLogo']}\";
+\$wgLogos = [ '1x' => \"{$this->values['_Logo']}\" ];
 
 ## UPO means: this is also a user preference option
 
@@ -361,6 +370,10 @@ ${serverSetting}
 
 {$this->dbSettings}
 
+# Shared database table
+# This has no effect unless \$wgSharedDB is also set.
+\$wgSharedTables[] = \"actor\";
+
 ## Shared memory settings
 \$wgMainCacheType = $cacheType;
 \$wgMemCachedServers = $mcservers;
@@ -374,26 +387,31 @@ ${serverSetting}
 # InstantCommons allows wiki to use images from https://commons.wikimedia.org
 \$wgUseInstantCommons = {$this->values['wgUseInstantCommons']};
 
+# Periodically send a pingback to https://www.mediawiki.org/ with basic data
+# about this MediaWiki instance. The Wikimedia Foundation shares this data
+# with MediaWiki developers to help guide future development efforts.
+\$wgPingback = {$this->values['wgPingback']};
+
 ## If you use ImageMagick (or any other shell command) on a
 ## Linux server, this will need to be set to the name of an
-## available UTF-8 locale
+## available UTF-8 locale. This should ideally be set to an English
+## language locale so that the behaviour of C library functions will
+## be consistent with typical installations. Use \$wgLanguageCode to
+## localise the wiki.
 {$locale}\$wgShellLocale = \"{$this->values['wgShellLocale']}\";
-
-## If you want to use image uploads under safe mode,
-## create the directories images/archive, images/thumb and
-## images/temp, and make them all writable. Then uncomment
-## this, if it's not already uncommented:
-{$hashedUploads}\$wgHashedUploadDirectory = false;
 
 ## Set \$wgCacheDirectory to a writable directory on the web server
 ## to make your wiki go slightly faster. The directory should not
-## be publically accessible from the web.
+## be publicly accessible from the web.
 #\$wgCacheDirectory = \"\$IP/cache\";
 
-# Site language code, should be one of the list in ./languages/Names.php
+# Site language code, should be one of the list in ./languages/data/Names.php
 \$wgLanguageCode = \"{$this->values['wgLanguageCode']}\";
 
 \$wgSecretKey = \"{$this->values['wgSecretKey']}\";
+
+# Changing this will log out all existing sessions.
+\$wgAuthenticationTokenVersion = \"{$this->values['wgAuthenticationTokenVersion']}\";
 
 # Site upgrade key. Must be set to a string (default provided) to turn on the
 # web installer while LocalSettings.php is in place

@@ -21,6 +21,11 @@
  * @ingroup Ajax
  */
 
+use MediaWiki\MediaWikiServices;
+
+// Use superglobals, but since it's deprecated, it's not worth fixing
+// phpcs:disable MediaWiki.Usage.SuperGlobalsUsage.SuperGlobals
+
 /**
  * @defgroup Ajax Ajax
  */
@@ -32,18 +37,18 @@
 class AjaxDispatcher {
 	/**
 	 * The way the request was made, either a 'get' or a 'post'
-	 * @var string $mode
+	 * @var string
 	 */
 	private $mode;
 
 	/**
 	 * Name of the requested handler
-	 * @var string $func_name
+	 * @var string
 	 */
 	private $func_name;
 
 	/** Arguments passed
-	 * @var array $args
+	 * @var array
 	 */
 	private $args;
 
@@ -54,8 +59,9 @@ class AjaxDispatcher {
 
 	/**
 	 * Load up our object with user supplied data
+	 * @param Config $config
 	 */
-	function __construct( Config $config ) {
+	public function __construct( Config $config ) {
 		$this->config = $config;
 
 		$this->mode = "";
@@ -70,19 +76,19 @@ class AjaxDispatcher {
 
 		switch ( $this->mode ) {
 			case 'get':
-				$this->func_name = isset( $_GET["rs"] ) ? $_GET["rs"] : '';
+				$this->func_name = $_GET["rs"] ?? '';
 				if ( !empty( $_GET["rsargs"] ) ) {
 					$this->args = $_GET["rsargs"];
 				} else {
-					$this->args = array();
+					$this->args = [];
 				}
 				break;
 			case 'post':
-				$this->func_name = isset( $_POST["rs"] ) ? $_POST["rs"] : '';
+				$this->func_name = $_POST["rs"] ?? '';
 				if ( !empty( $_POST["rsargs"] ) ) {
 					$this->args = $_POST["rsargs"];
 				} else {
-					$this->args = array();
+					$this->args = [];
 				}
 				break;
 			default:
@@ -90,7 +96,6 @@ class AjaxDispatcher {
 				# Or we could throw an exception:
 				# throw new MWException( __METHOD__ . ' called without any data (mode empty).' );
 		}
-
 	}
 
 	/**
@@ -99,34 +104,40 @@ class AjaxDispatcher {
 	 * they should be carefully handled in the function processing the
 	 * request.
 	 *
+	 * phan-taint-check triggers as it is not smart enough to understand
+	 * the early return if func_name not in AjaxExportList.
+	 * @suppress SecurityCheck-XSS
 	 * @param User $user
 	 */
-	function performAction( User $user ) {
+	public function performAction( User $user ) {
 		if ( empty( $this->mode ) ) {
 			return;
 		}
 
+		$permissionManager = MediaWikiServices::getInstance()->getPermissionManager();
 		if ( !in_array( $this->func_name, $this->config->get( 'AjaxExportList' ) ) ) {
-			wfDebug( __METHOD__ . ' Bad Request for unknown function ' . $this->func_name . "\n" );
+			wfDebug( __METHOD__ . ' Bad Request for unknown function ' . $this->func_name );
 			wfHttpError(
 				400,
 				'Bad Request',
 				"unknown function " . $this->func_name
 			);
-		} elseif ( !User::isEveryoneAllowed( 'read' ) && !$user->isAllowed( 'read' ) ) {
+		} elseif ( !$permissionManager->isEveryoneAllowed( 'read' ) &&
+			!$permissionManager->userHasRight( $user, 'read' )
+		) {
 			wfHttpError(
 				403,
 				'Forbidden',
 				'You are not allowed to view pages.' );
 		} else {
-			wfDebug( __METHOD__ . ' dispatching ' . $this->func_name . "\n" );
+			wfDebug( __METHOD__ . ' dispatching ' . $this->func_name );
 			try {
 				$result = call_user_func_array( $this->func_name, $this->args );
 
 				if ( $result === false || $result === null ) {
 					wfDebug( __METHOD__ . ' ERROR while dispatching ' .
 						$this->func_name . "(" . var_export( $this->args, true ) . "): " .
-						"no data returned\n" );
+						"no data returned" );
 
 					wfHttpError( 500, 'Internal Error',
 						"{$this->func_name} returned no data" );
@@ -135,15 +146,19 @@ class AjaxDispatcher {
 						$result = new AjaxResponse( $result );
 					}
 
+					// Make sure DB commit succeeds before sending a response
+					$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+					$lbFactory->commitMasterChanges( __METHOD__ );
+
 					$result->sendHeaders();
 					$result->printText();
 
-					wfDebug( __METHOD__ . ' dispatch complete for ' . $this->func_name . "\n" );
+					wfDebug( __METHOD__ . ' dispatch complete for ' . $this->func_name );
 				}
 			} catch ( Exception $e ) {
 				wfDebug( __METHOD__ . ' ERROR while dispatching ' .
 					$this->func_name . "(" . var_export( $this->args, true ) . "): " .
-					get_class( $e ) . ": " . $e->getMessage() . "\n" );
+					get_class( $e ) . ": " . $e->getMessage() );
 
 				if ( !headers_sent() ) {
 					wfHttpError( 500, 'Internal Error',
@@ -153,6 +168,5 @@ class AjaxDispatcher {
 				}
 			}
 		}
-
 	}
 }

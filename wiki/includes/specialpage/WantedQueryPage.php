@@ -21,38 +21,32 @@
  * @ingroup SpecialPage
  */
 
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IResultWrapper;
+
 /**
  * Class definition for a wanted query page like
  * WantedPages, WantedTemplates, etc
+ * @stable to extend
  * @ingroup SpecialPage
  */
 abstract class WantedQueryPage extends QueryPage {
-	function isExpensive() {
+	public function isExpensive() {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
 	/**
 	 * Cache page existence for performance
+	 * @stable to override
 	 * @param IDatabase $db
-	 * @param ResultWrapper $res
+	 * @param IResultWrapper $res
 	 */
-	function preprocessResults( $db, $res ) {
-		if ( !$res->numRows() ) {
-			return;
-		}
-
-		$batch = new LinkBatch;
-		foreach ( $res as $row ) {
-			$batch->add( $row->namespace, $row->title );
-		}
-		$batch->execute();
-
-		// Back to start for display
-		$res->seek( 0 );
+	protected function preprocessResults( $db, $res ) {
+		$this->executeLBFromResultWrapper( $res );
 	}
 
 	/**
@@ -61,34 +55,32 @@ abstract class WantedQueryPage extends QueryPage {
 	 * kluge for Special:WantedFiles, which may contain false
 	 * positives for files that exist e.g. in a shared repo (bug
 	 * 6220).
+	 * @stable to override
 	 * @return bool
 	 */
-	function forceExistenceCheck() {
+	protected function forceExistenceCheck() {
 		return false;
 	}
 
 	/**
 	 * Format an individual result
 	 *
+	 * @stable to override
+	 *
 	 * @param Skin $skin Skin to use for UI elements
 	 * @param object $result Result row
 	 * @return string
 	 */
 	public function formatResult( $skin, $result ) {
+		$linkRenderer = $this->getLinkRenderer();
 		$title = Title::makeTitleSafe( $result->namespace, $result->title );
 		if ( $title instanceof Title ) {
 			if ( $this->isCached() || $this->forceExistenceCheck() ) {
 				$pageLink = $this->existenceCheck( $title )
-					? '<del>' . Linker::link( $title ) . '</del>'
-					: Linker::link( $title );
+					? '<del>' . $linkRenderer->makeLink( $title ) . '</del>'
+					: $linkRenderer->makeLink( $title );
 			} else {
-				$pageLink = Linker::link(
-					$title,
-					null,
-					array(),
-					array(),
-					array( 'broken' )
-				);
+				$pageLink = $linkRenderer->makeBrokenLink( $title );
 			}
 			return $this->getLanguage()->specialList( $pageLink, $this->makeWlhLink( $title, $result ) );
 		} else {
@@ -109,6 +101,9 @@ abstract class WantedQueryPage extends QueryPage {
 	 * @note This will only be run if the page is cached (ie $wgMiserMode = true)
 	 *   unless forceExistenceCheck() is true.
 	 * @since 1.24
+	 * @stable to override
+	 *
+	 * @param Title $title
 	 * @return bool
 	 */
 	protected function existenceCheck( Title $title ) {
@@ -122,9 +117,45 @@ abstract class WantedQueryPage extends QueryPage {
 	 * @param object $result Result row
 	 * @return string
 	 */
-	private function makeWlhLink( $title, $result ) {
+	protected function makeWlhLink( $title, $result ) {
 		$wlh = SpecialPage::getTitleFor( 'Whatlinkshere', $title->getPrefixedText() );
-		$label = $this->msg( 'nlinks' )->numParams( $result->value )->escaped();
-		return Linker::link( $wlh, $label );
+		$label = $this->msg( 'nlinks' )->numParams( $result->value )->text();
+		return $this->getLinkRenderer()->makeLink( $wlh, $label );
 	}
+
+	/**
+	 * Order by title for pages with the same number of links to them
+	 *
+	 * @stable to override
+	 * @return array
+	 * @since 1.29
+	 */
+	protected function getOrderFields() {
+		return [ 'value DESC', 'namespace', 'title' ];
+	}
+
+	/**
+	 * Do not order descending for all order fields.  We will use DESC only on one field, see
+	 * getOrderFields above. This overwrites sortDescending from QueryPage::getOrderFields().
+	 * Do NOT change this to true unless you remove the phrase DESC in getOrderFiels above.
+	 * If you do a database error will be thrown due to double adding DESC to query!
+	 *
+	 * @stable to override
+	 * @return bool
+	 * @since 1.29
+	 */
+	protected function sortDescending() {
+		return false;
+	}
+
+	/**
+	 * Also use the order fields returned by getOrderFields when fetching from the cache.
+	 * @stable to override
+	 * @return array
+	 * @since 1.29
+	 */
+	protected function getCacheOrderFields() {
+		return $this->getOrderFields();
+	}
+
 }

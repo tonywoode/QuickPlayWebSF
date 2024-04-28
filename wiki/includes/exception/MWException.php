@@ -21,6 +21,9 @@
 /**
  * MediaWiki exception
  *
+ * @newable
+ * @stable to extend
+ *
  * @ingroup Exception
  */
 class MWException extends Exception {
@@ -33,11 +36,15 @@ class MWException extends Exception {
 		return $this->useMessageCache() &&
 		!empty( $GLOBALS['wgFullyInitialised'] ) &&
 		!empty( $GLOBALS['wgOut'] ) &&
-		!defined( 'MEDIAWIKI_INSTALL' );
+		!defined( 'MEDIAWIKI_INSTALL' ) &&
+		// Don't send a skinned HTTP 500 page to API clients.
+		!defined( 'MW_API' );
 	}
 
 	/**
 	 * Whether to log this exception in the exception debug log.
+	 *
+	 * @stable to override
 	 *
 	 * @since 1.23
 	 * @return bool
@@ -49,59 +56,17 @@ class MWException extends Exception {
 	/**
 	 * Can the extension use the Message class/wfMessage to get i18n-ed messages?
 	 *
+	 * @stable to override
+	 *
 	 * @return bool
 	 */
 	public function useMessageCache() {
-		global $wgLang;
-
 		foreach ( $this->getTrace() as $frame ) {
-			if ( isset( $frame['class'] ) && $frame['class'] === 'LocalisationCache' ) {
+			if ( isset( $frame['class'] ) && $frame['class'] === LocalisationCache::class ) {
 				return false;
 			}
 		}
-
-		return $wgLang instanceof Language;
-	}
-
-	/**
-	 * Run hook to allow extensions to modify the text of the exception
-	 *
-	 * @param string $name Class name of the exception
-	 * @param array $args Arguments to pass to the callback functions
-	 * @return string|null String to output or null if any hook has been called
-	 */
-	public function runHooks( $name, $args = array() ) {
-		global $wgExceptionHooks;
-
-		if ( !isset( $wgExceptionHooks ) || !is_array( $wgExceptionHooks ) ) {
-			return null; // Just silently ignore
-		}
-
-		if ( !array_key_exists( $name, $wgExceptionHooks ) ||
-			!is_array( $wgExceptionHooks[$name] )
-		) {
-			return null;
-		}
-
-		$hooks = $wgExceptionHooks[$name];
-		$callargs = array_merge( array( $this ), $args );
-
-		foreach ( $hooks as $hook ) {
-			if (
-				is_string( $hook ) ||
-				( is_array( $hook ) && count( $hook ) >= 2 && is_string( $hook[0] ) )
-			) {
-				// 'function' or array( 'class', hook' )
-				$result = call_user_func_array( $hook, $callargs );
-			} else {
-				$result = null;
-			}
-
-			if ( is_string( $result ) ) {
-				return $result;
-			}
-		}
-		return null;
+		return true;
 	}
 
 	/**
@@ -110,25 +75,37 @@ class MWException extends Exception {
 	 * @param string $key Message name
 	 * @param string $fallback Default message if the message cache can't be
 	 *                  called by the exception
-	 * The function also has other parameters that are arguments for the message
+	 * @param mixed ...$params To pass to wfMessage()
 	 * @return string Message with arguments replaced
 	 */
-	public function msg( $key, $fallback /*[, params...] */ ) {
-		$args = array_slice( func_get_args(), 2 );
+	public function msg( $key, $fallback, ...$params ) {
+		global $wgSitename;
 
+		// FIXME: Keep logic in sync with MWExceptionRenderer::msg.
+		$res = false;
 		if ( $this->useMessageCache() ) {
 			try {
-				return wfMessage( $key, $args )->text();
+				$res = wfMessage( $key, ...$params )->text();
 			} catch ( Exception $e ) {
 			}
 		}
-		return wfMsgReplaceArgs( $fallback, $args );
+		if ( $res === false ) {
+			$res = wfMsgReplaceArgs( $fallback, $params );
+			// If an exception happens inside message rendering,
+			// {{SITENAME}} sometimes won't be replaced.
+			$res = strtr( $res, [
+				'{{SITENAME}}' => $wgSitename,
+			] );
+		}
+		return $res;
 	}
 
 	/**
 	 * If $wgShowExceptionDetails is true, return a HTML message with a
 	 * backtrace to the error, otherwise show a message to ask to set it to true
 	 * to show that information.
+	 *
+	 * @stable to override
 	 *
 	 * @return string Html to output
 	 */
@@ -141,17 +118,19 @@ class MWException extends Exception {
 			nl2br( htmlspecialchars( MWExceptionHandler::getRedactedTraceAsString( $this ) ) ) .
 			"</p>\n";
 		} else {
-			$logId = MWExceptionHandler::getLogId( $this );
-			$type = get_class( $this );
-			return "<div class=\"errorbox\">" .
-			'[' . $logId . '] ' .
-			gmdate( 'Y-m-d H:i:s' ) . ": " .
-			$this->msg( "internalerror-fatal-exception",
-				"Fatal exception of type $1",
-				$type,
-				$logId,
-				MWExceptionHandler::getURL( $this )
-			) . "</div>\n" .
+			$logId = WebRequest::getRequestId();
+			$type = static::class;
+			return Html::errorBox(
+			htmlspecialchars(
+				'[' . $logId . '] ' .
+				gmdate( 'Y-m-d H:i:s' ) . ": " .
+				$this->msg( "internalerror-fatal-exception",
+					"Fatal exception of type $1",
+					$type,
+					$logId,
+					MWExceptionHandler::getURL()
+				)
+			) ) .
 			"<!-- Set \$wgShowExceptionDetails = true; " .
 			"at the bottom of LocalSettings.php to show detailed " .
 			"debugging information. -->";
@@ -162,6 +141,8 @@ class MWException extends Exception {
 	 * Get the text to display when reporting the error on the command line.
 	 * If $wgShowExceptionDetails is true, return a text message with a
 	 * backtrace to the error.
+	 *
+	 * @stable to override
 	 *
 	 * @return string
 	 */
@@ -180,6 +161,8 @@ class MWException extends Exception {
 	/**
 	 * Return the title of the page when reporting this error in a HTTP response.
 	 *
+	 * @stable to override
+	 *
 	 * @return string
 	 */
 	public function getPageTitle() {
@@ -188,18 +171,24 @@ class MWException extends Exception {
 
 	/**
 	 * Output the exception report using HTML.
+	 * @stable to override
 	 */
 	public function reportHTML() {
 		global $wgOut, $wgSitename;
 		if ( $this->useOutputPage() ) {
 			$wgOut->prepareErrorPage( $this->getPageTitle() );
+			// Manually set the html title, since sometimes
+			// {{SITENAME}} does not get replaced for exceptions
+			// happening inside message rendering.
+			$wgOut->setHTMLTitle(
+				$this->msg(
+					'pagetitle',
+					"$1 - $wgSitename",
+					$this->getPageTitle()
+				)
+			);
 
-			$hookResult = $this->runHooks( get_class( $this ) );
-			if ( $hookResult ) {
-				$wgOut->addHTML( $hookResult );
-			} else {
-				$wgOut->addHTML( $this->getHTML() );
-			}
+			$wgOut->addHTML( $this->getHTML() );
 
 			$wgOut->output();
 		} else {
@@ -213,12 +202,7 @@ class MWException extends Exception {
 				'<style>body { font-family: sans-serif; margin: 0; padding: 0.5em 2em; }</style>' .
 				"</head><body>\n";
 
-			$hookResult = $this->runHooks( get_class( $this ) . 'Raw' );
-			if ( $hookResult ) {
-				echo $hookResult;
-			} else {
-				echo $this->getHTML();
-			}
+			echo $this->getHTML();
 
 			echo "</body></html>\n";
 		}
@@ -227,21 +211,39 @@ class MWException extends Exception {
 	/**
 	 * Output a report about the exception and takes care of formatting.
 	 * It will be either HTML or plain text based on isCommandLine().
+	 *
+	 * @stable to override
 	 */
 	public function report() {
 		global $wgMimeType;
 
 		if ( defined( 'MW_API' ) ) {
-			// Unhandled API exception, we can't be sure that format printer is alive
-			self::header( 'MediaWiki-API-Error: internal_api_error_' . get_class( $this ) );
-			wfHttpError( 500, 'Internal Server Error', $this->getText() );
-		} elseif ( self::isCommandLine() ) {
-			MWExceptionHandler::printError( $this->getText() );
+			self::header( 'MediaWiki-API-Error: internal_api_error_' . static::class );
+		}
+
+		if ( self::isCommandLine() ) {
+			$message = $this->getText();
+			$this->writeToCommandLine( $message );
 		} else {
 			self::statusHeader( 500 );
 			self::header( "Content-Type: $wgMimeType; charset=utf-8" );
 
 			$this->reportHTML();
+		}
+	}
+
+	/**
+	 * Write a message to stderr falling back to stdout if stderr unavailable
+	 *
+	 * @param string $message
+	 * @suppress SecurityCheck-XSS
+	 */
+	private function writeToCommandLine( $message ) {
+		// T17602: STDERR may not be available
+		if ( !defined( 'MW_PHPUNIT_TEST' ) && defined( 'STDERR' ) ) {
+			fwrite( STDERR, $message );
+		} else {
+			echo $message;
 		}
 	}
 
@@ -265,6 +267,7 @@ class MWException extends Exception {
 			header( $header );
 		}
 	}
+
 	private static function statusHeader( $code ) {
 		if ( !headers_sent() ) {
 			HttpStatus::header( $code );

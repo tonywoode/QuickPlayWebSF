@@ -1,8 +1,11 @@
 <?php
-class ExtensionsParserTestSuite extends PHPUnit_Framework_TestSuite {
+
+use PHPUnit\Framework\TestSuite;
+
+class ExtensionsParserTestSuite extends TestSuite {
 
 	public static function suite() {
-		return MediaWikiParserTest::suite( MediaWikiParserTest::NO_CORE );
+		return ParserTestTopLevelSuite::suite( ParserTestTopLevelSuite::NO_CORE );
 	}
 
 }

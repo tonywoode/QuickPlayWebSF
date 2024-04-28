@@ -21,6 +21,8 @@
  * @since 1.22
  */
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * A query action to return meta information about the foreign file repos
  * configured on the wiki.
@@ -34,7 +36,7 @@ class ApiQueryFileRepoInfo extends ApiQueryBase {
 	}
 
 	protected function getInitialisedRepoGroup() {
-		$repoGroup = RepoGroup::singleton();
+		$repoGroup = MediaWikiServices::getInstance()->getRepoGroup();
 		$repoGroup->initialiseRepos();
 
 		return $repoGroup;
@@ -46,17 +48,19 @@ class ApiQueryFileRepoInfo extends ApiQueryBase {
 		$params = $this->extractRequestParams();
 		$props = array_flip( $params['prop'] );
 
-		$repos = array();
+		$repos = [];
 
 		$repoGroup = $this->getInitialisedRepoGroup();
 		$foreignTargets = $conf->get( 'ForeignUploadTargets' );
 
-		$repoGroup->forEachForeignRepo( function ( $repo ) use ( &$repos, $props, $foreignTargets ) {
-			$repoProps = $repo->getInfo();
-			$repoProps['canUpload'] = in_array( $repoProps['name'], $foreignTargets );
+		$repoGroup->forEachForeignRepo(
+			function ( FileRepo $repo ) use ( &$repos, $props, $foreignTargets ) {
+				$repoProps = $repo->getInfo();
+				$repoProps['canUpload'] = in_array( $repoProps['name'], $foreignTargets );
 
-			$repos[] = array_intersect_key( $repoProps, $props );
-		} );
+				$repos[] = array_intersect_key( $repoProps, $props );
+			}
+		);
 
 		$localInfo = $repoGroup->getLocalRepo()->getInfo();
 		$localInfo['canUpload'] = $conf->get( 'EnableUploads' );
@@ -66,7 +70,7 @@ class ApiQueryFileRepoInfo extends ApiQueryBase {
 		ApiResult::setIndexedTagName( $repos, 'repo' );
 		ApiResult::setArrayTypeRecursive( $repos, 'assoc' );
 		ApiResult::setArrayType( $repos, 'array' );
-		$result->addValue( array( 'query' ), 'repos', $repos );
+		$result->addValue( [ 'query' ], 'repos', $repos );
 	}
 
 	public function getCacheMode( $params ) {
@@ -76,20 +80,21 @@ class ApiQueryFileRepoInfo extends ApiQueryBase {
 	public function getAllowedParams() {
 		$props = $this->getProps();
 
-		return array(
-			'prop' => array(
-				ApiBase::PARAM_DFLT => join( '|', $props ),
+		return [
+			'prop' => [
+				ApiBase::PARAM_DFLT => implode( '|', $props ),
 				ApiBase::PARAM_ISMULTI => true,
 				ApiBase::PARAM_TYPE => $props,
-			),
-		);
+				ApiBase::PARAM_HELP_MSG_PER_VALUE => [],
+			],
+		];
 	}
 
 	public function getProps() {
-		$props = array();
+		$props = [];
 		$repoGroup = $this->getInitialisedRepoGroup();
 
-		$repoGroup->forEachForeignRepo( function ( $repo ) use ( &$props ) {
+		$repoGroup->forEachForeignRepo( function ( FileRepo $repo ) use ( &$props ) {
 			$props = array_merge( $props, array_keys( $repo->getInfo() ) );
 		} );
 
@@ -100,17 +105,23 @@ class ApiQueryFileRepoInfo extends ApiQueryBase {
 
 		$propValues[] = 'canUpload';
 
+		sort( $propValues );
 		return $propValues;
 	}
 
 	protected function getExamplesMessages() {
-		return array(
-			'action=query&meta=filerepoinfo&friprop=apiurl|name|displayname'
-				=> 'apihelp-query+filerepoinfo-example-simple',
-		);
+		$examples = [];
+
+		$props = array_intersect( [ 'apiurl', 'name', 'displayname' ], $this->getProps() );
+		if ( $props ) {
+			$examples['action=query&meta=filerepoinfo&friprop=' . implode( '|', $props )] =
+				'apihelp-query+filerepoinfo-example-simple';
+		}
+
+		return $examples;
 	}
 
 	public function getHelpUrls() {
-		return 'https://www.mediawiki.org/wiki/API:Filerepoinfo';
+		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Filerepoinfo';
 	}
 }

@@ -1,9 +1,5 @@
 <?php
 /**
- *
- *
- * Created on Sep 19, 2006
- *
  * Copyright © 2006 Yuri Astrakhan "<Firstname><Lastname>@gmail.com"
  *
  * This program is free software; you can redistribute it and/or modify
@@ -72,6 +68,7 @@ class ApiFormatFeedWrapper extends ApiFormatBase {
 	 * This class expects the result data to be in a custom format set by self::setResult()
 	 * $result['_feed'] - an instance of one of the $wgFeedClasses classes
 	 * $result['_feeditems'] - an array of FeedItem instances
+	 * @param bool $unused
 	 */
 	public function initPrinter( $unused = false ) {
 		parent::initPrinter( $unused );
@@ -82,7 +79,9 @@ class ApiFormatFeedWrapper extends ApiFormatBase {
 
 		$data = $this->getResult()->getResultData();
 		if ( isset( $data['_feed'] ) && isset( $data['_feeditems'] ) ) {
-			$data['_feed']->httpHeaders();
+			/** @var ChannelFeed $feed */
+			$feed = $data['_feed'];
+			$feed->httpHeaders();
 		} else {
 			// Error has occurred, print something useful
 			ApiBase::dieDebug( __METHOD__, 'Invalid feed class/item' );
@@ -97,6 +96,7 @@ class ApiFormatFeedWrapper extends ApiFormatBase {
 	public function execute() {
 		$data = $this->getResult()->getResultData();
 		if ( isset( $data['_feed'] ) && isset( $data['_feeditems'] ) ) {
+			/** @var ChannelFeed $feed */
 			$feed = $data['_feed'];
 			$items = $data['_feeditems'];
 

@@ -16,7 +16,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @license GPL 2+
  */
 
 /**
@@ -51,8 +50,8 @@ class NamespaceAwareForeignTitleFactory implements ForeignTitleFactory {
 	 */
 	public function __construct( $foreignNamespaces ) {
 		$this->foreignNamespaces = $foreignNamespaces;
-		if ( !is_null( $foreignNamespaces ) ) {
-			$this->foreignNamespacesFlipped = array();
+		if ( $foreignNamespaces !== null ) {
+			$this->foreignNamespacesFlipped = [];
 			foreach ( $foreignNamespaces as $id => $name ) {
 				$newKey = self::normalizeNamespaceName( $name );
 				$this->foreignNamespacesFlipped[$newKey] = $id;
@@ -72,7 +71,7 @@ class NamespaceAwareForeignTitleFactory implements ForeignTitleFactory {
 	public function createForeignTitle( $title, $ns = null ) {
 		// Export schema version 0.5 and earlier (MW 1.18 and earlier) does not
 		// contain a <ns> tag, so we need to be able to handle that case.
-		if ( is_null( $ns ) ) {
+		if ( $ns === null ) {
 			return self::parseTitleNoNs( $title );
 		} else {
 			return self::parseTitleWithNs( $title, $ns );
@@ -115,15 +114,23 @@ class NamespaceAwareForeignTitleFactory implements ForeignTitleFactory {
 	protected function parseTitleWithNs( $title, $ns ) {
 		$pieces = explode( ':', $title, 2 );
 
+		// Is $title of the form Namespace:Title (true), or just Title (false)?
+		$titleIncludesNamespace = ( $ns != '0' && count( $pieces ) === 2 );
+
 		if ( isset( $this->foreignNamespaces[$ns] ) ) {
 			$namespaceName = $this->foreignNamespaces[$ns];
 		} else {
-			$namespaceName = $ns == '0' ? '' : $pieces[0];
+			// If the foreign wiki is misconfigured, XML dumps can contain a page with
+			// a non-zero namespace ID, but whose title doesn't contain a colon
+			// (T114115). In those cases, output a made-up namespace name to avoid
+			// collisions. The ImportTitleFactory might replace this with something
+			// more appropriate.
+			$namespaceName = $titleIncludesNamespace ? $pieces[0] : "Ns$ns";
 		}
 
 		// We assume that the portion of the page title before the colon is the
-		// namespace name, except in the case of namespace 0
-		if ( $ns != '0' ) {
+		// namespace name, except in the case of namespace 0.
+		if ( $titleIncludesNamespace ) {
 			$pageName = $pieces[1];
 		} else {
 			$pageName = $title;

@@ -14,7 +14,7 @@ namespace Composer\Semver\Constraint;
 /**
  * Defines a constraint.
  */
-class Constraint extends AbstractConstraint
+class Constraint implements ConstraintInterface
 {
     /* operator integer values */
     const OP_EQ = 0;
@@ -54,11 +54,49 @@ class Constraint extends AbstractConstraint
         self::OP_NE => '!=',
     );
 
-    /** @var string */
-    private $operator;
+    /** @var int */
+    protected $operator;
 
     /** @var string */
-    private $version;
+    protected $version;
+
+    /** @var string */
+    protected $prettyString;
+
+    /**
+     * @param ConstraintInterface $provider
+     *
+     * @return bool
+     */
+    public function matches(ConstraintInterface $provider)
+    {
+        if ($provider instanceof $this) {
+            return $this->matchSpecific($provider);
+        }
+
+        // turn matching around to find a match
+        return $provider->matches($this);
+    }
+
+    /**
+     * @param string $prettyString
+     */
+    public function setPrettyString($prettyString)
+    {
+        $this->prettyString = $prettyString;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPrettyString()
+    {
+        if ($this->prettyString) {
+            return $this->prettyString;
+        }
+
+        return $this->__toString();
+    }
 
     /**
      * Get all supported comparison operators.
@@ -96,7 +134,7 @@ class Constraint extends AbstractConstraint
      * @param string $a
      * @param string $b
      * @param string $operator
-     * @param bool $compareBranches
+     * @param bool   $compareBranches
      *
      * @throws \InvalidArgumentException if invalid operator is given.
      *
@@ -129,7 +167,7 @@ class Constraint extends AbstractConstraint
 
     /**
      * @param Constraint $provider
-     * @param bool $compareBranches
+     * @param bool       $compareBranches
      *
      * @return bool
      */
@@ -146,7 +184,7 @@ class Constraint extends AbstractConstraint
         // '!=' operator is match when other operator is not '==' operator or version is not match
         // these kinds of comparisons always have a solution
         if ($isNonEqualOp || $isProviderNonEqualOp) {
-            return !$isEqualOp && !$isProviderEqualOp
+            return (!$isEqualOp && !$isProviderEqualOp)
                 || $this->versionCompare($provider->version, $this->version, '!=', $compareBranches);
         }
 
@@ -159,13 +197,9 @@ class Constraint extends AbstractConstraint
         if ($this->versionCompare($provider->version, $this->version, self::$transOpInt[$this->operator], $compareBranches)) {
             // special case, e.g. require >= 1.0 and provide < 1.0
             // 1.0 >= 1.0 but 1.0 is outside of the provided interval
-            if ($provider->version === $this->version
+            return !($provider->version === $this->version
                 && self::$transOpInt[$provider->operator] === $providerNoEqualOp
-                && self::$transOpInt[$this->operator] !== $noEqualOp) {
-                return false;
-            }
-
-            return true;
+                && self::$transOpInt[$this->operator] !== $noEqualOp);
         }
 
         return false;

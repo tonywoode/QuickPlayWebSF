@@ -24,7 +24,7 @@
  * @author  Platonides
  */
 
-require_once __DIR__ . '/Benchmarker.php';
+require_once __DIR__ . '/../includes/Benchmarker.php';
 
 /**
  * Maintenance script that benchmark if elseif... versus switch case.
@@ -34,19 +34,21 @@ require_once __DIR__ . '/Benchmarker.php';
 class BenchIfSwitch extends Benchmarker {
 	public function __construct() {
 		parent::__construct();
-		$this->mDescription = "Benchmark if elseif... versus switch case.";
+		$this->addDescription( 'Benchmark if elseif... versus switch case.' );
 	}
 
 	public function execute() {
-		$this->bench( array(
-			array( 'function' => array( $this, 'doElseIf' ) ),
-			array( 'function' => array( $this, 'doSwitch' ) ),
-		) );
-		print $this->getFormattedResults();
+		$this->bench( [
+			[ 'function' => [ $this, 'doElseIf' ] ],
+			[ 'function' => [ $this, 'doSwitch' ] ],
+		] );
 	}
 
-	// bench function 1
-	function doElseIf() {
+	/**
+	 * bench function 1
+	 * @suppress PhanSuspiciousValueComparison
+	 */
+	protected function doElseIf() {
 		$a = 'z';
 		if ( $a == 'a' ) {
 		} elseif ( $a == 'b' ) {
@@ -68,8 +70,10 @@ class BenchIfSwitch extends Benchmarker {
 		}
 	}
 
-	// bench function 2
-	function doSwitch() {
+	/**
+	 * bench function 2
+	 */
+	protected function doSwitch() {
 		$a = 'z';
 		switch ( $a ) {
 			case 'b':
@@ -107,5 +111,5 @@ class BenchIfSwitch extends Benchmarker {
 	}
 }
 
-$maintClass = 'BenchIfSwitch';
+$maintClass = BenchIfSwitch::class;
 require_once RUN_MAINTENANCE_IF_MAIN;

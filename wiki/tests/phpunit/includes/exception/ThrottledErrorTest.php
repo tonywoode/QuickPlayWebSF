@@ -2,22 +2,24 @@
 
 /**
  * @covers ThrottledError
- * @author Adam Shorland
+ * @author Addshore
  */
-class ThrottledErrorTest extends MediaWikiTestCase {
+class ThrottledErrorTest extends MediaWikiIntegrationTestCase {
 
 	public function testExceptionSetsStatusCode() {
 		$this->setMwGlobals( 'wgOut', $this->getMockWgOut() );
 		try {
 			throw new ThrottledError();
 		} catch ( ThrottledError $e ) {
+			ob_start();
 			$e->report();
-			$this->assertTrue( true );
+			$text = ob_get_clean();
+			$this->assertStringContainsString( $e->getText(), $text );
 		}
 	}
 
 	private function getMockWgOut() {
-		$mock = $this->getMockBuilder( 'OutputPage' )
+		$mock = $this->getMockBuilder( OutputPage::class )
 			->disableOriginalConstructor()
 			->getMock();
 		$mock->expects( $this->once() )

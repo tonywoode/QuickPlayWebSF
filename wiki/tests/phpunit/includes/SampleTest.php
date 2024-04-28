@@ -1,42 +1,42 @@
 <?php
 
-class TestSample extends MediaWikiLangTestCase {
+/**
+ * @coversNothing Just a sample
+ */
+class SampleTest extends MediaWikiLangTestCase {
 
 	/**
 	 * Anything that needs to happen before your tests should go here.
 	 */
-	protected function setUp() {
-		// Be sure to do call the parent setup and teardown functions.
+	protected function setUp() : void {
+		// Be sure to call the parent setup and teardown functions.
 		// This makes sure that all the various cleanup and restorations
 		// happen as they should (including the restoration for setMwGlobals).
 		parent::setUp();
 
 		// This sets the globals and will restore them automatically
 		// after each test.
-		$this->setMwGlobals( array(
-			'wgContLang' => Language::factory( 'en' ),
-			'wgLanguageCode' => 'en',
+		$this->setContentLang( 'en' );
+		$this->setMwGlobals( [
 			'wgCapitalLinks' => true,
-		) );
+		] );
 	}
 
 	/**
 	 * Anything cleanup you need to do should go here.
 	 */
-	protected function tearDown() {
+	protected function tearDown() : void {
 		parent::tearDown();
 	}
 
 	/**
 	 * Name tests so that PHPUnit can turn them into sentences when
-	 * they run.  While MediaWiki isn't strictly an Agile Programming
-	 * project, you are encouraged to use the naming described under
-	 * "Agile Documentation" at
-	 * http://www.phpunit.de/manual/3.4/en/other-uses-for-tests.html
+	 * they run. You are encouraged to use the naming described at:
+	 * https://phpunit.de/manual/6.5/en/other-uses-for-tests.html
 	 */
 	public function testTitleObjectStringConversion() {
 		$title = Title::newFromText( "text" );
-		$this->assertInstanceOf( 'Title', $title, "Title creation" );
+		$this->assertInstanceOf( Title::class, $title, "Title creation" );
 		$this->assertEquals( "Text", $title, "Automatic string conversion" );
 
 		$title = Title::newFromText( "text", NS_MEDIA );
@@ -44,24 +44,24 @@ class TestSample extends MediaWikiLangTestCase {
 	}
 
 	/**
-	 * If you want to run a the same test with a variety of data, use a data provider.
-	 * see: http://www.phpunit.de/manual/3.4/en/writing-tests-for-phpunit.html
+	 * If you want to run the same test with a variety of data, use a data provider.
+	 * See https://phpunit.de/manual/6.5/en/writing-tests-for-phpunit.html
 	 */
 	public static function provideTitles() {
-		return array(
-			array( 'Text', NS_MEDIA, 'Media:Text' ),
-			array( 'Text', null, 'Text' ),
-			array( 'text', null, 'Text' ),
-			array( 'Text', NS_USER, 'User:Text' ),
-			array( 'Photo.jpg', NS_FILE, 'File:Photo.jpg' )
-		);
+		return [
+			[ 'Text', NS_MEDIA, 'Media:Text' ],
+			[ 'Text', null, 'Text' ],
+			[ 'text', null, 'Text' ],
+			[ 'Text', NS_USER, 'User:Text' ],
+			[ 'Photo.jpg', NS_FILE, 'File:Photo.jpg' ]
+		];
 	}
 
 	/**
+	 * phpcs:disable Generic.Files.LineLength
 	 * @dataProvider provideTitles
-	 * @codingStandardsIgnoreStart Ignore long line warning
-	 * See http://phpunit.de/manual/3.7/en/appendixes.annotations.html#appendixes.annotations.dataProvider
-	 * @codingStandardsIgnoreEnd
+	 * See https://phpunit.de/manual/6.5/en/appendixes.annotations.html#appendixes.annotations.dataProvider
+	 * phpcs:enable
 	 */
 	public function testCreateBasicListOfTitles( $titleName, $ns, $text ) {
 		$title = Title::newFromText( $titleName, $ns );
@@ -89,20 +89,17 @@ class TestSample extends MediaWikiLangTestCase {
 
 	/**
 	 * @depends testSetUpMainPageTitleForNextTest
-	 * See http://phpunit.de/manual/3.7/en/appendixes.annotations.html#appendixes.annotations.depends
+	 * See https://phpunit.de/manual/6.5/en/appendixes.annotations.html#appendixes.annotations.depends
 	 */
 	public function testCheckMainPageTitleIsConsideredLocal( $title ) {
 		$this->assertTrue( $title->isLocal() );
 	}
 
-	// @codingStandardsIgnoreStart Ignore long line warning
 	/**
-	 * @expectedException InvalidArgumentException
-	 * See http://phpunit.de/manual/3.7/en/appendixes.annotations.html#appendixes.annotations.expectedException
+	 * See https://phpunit.de/manual/6.5/en/writing-tests-for-phpunit.html#writing-tests-for-phpunit.exceptions
 	 */
-	// @codingStandardsIgnoreEnd
 	public function testTitleObjectFromObject() {
-		$title = Title::newFromText( Title::newFromText( "test" ) );
-		$this->assertEquals( "Test", $title->isLocal() );
+		$this->expectException( InvalidArgumentException::class );
+		Title::newFromText( Title::newFromText( "test" ) );
 	}
 }

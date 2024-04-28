@@ -19,6 +19,9 @@
  * @ingroup RevisionDelete
  */
 
+use MediaWiki\Revision\RevisionRecord;
+use Wikimedia\Rdbms\IDatabase;
+
 /**
  * List for logging table items
  */
@@ -40,11 +43,11 @@ class RevDelLogList extends RevDelList {
 	}
 
 	public static function suggestTarget( $target, array $ids ) {
-		$result = wfGetDB( DB_SLAVE )->select( 'logging',
+		$result = wfGetDB( DB_REPLICA )->select( 'logging',
 			'log_type',
-			array( 'log_id' => $ids ),
+			[ 'log_id' => $ids ],
 			__METHOD__,
-			array( 'DISTINCT' )
+			[ 'DISTINCT' ]
 		);
 		if ( $result->numRows() == 1 ) {
 			// If there's only one type, the target can be set to include it.
@@ -61,23 +64,26 @@ class RevDelLogList extends RevDelList {
 	public function doQuery( $db ) {
 		$ids = array_map( 'intval', $this->ids );
 
-		return $db->select( 'logging', array(
+		$commentQuery = CommentStore::getStore()->getJoin( 'log_comment' );
+		$actorQuery = ActorMigration::newMigration()->getJoin( 'log_user' );
+
+		return $db->select(
+			[ 'logging' ] + $commentQuery['tables'] + $actorQuery['tables'],
+			[
 				'log_id',
 				'log_type',
 				'log_action',
 				'log_timestamp',
-				'log_user',
-				'log_user_text',
 				'log_namespace',
 				'log_title',
 				'log_page',
-				'log_comment',
 				'log_params',
 				'log_deleted'
-			),
-			array( 'log_id' => $ids ),
+			] + $commentQuery['fields'] + $actorQuery['fields'],
+			[ 'log_id' => $ids ],
 			__METHOD__,
-			array( 'ORDER BY' => 'log_id DESC' )
+			[ 'ORDER BY' => 'log_id DESC' ],
+			$commentQuery['joins'] + $actorQuery['joins']
 		);
 	}
 
@@ -86,7 +92,7 @@ class RevDelLogList extends RevDelList {
 	}
 
 	public function getSuppressBit() {
-		return Revision::DELETED_RESTRICTED;
+		return RevisionRecord::DELETED_RESTRICTED;
 	}
 
 	public function getLogAction() {
@@ -94,10 +100,10 @@ class RevDelLogList extends RevDelList {
 	}
 
 	public function getLogParams( $params ) {
-		return array(
+		return [
 			'4::ids' => $params['ids'],
 			'5::ofield' => $params['oldBits'],
 			'6::nfield' => $params['newBits'],
-		);
+		];
 	}
 }

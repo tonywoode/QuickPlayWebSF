@@ -20,41 +20,47 @@
  * @file
  * @ingroup Maintenance
  */
+
+use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\IDatabase;
+
 class BatchRowWriter {
 	/**
-	 * @var DatabaseBase $db The database to write to
+	 * @var IDatabase The database to write to
 	 */
 	protected $db;
 
 	/**
-	 * @var string $table The name of the table to update
+	 * @var string The name of the table to update
 	 */
 	protected $table;
 
 	/**
-	 * @var string $clusterName A cluster name valid for use with LBFactory
+	 * @var string|false A cluster name valid for use with LBFactory
 	 */
 	protected $clusterName;
 
 	/**
-	 * @param DatabaseBase $db          The database to write to
-	 * @param string       $table       The name of the table to update
-	 * @param string|bool  $clusterName A cluster name valid for use with LBFactory
+	 * @param IDatabase $db The database to write to
+	 * @param string $table The name of the table to update
+	 * @param string|false $clusterName A cluster name valid for use with LBFactory
 	 */
-	public function __construct( DatabaseBase $db, $table, $clusterName = false ) {
+	public function __construct( IDatabase $db, $table, $clusterName = false ) {
 		$this->db = $db;
 		$this->table = $table;
 		$this->clusterName = $clusterName;
 	}
 
 	/**
-	 * @param array $updates Array of arrays each containing two keys, 'primaryKey'
+	 * @param array[][] $updates Array of arrays each containing two keys, 'primaryKey'
 	 *  and 'changes'. primaryKey must contain a map of column names to values
-	 *  sufficient to uniquely identify the row changes must contain a map of column
+	 *  sufficient to uniquely identify the row. changes must contain a map of column
 	 *  names to update values to apply to the row.
+	 * @phan-param array<int,array{primaryKey:array,changes:array}> $updates
 	 */
 	public function write( array $updates ) {
-		$this->db->begin();
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+		$ticket = $lbFactory->getEmptyTransactionTicket( __METHOD__ );
 
 		foreach ( $updates as $update ) {
 			$this->db->update(
@@ -65,7 +71,6 @@ class BatchRowWriter {
 			);
 		}
 
-		$this->db->commit();
-		wfWaitForSlaves( false, false, $this->clusterName );
+		$lbFactory->commitAndWaitForReplication( __METHOD__, $ticket );
 	}
 }

@@ -21,9 +21,14 @@
 
 /**
  * Generic list for change tagging.
+ *
+ * @property ChangeTagsLogItem $current
+ * @method ChangeTagsLogItem next()
+ * @method ChangeTagsLogItem reset()
+ * @method ChangeTagsLogItem current()
  */
 abstract class ChangeTagsList extends RevisionListBase {
-	function __construct( IContextSource $context, Title $title, array $ids ) {
+	public function __construct( IContextSource $context, Title $title, array $ids ) {
 		parent::__construct( $context, $title );
 		$this->ids = $ids;
 	}
@@ -39,25 +44,26 @@ abstract class ChangeTagsList extends RevisionListBase {
 	 * @throws Exception If you give an unknown $typeName
 	 */
 	public static function factory( $typeName, IContextSource $context,
-		Title $title, array $ids ) {
-
+		Title $title, array $ids
+	) {
 		switch ( $typeName ) {
 			case 'revision':
-				$className = 'ChangeTagsRevisionList';
+				$className = ChangeTagsRevisionList::class;
 				break;
 			case 'logentry':
-				$className = 'ChangeTagsLogList';
+				$className = ChangeTagsLogList::class;
 				break;
 			default:
-				throw new Exception( "Class $className requested, but does not exist" );
+				throw new Exception( "Class $typeName requested, but does not exist" );
 		}
+
 		return new $className( $context, $title, $ids );
 	}
 
 	/**
 	 * Reload the list data from the master DB.
 	 */
-	function reloadFromMaster() {
+	public function reloadFromMaster() {
 		$dbw = wfGetDB( DB_MASTER );
 		$this->res = $this->doQuery( $dbw );
 	}
@@ -67,11 +73,11 @@ abstract class ChangeTagsList extends RevisionListBase {
 	 *
 	 * @param array $tagsToAdd
 	 * @param array $tagsToRemove
-	 * @param array $params
+	 * @param string|null $params
 	 * @param string $reason
 	 * @param User $user
 	 * @return Status
 	 */
-	abstract function updateChangeTagsOnAll( $tagsToAdd, $tagsToRemove, $params,
+	abstract public function updateChangeTagsOnAll( $tagsToAdd, $tagsToRemove, $params,
 		$reason, $user );
 }

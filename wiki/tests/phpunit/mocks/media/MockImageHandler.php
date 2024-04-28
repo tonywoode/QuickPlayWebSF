@@ -43,7 +43,7 @@ class MockImageHandler {
 	 * @param int $flags
 	 * @return ThumbnailImage
 	 */
-	static function doFakeTransform( $that, $image, $dstPath, $dstUrl, $params, $flags = 0 ) {
+	public static function doFakeTransform( $that, $image, $dstPath, $dstUrl, $params, $flags = 0 ) {
 		# Example of what we receive:
 		# $image: LocalFile
 		# $dstPath: /tmp/transform_7d0a7a2f1a09-1.jpg
@@ -52,7 +52,7 @@ class MockImageHandler {
 
 		$that->normaliseParams( $image, $params );
 
-		$scalerParams = array(
+		$scalerParams = [
 			# The size to which the image will be resized
 			'physicalWidth' => $params['physicalWidth'],
 			'physicalHeight' => $params['physicalHeight'],
@@ -69,14 +69,14 @@ class MockImageHandler {
 			'mimeType' => $image->getMimeType(),
 			'dstPath' => $dstPath,
 			'dstUrl' => $dstUrl,
-		);
+		];
 
 		# In some cases, we do not bother generating a thumbnail.
 		if ( !$image->mustRender() &&
 			$scalerParams['physicalWidth'] == $scalerParams['srcWidth']
 			&& $scalerParams['physicalHeight'] == $scalerParams['srcHeight']
 		) {
-			wfDebug( __METHOD__ . ": returning unscaled image\n" );
+			wfDebug( __METHOD__ . ": returning unscaled image" );
 			// getClientScalingThumbnailImage is protected
 			return $that->doClientImage( $image, $scalerParams );
 		}

@@ -34,9 +34,9 @@ class UploadFromFile extends UploadBase {
 	protected $mUpload = null;
 
 	/**
-	 * @param WebRequest $request
+	 * @param WebRequest &$request
 	 */
-	function initializeFromRequest( &$request ) {
+	public function initializeFromRequest( &$request ) {
 		$upload = $request->getUpload( 'wpUploadFile' );
 		$desiredDestName = $request->getText( 'wpDestFile' );
 		if ( !$desiredDestName ) {
@@ -51,7 +51,7 @@ class UploadFromFile extends UploadBase {
 	 * @param string $name
 	 * @param WebRequestUpload $webRequestUpload
 	 */
-	function initialize( $name, $webRequestUpload ) {
+	public function initialize( $name, $webRequestUpload ) {
 		$this->mUpload = $webRequestUpload;
 		$this->initializePathInfo( $name,
 			$this->mUpload->getTempName(), $this->mUpload->getSize() );
@@ -61,7 +61,7 @@ class UploadFromFile extends UploadBase {
 	 * @param WebRequest $request
 	 * @return bool
 	 */
-	static function isValidRequest( $request ) {
+	public static function isValidRequest( $request ) {
 		# Allow all requests, even if no file is present, so that an error
 		# because a post_max_size or upload_max_filesize overflow
 		return true;
@@ -80,16 +80,15 @@ class UploadFromFile extends UploadBase {
 	public function verifyUpload() {
 		# Check for a post_max_size or upload_max_size overflow, so that a
 		# proper error can be shown to the user
-		if ( is_null( $this->mTempPath ) || $this->isEmptyFile() ) {
+		if ( $this->mTempPath === null || $this->isEmptyFile() ) {
 			if ( $this->mUpload->isIniSizeOverflow() ) {
-				return array(
+				return [
 					'status' => UploadBase::FILE_TOO_LARGE,
 					'max' => min(
 						self::getMaxUploadSize( $this->getSourceType() ),
-						wfShorthandToInteger( ini_get( 'upload_max_filesize' ) ),
-						wfShorthandToInteger( ini_get( 'post_max_size' ) )
+						self::getMaxPhpUploadSize()
 					),
-				);
+				];
 			}
 		}
 
