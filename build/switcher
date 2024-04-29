@@ -51,6 +51,7 @@ if [[ "$1" = "--local" ]]; then
 	echo ""
 	echo "Don't forget to uncomment top of index.php to debug, then var_dump()/print_r()/echo"
 	echo "to PHP debug wiki, uncomment ini_set( 'display_errors', 1 ); in wiki/localSettings.php - https://www.mediawiki.org/wiki/Manual:How_to_debug"
+	echo "echo \$SHLVL to see whether you're in a subshell and how many deep"
 	echo "******************************************************"
 	echo $warn
 	exit

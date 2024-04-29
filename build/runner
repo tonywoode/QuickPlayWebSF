@@ -45,3 +45,4 @@ declare -x sqlArchiveFile="$sqlArchiveFolder"/"$db"-"$date"
 declare -x sqlLiveFile="$sqlFolder/$db.sql"
 
 ./menu
+echo -e "Subshells are a problem with this script, shell level before next operation currently: \033[31m$SHLVL\033[0m. Use echo \$SHLVL to check where we are"

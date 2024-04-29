@@ -26,4 +26,4 @@ while true; do
 		*) echo "Try again";;
 	esac
 done
-$SHELL
+#$SHELL - what was the point of this when i'm already in subshell hell, we want to decrease shell levels on exiting, not increment them!
