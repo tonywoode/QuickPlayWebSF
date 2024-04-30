@@ -157,6 +157,43 @@
 	}
 
 	/**
+	 * If the URL contains a hash followed by the fragment identifier of an
+	 * element inside collapsed parents, expand them all and scroll to it.
+	 *
+	 * @private
+	 */
+	function hashHandler() {
+		var fragment, $parents;
+
+		fragment = document.querySelector( ':target' );
+		if ( !fragment ) {
+			// The fragment doesn't exist
+			return;
+		}
+
+		$parents = $( fragment ).parents( '.mw-collapsed' );
+		if ( !$parents.length ) {
+			// The fragment is not in a collapsed element
+			return;
+		}
+
+		// Expand collapsed parents
+		$parents.each( function () {
+			var $collapsible = $( this );
+			if ( $collapsible.data( 'mw-made-collapsible' ) ) {
+				$collapsible.data( 'mw-collapsible' ).expand();
+			} else {
+				// The collapsible has not been initialized, so just prevent it
+				// from being collapsed
+				$collapsible.removeClass( 'mw-collapsed' );
+			}
+		} );
+
+		// Scroll to the fragment
+		fragment.scrollIntoView();
+	}
+
+	/**
 	 * Enable collapsible-functionality on all elements in the collection.
 	 *
 	 * - Will prevent binding twice to the same element.
@@ -177,7 +214,7 @@
 	 * @param {jQuery} [options.$customTogglers] Elements to be used as togglers
 	 *   for this collapsible element. By default, if the collapsible element
 	 *   has an id attribute like 'mw-customcollapsible-XXX', elements with a
-	 *   *class* of 'mw-customtoggle-XXX' are made togglers for it.
+	 *   **class** of 'mw-customtoggle-XXX' are made togglers for it.
 	 * @param {boolean} [options.plainMode=false] Whether to use a "plain mode" when making the
 	 *   element collapsible - that is, hide entire tables and lists (instead
 	 *   of hiding only all rows but first of tables, and hiding each list
@@ -350,11 +387,14 @@
 			// eslint-disable-next-line no-jquery/no-class-state
 			if ( options.collapsed || $collapsible.hasClass( 'mw-collapsed' ) ) {
 				// One toggler can hook to multiple elements, and one element can have
-				// multiple togglers. This is the sanest way to handle that.
+				// multiple togglers. This is the best way to handle that.
 				actionHandler.call( $toggle.get( 0 ), null, { wasCollapsed: false } );
 			}
 
 		} );
+
+		// Attach hash handler
+		window.addEventListener( 'hashchange', hashHandler );
 
 		/**
 		 * Fired after collapsible content has been initialized
@@ -369,6 +409,9 @@
 
 		return this;
 	};
+
+	// Run hash handler right now in case the URL already has a hash
+	hashHandler();
 
 	/**
 	 * @class jQuery

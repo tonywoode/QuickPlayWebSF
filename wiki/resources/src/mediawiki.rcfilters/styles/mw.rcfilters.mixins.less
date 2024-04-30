@@ -2,6 +2,8 @@
 @import 'mediawiki.ui/variables.less';
 @import 'mw.rcfilters.variables.less';
 
+/* stylelint-disable selector-class-pattern */
+
 // Circle mixin
 .mw-rcfilters-circle( @min-size-diameter: @min-size-circle, @size-diameter: @size-circle, @margin: 0.5em ) {
 	.box-sizing( border-box );
@@ -44,6 +46,7 @@
 
 // A mixin for changes list containers. Applies enough margin-left to fit the 5 highlight circles.
 .result-circle-margin() {
+	/* stylelint-disable-next-line plugin/no-unsupported-browser-features */
 	margin-left: ~'calc( ( @{size-circle-result} + @{margin-circle-result} ) * 5 + @{margin-circle} )';
 }
 

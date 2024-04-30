@@ -58,17 +58,19 @@ class BlockLogFormatter extends LogFormatter {
 			// in English to help visitors from other wikis.
 			// The lrm is needed to make sure that the number
 			// is shown on the correct side of the tooltip text.
+			// @phan-suppress-next-line SecurityCheck-DoubleEscaped
 			$durationTooltip = '&lrm;' . htmlspecialchars( $params[4] );
 			$blockExpiry = $this->context->getLanguage()->translateBlockExpiry(
 				$params[4],
 				$this->context->getUser(),
-				wfTimestamp( TS_UNIX, $this->entry->getTimestamp() )
+				(int)wfTimestamp( TS_UNIX, $this->entry->getTimestamp() )
 			);
 			if ( $this->plaintext ) {
 				$params[4] = Message::rawParam( $blockExpiry );
 			} else {
 				$params[4] = Message::rawParam(
 					"<span class=\"blockExpiry\" title=\"$durationTooltip\">" .
+					// @phan-suppress-next-line SecurityCheck-DoubleEscaped language class does not escape
 					htmlspecialchars( $blockExpiry ) .
 					'</span>'
 				);
@@ -93,6 +95,11 @@ class BlockLogFormatter extends LogFormatter {
 					return $this->makePageLink( SpecialPage::getTitleFor( 'Allpages' ), $params, $text );
 				}, $namespaces );
 
+				$actions = $params[6]['actions'] ?? [];
+				$actions = array_map( function ( $actions ) {
+					return $this->msg( 'ipb-action-' . $actions )->escaped();
+				}, $actions );
+
 				$restrictions = [];
 				if ( $pages ) {
 					$restrictions[] = $this->msg( 'logentry-partialblock-block-page' )
@@ -104,6 +111,13 @@ class BlockLogFormatter extends LogFormatter {
 					$restrictions[] = $this->msg( 'logentry-partialblock-block-ns' )
 						->numParams( count( $namespaces ) )
 						->rawParams( $this->context->getLanguage()->listToText( $namespaces ) )->escaped();
+				}
+				$enablePartialActionBlocks = MediaWikiServices::getInstance()
+					->getMainConfig()->get( 'EnablePartialActionBlocks' );
+				if ( $actions && $enablePartialActionBlocks ) {
+					$restrictions[] = $this->msg( 'logentry-partialblock-block-action' )
+						->numParams( count( $actions ) )
+						->rawParams( $this->context->getLanguage()->listToText( $actions ) )->escaped();
 				}
 
 				$params[6] = Message::rawParam( $this->context->getLanguage()->listToText( $restrictions ) );
@@ -148,9 +162,7 @@ class BlockLogFormatter extends LogFormatter {
 		$linkRenderer = $this->getLinkRenderer();
 		if ( $this->entry->isDeleted( LogPage::DELETED_ACTION ) // Action is hidden
 			|| !( $subtype === 'block' || $subtype === 'reblock' )
-			|| !MediaWikiServices::getInstance()
-				->getPermissionManager()
-				->userHasRight( $this->context->getUser(), 'block' )
+			|| !$this->context->getAuthority()->isAllowed( 'block' )
 		) {
 			return '';
 		}
@@ -199,7 +211,7 @@ class BlockLogFormatter extends LogFormatter {
 	/**
 	 * Translate a block log flag if possible
 	 *
-	 * @param int $flag Flag to translate
+	 * @param string $flag Flag to translate
 	 * @param Language $lang Language object to use
 	 * @return string
 	 */
@@ -264,7 +276,7 @@ class BlockLogFormatter extends LogFormatter {
 			}
 
 			if ( !wfIsInfinity( $params['5::duration'] ) ) {
-				$ts = wfTimestamp( TS_UNIX, $entry->getTimestamp() );
+				$ts = (int)wfTimestamp( TS_UNIX, $entry->getTimestamp() );
 				$expiry = strtotime( $params['5::duration'], $ts );
 				if ( $expiry !== false && $expiry > 0 ) {
 					$params[':timestamp:expiry'] = $expiry;

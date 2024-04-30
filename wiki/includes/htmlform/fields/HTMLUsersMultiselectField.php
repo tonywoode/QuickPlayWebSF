@@ -1,6 +1,9 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+use MediaWiki\User\UserNameUtils;
 use MediaWiki\Widget\UsersMultiselectWidget;
+use Wikimedia\IPUtils;
 
 /**
  * Implements a tag multiselect input field for user names.
@@ -21,11 +24,34 @@ class HTMLUsersMultiselectField extends HTMLUserTextField {
 
 		$usersArray = explode( "\n", $value );
 		// Remove empty lines
-		$usersArray = array_values( array_filter( $usersArray, function ( $username ) {
+		$usersArray = array_values( array_filter( $usersArray, static function ( $username ) {
 			return trim( $username ) !== '';
 		} ) );
+
+		// Normalize usernames
+		$normalizedUsers = [];
+		$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
+		$listOfIps = [];
+		foreach ( $usersArray as $user ) {
+			$canonicalUser = false;
+			if ( IPUtils::isIPAddress( $user ) ) {
+				$parsedIPRange = IPUtils::parseRange( $user );
+				if ( !in_array( $parsedIPRange, $listOfIps ) ) {
+					$canonicalUser = IPUtils::sanitizeRange( $user );
+					$listOfIps[] = $parsedIPRange;
+				}
+			} else {
+				$canonicalUser = $userNameUtils->getCanonical( $user, UserNameUtils::RIGOR_NONE );
+			}
+			if ( $canonicalUser !== false ) {
+				$normalizedUsers[] = $canonicalUser;
+			}
+		}
+		// Remove any duplicate usernames
+		$uniqueUsers = array_unique( $normalizedUsers );
+
 		// This function is expected to return a string
-		return implode( "\n", $usersArray );
+		return implode( "\n", $uniqueUsers );
 	}
 
 	public function validate( $value, $alldata ) {
@@ -107,7 +133,7 @@ class HTMLUsersMultiselectField extends HTMLUserTextField {
 
 		// Make the field auto-infusable when it's used inside a legacy HTMLForm rather than OOUIHTMLForm
 		$params['infusable'] = true;
-		$params['classes'] = [ 'mw-htmlform-field-autoinfuse' ];
+		$params['classes'] = [ 'mw-htmlform-autoinfuse' ];
 		$widget = new UsersMultiselectWidget( $params );
 		$widget->setAttributes( [ 'data-mw-modules' => implode( ',', $this->getOOUIModules() ) ] );
 

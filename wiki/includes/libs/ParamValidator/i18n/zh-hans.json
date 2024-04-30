@@ -29,6 +29,7 @@
 	"paramvalidator-maxbytes": "参数“$1”的值不能超过$3{{PLURAL:$3|字节}}（提供了$4）。",
 	"paramvalidator-maxchars": "参数“$1”的值不能超过$3{{PLURAL:$3|字符}}（提供了$4）。",
 	"paramvalidator-missingparam": "\"$1\"参数必须被设置。",
+	"paramvalidator-notmulti": "\"$1\"参数只接受单个值。U+001F多值分隔法只能用于支持多个值的参数。",
 	"paramvalidator-outofrange-max": "给参数\"$1\"的值\"$2\"必须不大于$4。",
 	"paramvalidator-outofrange-minmax": "给参数\"$1\"的值\"$2\"必须介于$3和$4之间。",
 	"paramvalidator-outofrange-min": "给参数\"$1\"的值\"$2\"必须不小于$3。",

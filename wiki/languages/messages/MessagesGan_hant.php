@@ -1,5 +1,5 @@
 <?php
-/** Traditional Gan script (贛語（繁體）‎)
+/** Traditional Gan script (贛語（繁體）)
  *
  * To improve a translation please visit https://translatewiki.net
  *
@@ -21,6 +21,7 @@ $namespaceNames = [
 	NS_CATEGORY_TALK    => '分類談詑',
 ];
 
+/** @phpcs-require-sorted-array */
 $specialPageAliases = [
 	'Ancientpages'              => [ '老早嗰頁面' ],
 	'BrokenRedirects'           => [ '壞吥嗰重定向頁' ],

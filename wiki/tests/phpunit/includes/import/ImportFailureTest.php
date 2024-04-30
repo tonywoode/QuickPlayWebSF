@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\MediaWikiServices;
-
 /**
  * Import failure test.
  *
@@ -13,7 +11,7 @@ class ImportFailureTest extends MediaWikiLangTestCase {
 	public function setUp(): void {
 		parent::setUp();
 
-		$slotRoleRegistry = MediaWikiServices::getInstance()->getSlotRoleRegistry();
+		$slotRoleRegistry = $this->getServiceContainer()->getSlotRoleRegistry();
 
 		if ( !$slotRoleRegistry->isDefinedRole( 'ImportFailureTest' ) ) {
 			$slotRoleRegistry->defineRoleWithModel( 'ImportFailureTest', CONTENT_MODEL_WIKITEXT );
@@ -29,7 +27,20 @@ class ImportFailureTest extends MediaWikiLangTestCase {
 		$config = new HashConfig( [
 			'CommandLineMode' => true,
 		] );
-		$importer = new WikiImporter( $source, $config );
+		$services = $this->getServiceContainer();
+		$importer = new WikiImporter(
+			$source,
+			$config,
+			$services->getHookContainer(),
+			$services->getContentLanguage(),
+			$services->getNamespaceInfo(),
+			$services->getTitleFactory(),
+			$services->getWikiPageFactory(),
+			$services->getWikiRevisionUploadImporter(),
+			$services->getPermissionManager(),
+			$services->getContentHandlerFactory(),
+			$services->getSlotRoleRegistry()
+		);
 		return $importer;
 	}
 
@@ -44,6 +55,7 @@ class ImportFailureTest extends MediaWikiLangTestCase {
 
 	/**
 	 * @param string $prefix
+	 * @param string[] $keys
 	 *
 	 * @return string[]
 	 */
@@ -64,7 +76,7 @@ class ImportFailureTest extends MediaWikiLangTestCase {
 	 * @return string
 	 */
 	private function injectPageTitles( string $xmlData, array $pageTitles ) {
-		$keys = array_map( function ( $name ) {
+		$keys = array_map( static function ( $name ) {
 			return "{{{$name}_title}}";
 		}, array_keys( $pageTitles ) );
 
@@ -77,7 +89,7 @@ class ImportFailureTest extends MediaWikiLangTestCase {
 
 	public function provideImportFailure() {
 		yield [ 'BadXML', 'warning', '/^XMLReader::read\(\): .*$/' ];
-		yield [ 'MissingMediaWikiTag', MWException::class, "/^Expected '<mediawiki>' tag, got .*$/" ];
+		yield [ 'MissingMediaWikiTag', MWException::class, '/^Expected <mediawiki> tag, got .*$/' ];
 		yield [ 'MissingMainTextField', MWException::class, '/^Missing text field in import.$/' ];
 		yield [ 'MissingSlotTextField', MWException::class, '/^Missing text field in import.$/' ];
 		yield [ 'MissingSlotRole', MWException::class, '/^Missing role for imported slot.$/' ];

@@ -29,6 +29,10 @@
  */
 class ApiQueryLangBacklinks extends ApiQueryGeneratorBase {
 
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 */
 	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'lbl' );
 	}
@@ -77,7 +81,7 @@ class ApiQueryLangBacklinks extends ApiQueryGeneratorBase {
 			);
 		}
 
-		$prop = array_flip( $params['prop'] );
+		$prop = array_fill_keys( $params['prop'], true );
 		$lllang = isset( $prop['lllang'] );
 		$lltitle = isset( $prop['lltitle'] );
 

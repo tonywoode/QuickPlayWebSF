@@ -1,7 +1,6 @@
 <?php
 
 use PHPUnit\Framework\MockObject\MockObject;
-use Wikimedia\ScopedCallback;
 
 class WikiCategoryPageTest extends MediaWikiLangTestCase {
 
@@ -25,13 +24,11 @@ class WikiCategoryPageTest extends MediaWikiLangTestCase {
 		$pageProps->expects( $this->once() )
 			->method( 'getProperties' )
 			->with( $title, 'hiddencat' )
-			->will( $this->returnValue( [] ) );
+			->willReturn( [] );
 
-		$scopedOverride = PageProps::overrideInstance( $pageProps );
+		$this->setService( 'PageProps', $pageProps );
 
 		$this->assertFalse( $categoryPage->isHidden() );
-
-		ScopedCallback::consume( $scopedOverride );
 	}
 
 	public function provideCategoryContent() {
@@ -53,13 +50,11 @@ class WikiCategoryPageTest extends MediaWikiLangTestCase {
 		$pageProps->expects( $this->once() )
 			->method( 'getProperties' )
 			->with( $categoryTitle, 'hiddencat' )
-			->will( $this->returnValue( $isHidden ? [ $categoryTitle->getArticleID() => '' ] : [] ) );
+			->willReturn( $isHidden ? [ $categoryTitle->getArticleID() => '' ] : [] );
 
-		$scopedOverride = PageProps::overrideInstance( $pageProps );
+		$this->setService( 'PageProps', $pageProps );
 
 		$this->assertEquals( $isHidden, $categoryPage->isHidden() );
-
-		ScopedCallback::consume( $scopedOverride );
 	}
 
 	/**
@@ -73,13 +68,11 @@ class WikiCategoryPageTest extends MediaWikiLangTestCase {
 		$pageProps->expects( $this->once() )
 			->method( 'getProperties' )
 			->with( $title, 'expectunusedcategory' )
-			->will( $this->returnValue( [] ) );
+			->willReturn( [] );
 
-		$scopedOverride = PageProps::overrideInstance( $pageProps );
+		$this->setService( 'PageProps', $pageProps );
 
 		$this->assertFalse( $categoryPage->isExpectedUnusedCategory() );
-
-		ScopedCallback::consume( $scopedOverride );
 	}
 
 	/**
@@ -95,12 +88,10 @@ class WikiCategoryPageTest extends MediaWikiLangTestCase {
 		$pageProps->expects( $this->once() )
 			->method( 'getProperties' )
 			->with( $categoryTitle, 'expectunusedcategory' )
-			->will( $this->returnValue( $returnValue ) );
+			->willReturn( $returnValue );
 
-		$scopedOverride = PageProps::overrideInstance( $pageProps );
+		$this->setService( 'PageProps', $pageProps );
 
 		$this->assertEquals( $isExpectedUnusedCategory, $categoryPage->isExpectedUnusedCategory() );
-
-		ScopedCallback::consume( $scopedOverride );
 	}
 }

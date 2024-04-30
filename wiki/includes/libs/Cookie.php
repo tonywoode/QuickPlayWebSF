@@ -28,7 +28,7 @@ class Cookie {
 	protected $path;
 	protected $domain;
 	protected $isSessionKey = true;
-	// TO IMPLEMENT	 protected $secure
+	// TO IMPLEMENT  protected $secure
 	// TO IMPLEMENT? protected $maxAge (add onto expires)
 	// TO IMPLEMENT? protected $version
 	// TO IMPLEMENT? protected $comment
@@ -74,7 +74,7 @@ class Cookie {
 	 * false.  The uses a method similar to IE cookie security
 	 * described here:
 	 * http://kuza55.blogspot.com/2008/02/understanding-cookie-security.html
-	 * A better method might be to use a blacklist like
+	 * A better method might be to use a list like
 	 * http://publicsuffix.org/
 	 *
 	 * @todo fixme fails to detect 3-letter top-level domains

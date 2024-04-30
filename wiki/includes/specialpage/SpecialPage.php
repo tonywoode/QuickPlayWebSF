@@ -27,6 +27,8 @@ use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Navigation\PrevNextNavigationRenderer;
+use MediaWiki\Permissions\Authority;
+use MediaWiki\SpecialPage\SpecialPageFactory;
 
 /**
  * Parent class for all special pages.
@@ -39,24 +41,28 @@ use MediaWiki\Navigation\PrevNextNavigationRenderer;
  * @ingroup SpecialPage
  */
 class SpecialPage implements MessageLocalizer {
-	// The canonical name of this special page
-	// Also used for the default <h1> heading, @see getDescription()
+	/**
+	 * @var string The canonical name of this special page
+	 * Also used for the default <h1> heading, @see getDescription()
+	 */
 	protected $mName;
 
-	// The local name of this special page
+	/** @var string The local name of this special page */
 	private $mLocalName;
 
-	// Minimum user level required to access this page, or "" for anyone.
-	// Also used to categorise the pages in Special:Specialpages
+	/**
+	 * @var string Minimum user level required to access this page, or "" for anyone.
+	 * Also used to categorise the pages in Special:Specialpages
+	 */
 	protected $mRestriction;
 
-	// Listed in Special:Specialpages?
+	/** @var bool Listed in Special:Specialpages? */
 	private $mListed;
 
-	// Whether or not this special page is being included from an article
+	/** @var bool Whether or not this special page is being included from an article */
 	protected $mIncluding;
 
-	// Whether the special page can be included in an article
+	/** @var bool Whether the special page can be included in an article */
 	protected $mIncludable;
 
 	/**
@@ -65,15 +71,48 @@ class SpecialPage implements MessageLocalizer {
 	 */
 	protected $mContext;
 
+	/** @var Language|null */
+	private $contentLanguage;
+
 	/**
-	 * @var \MediaWiki\Linker\LinkRenderer|null
+	 * @var LinkRenderer|null
 	 */
-	private $linkRenderer;
+	private $linkRenderer = null;
 
 	/** @var HookContainer|null */
 	private $hookContainer;
 	/** @var HookRunner|null */
 	private $hookRunner;
+
+	/** @var AuthManager|null */
+	private $authManager = null;
+
+	/** @var SpecialPageFactory */
+	private $specialPageFactory;
+
+	/**
+	 * Get the users preferred search page.
+	 *
+	 * It will fall back to Special:Search if the preference points to a page
+	 * that doesn't exist or is not defined.
+	 *
+	 * @since 1.38
+	 * @param User $user Search page can be customized by user preference.
+	 * @return Title
+	 */
+	public static function newSearchPage( User $user ) {
+		// Try user preference first
+		$userOptionsManager = MediaWikiServices::getInstance()->getUserOptionsManager();
+		$title = $userOptionsManager->getOption( $user, 'search-special-page' );
+		if ( $title ) {
+			$page = self::getTitleFor( $title );
+			$factory = MediaWikiServices::getInstance()->getSpecialPageFactory();
+			if ( $factory->exists( $page->getText() ) ) {
+				return $page;
+			}
+		}
+		return self::getTitleFor( 'Search' );
+	}
 
 	/**
 	 * Get a localised Title object for a specified special page name
@@ -84,7 +123,7 @@ class SpecialPage implements MessageLocalizer {
 	 * @since 1.21 $fragment parameter added
 	 *
 	 * @param string $name
-	 * @param string|bool $subpage Subpage string, or false to not use a subpage
+	 * @param string|false $subpage Subpage string, or false to not use a subpage
 	 * @param string $fragment The link fragment (after the "#")
 	 * @return Title
 	 * @throws MWException
@@ -100,7 +139,7 @@ class SpecialPage implements MessageLocalizer {
 	 *
 	 * @since 1.28
 	 * @param string $name
-	 * @param string|bool $subpage Subpage string, or false to not use a subpage
+	 * @param string|false $subpage Subpage string, or false to not use a subpage
 	 * @param string $fragment The link fragment (after the "#")
 	 * @return TitleValue
 	 */
@@ -115,7 +154,7 @@ class SpecialPage implements MessageLocalizer {
 	 * Get a localised Title object for a page name with a possibly unvalidated subpage
 	 *
 	 * @param string $name
-	 * @param string|bool $subpage Subpage string, or false to not use a subpage
+	 * @param string|false $subpage Subpage string, or false to not use a subpage
 	 * @return Title|null Title object or null if the page doesn't exist
 	 */
 	public static function getSafeTitleFor( $name, $subpage = false ) {
@@ -259,8 +298,7 @@ class SpecialPage implements MessageLocalizer {
 	 */
 	public function getLocalName() {
 		if ( !isset( $this->mLocalName ) ) {
-			$this->mLocalName = MediaWikiServices::getInstance()->getSpecialPageFactory()->
-				getLocalNameFor( $this->mName );
+			$this->mLocalName = $this->getSpecialPageFactory()->getLocalNameFor( $this->mName );
 		}
 
 		return $this->mLocalName;
@@ -304,8 +342,8 @@ class SpecialPage implements MessageLocalizer {
 	public function isRestricted() {
 		// DWIM: If anons can do something, then it is not restricted
 		return $this->mRestriction != '' && !MediaWikiServices::getInstance()
-				->getPermissionManager()
-				->groupHasPermission( '*', $this->mRestriction );
+			->getGroupPermissionsLookup()
+			->groupHasPermission( '*', $this->mRestriction );
 	}
 
 	/**
@@ -327,6 +365,7 @@ class SpecialPage implements MessageLocalizer {
 	 * Output an error message telling the user what access level they have to have
 	 * @stable to override
 	 * @throws PermissionsError
+	 * @return never
 	 */
 	protected function displayRestrictionError() {
 		throw new PermissionsError( $this->mRestriction );
@@ -337,7 +376,7 @@ class SpecialPage implements MessageLocalizer {
 	 *
 	 * @stable to override
 	 * @since 1.19
-	 * @return void
+	 * @return void|never
 	 * @throws PermissionsError
 	 */
 	public function checkPermissions() {
@@ -350,7 +389,7 @@ class SpecialPage implements MessageLocalizer {
 	 * If the wiki is currently in readonly mode, throws a ReadOnlyError
 	 *
 	 * @since 1.19
-	 * @return void
+	 * @return void|never
 	 * @throws ReadOnlyError
 	 */
 	public function checkReadOnly() {
@@ -401,6 +440,8 @@ class SpecialPage implements MessageLocalizer {
 	 * getLoginSecurityLevel() or checkLoginSecurityLevel(), it should probably
 	 * implement this to do something with the data.
 	 *
+	 * @note Call self::setAuthManager from special page constructor when overriding
+	 *
 	 * @stable to override
 	 * @since 1.32
 	 * @param array $data
@@ -438,8 +479,7 @@ class SpecialPage implements MessageLocalizer {
 		$key = 'SpecialPage:reauth:' . $this->getName();
 		$request = $this->getRequest();
 
-		$securityStatus = MediaWikiServices::getInstance()->getAuthManager()
-			->securitySensitiveOperationStatus( $level );
+		$securityStatus = $this->getAuthManager()->securitySensitiveOperationStatus( $level );
 		if ( $securityStatus === AuthManager::SEC_OK ) {
 			$uniqueId = $request->getVal( 'postUniqueId' );
 			if ( $uniqueId ) {
@@ -486,6 +526,31 @@ class SpecialPage implements MessageLocalizer {
 	}
 
 	/**
+	 * Set the injected AuthManager from the special page constructor
+	 *
+	 * @since 1.36
+	 * @param AuthManager $authManager
+	 */
+	final protected function setAuthManager( AuthManager $authManager ) {
+		$this->authManager = $authManager;
+	}
+
+	/**
+	 * @note Call self::setAuthManager from special page constructor when using
+	 *
+	 * @since 1.36
+	 * @return AuthManager
+	 */
+	final protected function getAuthManager(): AuthManager {
+		if ( $this->authManager === null ) {
+			// Fallback if not provided
+			// TODO Change to wfWarn in a future release
+			$this->authManager = MediaWikiServices::getInstance()->getAuthManager();
+		}
+		return $this->authManager;
+	}
+
+	/**
 	 * Return an array of subpages beginning with $search that this special page will accept.
 	 *
 	 * For example, if a page supports subpages "foo", "bar" and "baz" (as in Special:PageName/foo,
@@ -526,23 +591,29 @@ class SpecialPage implements MessageLocalizer {
 
 	/**
 	 * Perform a regular substring search for prefixSearchSubpages
+	 * @since 1.36 Added $searchEngineFactory parameter
 	 * @param string $search Prefix to search for
 	 * @param int $limit Maximum number of results to return (usually 10)
 	 * @param int $offset Number of results to skip (usually 0)
+	 * @param SearchEngineFactory|null $searchEngineFactory Provide the service
 	 * @return string[] Matching subpages
 	 */
-	protected function prefixSearchString( $search, $limit, $offset ) {
+	protected function prefixSearchString( $search, $limit, $offset, SearchEngineFactory $searchEngineFactory = null ) {
 		$title = Title::newFromText( $search );
 		if ( !$title || !$title->canExist() ) {
 			// No prefix suggestion in special and media namespace
 			return [];
 		}
 
-		$searchEngine = MediaWikiServices::getInstance()->newSearchEngine();
+		$searchEngine = $searchEngineFactory
+			? $searchEngineFactory->create()
+			// Fallback if not provided
+			// TODO Change to wfWarn in a future release
+			: MediaWikiServices::getInstance()->newSearchEngine();
 		$searchEngine->setLimitOffset( $limit, $offset );
 		$searchEngine->setNamespaces( [] );
 		$result = $searchEngine->defaultPrefixSearch( $search );
-		return array_map( function ( Title $t ) {
+		return array_map( static function ( Title $t ) {
 			return $t->getPrefixedText();
 		}, $result );
 	}
@@ -661,7 +732,7 @@ class SpecialPage implements MessageLocalizer {
 	 */
 	protected function outputHeader( $summaryMessageKey = '' ) {
 		if ( $summaryMessageKey == '' ) {
-			$msg = MediaWikiServices::getInstance()->getContentLanguage()->lc( $this->getName() ) .
+			$msg = $this->getContentLanguage()->lc( $this->getName() ) .
 				'-summary';
 		} else {
 			$msg = $summaryMessageKey;
@@ -690,7 +761,7 @@ class SpecialPage implements MessageLocalizer {
 	/**
 	 * Get a self-referential title object
 	 *
-	 * @param string|bool $subpage
+	 * @param string|false $subpage
 	 * @return Title
 	 * @since 1.23
 	 */
@@ -715,14 +786,13 @@ class SpecialPage implements MessageLocalizer {
 	 * @since 1.18
 	 */
 	public function getContext() {
-		if ( $this->mContext instanceof IContextSource ) {
-			return $this->mContext;
-		} else {
+		if ( !( $this->mContext instanceof IContextSource ) ) {
 			wfDebug( __METHOD__ . " called and \$mContext is null. " .
-				"Return RequestContext::getMain(); for sanity" );
+				"Using RequestContext::getMain()" );
 
-			return RequestContext::getMain();
+			$this->mContext = RequestContext::getMain();
 		}
+		return $this->mContext;
 	}
 
 	/**
@@ -756,6 +826,16 @@ class SpecialPage implements MessageLocalizer {
 	}
 
 	/**
+	 * Shortcut to get the Authority executing this instance
+	 *
+	 * @return Authority
+	 * @since 1.36
+	 */
+	public function getAuthority(): Authority {
+		return $this->getContext()->getAuthority();
+	}
+
+	/**
 	 * Shortcut to get the skin being used for this instance
 	 *
 	 * @return Skin
@@ -776,12 +856,40 @@ class SpecialPage implements MessageLocalizer {
 	}
 
 	/**
+	 * Shortcut to get content language
+	 *
+	 * @return Language
+	 * @since 1.36
+	 */
+	final public function getContentLanguage(): Language {
+		if ( $this->contentLanguage === null ) {
+			// Fallback if not provided
+			// TODO Change to wfWarn in a future release
+			$this->contentLanguage = MediaWikiServices::getInstance()->getContentLanguage();
+		}
+		return $this->contentLanguage;
+	}
+
+	/**
+	 * Set content language
+	 *
+	 * @internal For factory only
+	 * @param Language $contentLanguage
+	 * @since 1.36
+	 */
+	final public function setContentLanguage( Language $contentLanguage ) {
+		$this->contentLanguage = $contentLanguage;
+	}
+
+	/**
 	 * Shortcut to get language's converter
 	 *
+	 * @deprecated since 1.36 Inject LanguageConverterFactory and store a ILanguageConverter instance
 	 * @return ILanguageConverter
 	 * @since 1.35
 	 */
 	protected function getLanguageConverter(): ILanguageConverter {
+		wfDeprecated( __METHOD__, '1.36' );
 		return MediaWikiServices::getInstance()->getLanguageConverterFactory()
 			->getLanguageConverter();
 	}
@@ -866,13 +974,13 @@ class SpecialPage implements MessageLocalizer {
 			return;
 		}
 
-		$msg = $this->msg(
-			MediaWikiServices::getInstance()->getContentLanguage()->lc( $this->getName() ) .
-			'-helppage' );
+		$msg = $this->msg( $this->getContentLanguage()->lc( $this->getName() ) . '-helppage' );
 
 		if ( !$msg->isDisabled() ) {
-			$helpUrl = Skin::makeUrl( $msg->plain() );
-			$this->getOutput()->addHelpLink( $helpUrl, true );
+			$title = Title::newFromText( $msg->plain() );
+			if ( $title instanceof Title ) {
+				$this->getOutput()->addHelpLink( $title->getLocalURL(), true );
+			}
 		} else {
 			$this->getOutput()->addHelpLink( $to, $overrideBaseUrl );
 		}
@@ -939,19 +1047,20 @@ class SpecialPage implements MessageLocalizer {
 
 	/**
 	 * @since 1.28
-	 * @return \MediaWiki\Linker\LinkRenderer
+	 * @return LinkRenderer
 	 */
-	public function getLinkRenderer() {
-		if ( $this->linkRenderer ) {
-			return $this->linkRenderer;
-		} else {
-			return MediaWikiServices::getInstance()->getLinkRenderer();
+	public function getLinkRenderer(): LinkRenderer {
+		if ( $this->linkRenderer === null ) {
+			// TODO Inject the service
+			$this->linkRenderer = MediaWikiServices::getInstance()->getLinkRendererFactory()
+				->create();
 		}
+		return $this->linkRenderer;
 	}
 
 	/**
 	 * @since 1.28
-	 * @param \MediaWiki\Linker\LinkRenderer $linkRenderer
+	 * @param LinkRenderer $linkRenderer
 	 */
 	public function setLinkRenderer( LinkRenderer $linkRenderer ) {
 		$this->linkRenderer = $linkRenderer;
@@ -964,7 +1073,7 @@ class SpecialPage implements MessageLocalizer {
 	 * @param int $limit
 	 * @param array $query Optional URL query parameter string
 	 * @param bool $atend Optional param for specified if this is the last page
-	 * @param string|bool $subpage Optional param for specifying subpage
+	 * @param string|false $subpage Optional param for specifying subpage
 	 * @return string
 	 */
 	protected function buildPrevNextNavigation(
@@ -1012,5 +1121,27 @@ class SpecialPage implements MessageLocalizer {
 			$this->hookRunner = new HookRunner( $this->getHookContainer() );
 		}
 		return $this->hookRunner;
+	}
+
+	/**
+	 * @internal For factory only
+	 * @since 1.36
+	 * @param SpecialPageFactory $specialPageFactory
+	 */
+	final public function setSpecialPageFactory( SpecialPageFactory $specialPageFactory ) {
+		$this->specialPageFactory = $specialPageFactory;
+	}
+
+	/**
+	 * @since 1.36
+	 * @return SpecialPageFactory
+	 */
+	final protected function getSpecialPageFactory(): SpecialPageFactory {
+		if ( !$this->specialPageFactory ) {
+			// Fallback if not provided
+			// TODO Change to wfWarn in a future release
+			$this->specialPageFactory = MediaWikiServices::getInstance()->getSpecialPageFactory();
+		}
+		return $this->specialPageFactory;
 	}
 }

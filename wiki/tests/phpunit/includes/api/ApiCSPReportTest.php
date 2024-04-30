@@ -7,13 +7,6 @@
  */
 class ApiCSPReportTest extends MediaWikiIntegrationTestCase {
 
-	protected function setUp() : void {
-		parent::setUp();
-		$this->setMwGlobals( [
-			'CSPFalsePositiveUrls' => [],
-		] );
-	}
-
 	public function testInternalReportonly() {
 		$params = [
 			'reportonly' => '1',
@@ -84,7 +77,7 @@ class ApiCSPReportTest extends MediaWikiIntegrationTestCase {
 		$log = [];
 		$logger = $this->createMock( Psr\Log\AbstractLogger::class );
 		$logger->method( 'warning' )->will( $this->returnCallback(
-			function ( $msg, $ctx ) use ( &$log ) {
+			static function ( $msg, $ctx ) use ( &$log ) {
 				unset( $ctx['csp-report'] );
 				$log[] = [ $msg, $ctx ];
 			}
@@ -93,7 +86,7 @@ class ApiCSPReportTest extends MediaWikiIntegrationTestCase {
 
 		$postBody = json_encode( [ 'csp-report' => $cspReport ] );
 		$req = $this->getMockBuilder( FauxRequest::class )
-			->setMethods( [ 'getRawInput' ] )
+			->onlyMethods( [ 'getRawInput' ] )
 			->setConstructorArgs( [ $params, /* $wasPosted */ true ] )
 			->getMock();
 		$req->method( 'getRawInput' )->willReturn( $postBody );
@@ -104,10 +97,10 @@ class ApiCSPReportTest extends MediaWikiIntegrationTestCase {
 
 		$api = $this->getMockBuilder( ApiCSPReport::class )
 			->disableOriginalConstructor()
-			->setMethods( [ 'getParameter', 'getRequest', 'getResult' ] )
+			->onlyMethods( [ 'getParameter', 'getRequest', 'getResult' ] )
 			->getMock();
 		$api->method( 'getParameter' )->will( $this->returnCallback(
-			function ( $key ) use ( $req ) {
+			static function ( $key ) use ( $req ) {
 				return $req->getRawVal( $key );
 			}
 		) );

@@ -21,6 +21,7 @@
  * @ingroup Parser
  */
 use MediaWiki\Config\ServiceOptions;
+use MediaWiki\Parser\ParserOutputFlags;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -62,9 +63,9 @@ class CoreMagicVariables {
 			case '!':
 				return '|';
 			case 'currentmonth':
-				return $pageLang->formatNum( MWTimestamp::getInstance( $ts )->format( 'm' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getInstance( $ts )->format( 'm' ) );
 			case 'currentmonth1':
-				return $pageLang->formatNum( MWTimestamp::getInstance( $ts )->format( 'n' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getInstance( $ts )->format( 'n' ) );
 			case 'currentmonthname':
 				return $pageLang->getMonthName( MWTimestamp::getInstance( $ts )->format( 'n' ) );
 			case 'currentmonthnamegen':
@@ -72,13 +73,13 @@ class CoreMagicVariables {
 			case 'currentmonthabbrev':
 				return $pageLang->getMonthAbbreviation( MWTimestamp::getInstance( $ts )->format( 'n' ) );
 			case 'currentday':
-				return $pageLang->formatNum( MWTimestamp::getInstance( $ts )->format( 'j' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getInstance( $ts )->format( 'j' ) );
 			case 'currentday2':
-				return $pageLang->formatNum( MWTimestamp::getInstance( $ts )->format( 'd' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getInstance( $ts )->format( 'd' ) );
 			case 'localmonth':
-				return $pageLang->formatNum( MWTimestamp::getLocalInstance( $ts )->format( 'm' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getLocalInstance( $ts )->format( 'm' ) );
 			case 'localmonth1':
-				return $pageLang->formatNum( MWTimestamp::getLocalInstance( $ts )->format( 'n' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getLocalInstance( $ts )->format( 'n' ) );
 			case 'localmonthname':
 				return $pageLang->getMonthName( MWTimestamp::getLocalInstance( $ts )->format( 'n' ) );
 			case 'localmonthnamegen':
@@ -86,9 +87,9 @@ class CoreMagicVariables {
 			case 'localmonthabbrev':
 				return $pageLang->getMonthAbbreviation( MWTimestamp::getLocalInstance( $ts )->format( 'n' ) );
 			case 'localday':
-				return $pageLang->formatNum( MWTimestamp::getLocalInstance( $ts )->format( 'j' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getLocalInstance( $ts )->format( 'j' ) );
 			case 'localday2':
-				return $pageLang->formatNum( MWTimestamp::getLocalInstance( $ts )->format( 'd' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getLocalInstance( $ts )->format( 'd' ) );
 			case 'pagename':
 				return wfEscapeWikiText( $title->getText() );
 			case 'pagenamee':
@@ -138,7 +139,7 @@ class CoreMagicVariables {
 			case 'pageid': // requested in T25427
 				// Inform the edit saving system that getting the canonical output
 				// after page insertion requires a parse that used that exact page ID
-				self::setOutputFlag( $parser, $logger, 'vary-page-id', '{{PAGEID}} used' );
+				self::setOutputFlag( $parser, $logger, ParserOutputFlags::VARY_PAGE_ID, '{{PAGEID}} used' );
 				$value = $title->getArticleID();
 				if ( !$value ) {
 					$value = $parser->getOptions()->getSpeculativePageId();
@@ -160,13 +161,18 @@ class CoreMagicVariables {
 					if ( $parser->getRevisionId() || $parser->getOptions()->getSpeculativeRevId() ) {
 						return '-';
 					} else {
-						self::setOutputFlag( $parser, $logger, 'vary-revision-exists', '{{REVISIONID}} used' );
+						self::setOutputFlag(
+							$parser,
+							$logger,
+							ParserOutputFlags::VARY_REVISION_EXISTS,
+							'{{REVISIONID}} used'
+						);
 						return '';
 					}
 				} else {
 					// Inform the edit saving system that getting the canonical output after
 					// revision insertion requires a parse that used that exact revision ID
-					self::setOutputFlag( $parser, $logger, 'vary-revision-id', '{{REVISIONID}} used' );
+					self::setOutputFlag( $parser, $logger, ParserOutputFlags::VARY_REVISION_ID, '{{REVISIONID}} used' );
 					$value = $parser->getRevisionId();
 					if ( $value === 0 ) {
 						$rev = $parser->getRevisionRecordObject();
@@ -207,7 +213,7 @@ class CoreMagicVariables {
 			case 'revisionuser':
 				// Inform the edit saving system that getting the canonical output after
 				// revision insertion requires a parse that used the actual user ID
-				self::setOutputFlag( $parser, $logger, 'vary-user', '{{REVISIONUSER}} used' );
+				self::setOutputFlag( $parser, $logger, ParserOutputFlags::VARY_USER, '{{REVISIONUSER}} used' );
 				// Note that getRevisionUser() can return null; we need to
 				// be sure to cast this to (an empty) string, since 'null'
 				// means "magic variable not handled here".
@@ -220,7 +226,7 @@ class CoreMagicVariables {
 			case 'namespacee':
 				return wfUrlencode( $parser->getContentLanguage()->getNsText( $title->getNamespace() ) );
 			case 'namespacenumber':
-				return $title->getNamespace();
+				return (string)$title->getNamespace();
 			case 'talkspace':
 				return $title->canHaveTalkPage()
 					? str_replace( '_', ' ', $title->getTalkNsText() )
@@ -236,11 +242,11 @@ class CoreMagicVariables {
 			case 'currentdayname':
 				return $pageLang->getWeekdayName( (int)MWTimestamp::getInstance( $ts )->format( 'w' ) + 1 );
 			case 'currentyear':
-				return $pageLang->formatNum( MWTimestamp::getInstance( $ts )->format( 'Y' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getInstance( $ts )->format( 'Y' ) );
 			case 'currenttime':
 				return $pageLang->time( wfTimestamp( TS_MW, $ts ), false, false );
 			case 'currenthour':
-				return $pageLang->formatNum( MWTimestamp::getInstance( $ts )->format( 'H' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getInstance( $ts )->format( 'H' ) );
 			case 'currentweek':
 				// @bug T6594 PHP5 has it zero padded, PHP4 does not, cast to
 				// int to remove the padding
@@ -252,7 +258,7 @@ class CoreMagicVariables {
 					(int)MWTimestamp::getLocalInstance( $ts )->format( 'w' ) + 1
 				);
 			case 'localyear':
-				return $pageLang->formatNum( MWTimestamp::getLocalInstance( $ts )->format( 'Y' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getLocalInstance( $ts )->format( 'Y' ) );
 			case 'localtime':
 				return $pageLang->time(
 					MWTimestamp::getLocalInstance( $ts )->format( 'YmdHis' ),
@@ -260,7 +266,7 @@ class CoreMagicVariables {
 					false
 				);
 			case 'localhour':
-				return $pageLang->formatNum( MWTimestamp::getLocalInstance( $ts )->format( 'H' ), true );
+				return $pageLang->formatNumNoSeparators( MWTimestamp::getLocalInstance( $ts )->format( 'H' ) );
 			case 'localweek':
 				// @bug T6594 PHP5 has it zero padded, PHP4 does not, cast to
 				// int to remove the padding
@@ -302,7 +308,7 @@ class CoreMagicVariables {
 			case 'directionmark':
 				return $pageLang->getDirMark();
 			case 'contentlanguage':
-				return (string)$svcOptions->get( 'LanguageCode' );
+				return $parser->getContentLanguage()->getCode();
 			case 'pagelanguage':
 				return $pageLang->getCode();
 			case 'cascadingsources':
@@ -347,7 +353,7 @@ class CoreMagicVariables {
 			if ( $resNow !== $resThen ) {
 				// Inform the edit saving system that getting the canonical output after
 				// revision insertion requires a parse that used an actual revision timestamp
-				self::setOutputFlag( $parser, $logger, 'vary-revision-timestamp', "$variable used" );
+				self::setOutputFlag( $parser, $logger, ParserOutputFlags::VARY_REVISION_TIMESTAMP, "$variable used" );
 			}
 		}
 
@@ -368,7 +374,7 @@ class CoreMagicVariables {
 		string $flag,
 		string $reason
 	): void {
-		$parser->getOutput()->setFlag( $flag );
+		$parser->getOutput()->setOutputFlag( $flag );
 		$name = $parser->getTitle()->getPrefixedText();
 		// This code was moved from Parser::setOutputFlag and used __METHOD__
 		// originally; we've hard-coded that output here so that our refactor

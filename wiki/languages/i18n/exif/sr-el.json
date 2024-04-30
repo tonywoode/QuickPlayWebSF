@@ -1,12 +1,12 @@
 {
 	"@metadata": {
 		"authors": [
+			"Kizule",
 			"Michaello",
 			"Milicevic01",
 			"Rancher",
 			"Zoranzoki21",
-			"Сербијана",
-			"Kizule"
+			"Сербијана"
 		]
 	},
 	"exif-imagewidth": "Širina",
@@ -210,7 +210,6 @@
 	"exif-photometricinterpretation-4": "Maska transparentnosti",
 	"exif-photometricinterpretation-5": "Razdvojeno (verovatno CMYK)",
 	"exif-photometricinterpretation-6": "YCbCr",
-	"exif-photometricinterpretation-8": "CIE L*a*b*",
 	"exif-photometricinterpretation-9": "CIE L*a*b* (ICC kodiranje)",
 	"exif-photometricinterpretation-10": "CIE L*a*b* (ITU kodiranje)",
 	"exif-unknowndate": "Nepoznat datum",
@@ -388,5 +387,12 @@
 	"exif-urgency-normal": "Normalno ($1)",
 	"exif-urgency-low": "Nisko ($1)",
 	"exif-urgency-high": "Visoko ($1)",
-	"exif-urgency-other": "Prilagođeni prioritet ($1)"
+	"exif-urgency-other": "Prilagođeni prioritet ($1)",
+	"exif-firstphotodate": "Prvi datum forografije",
+	"exif-lastphotodate": "Poslednji datum fotografije",
+	"exif-projectiontype": "Tip projekcije",
+	"exif-usepanoramaviewer-true": "Da",
+	"exif-usepanoramaviewer-false": "Ne",
+	"exif-exposurelockused-true": "Da",
+	"exif-exposurelockused-false": "Ne"
 }

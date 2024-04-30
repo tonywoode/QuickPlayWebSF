@@ -1,7 +1,7 @@
 <?php
 
 use Psr\Container\ContainerInterface;
-use Wikimedia\ObjectFactory;
+use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
  * @group ResourceLoader
@@ -19,9 +19,9 @@ class ResourceLoaderOOUIImageModuleTest extends ResourceLoaderTestCase {
 		] );
 
 		// Pretend that 'fakemonobook' is a real skin using the Apex theme
-		$skinFactory = new SkinFactory( new ObjectFactory(
-			$this->createMock( ContainerInterface::class )
-		) );
+		$skinFactory = new SkinFactory(
+			new ObjectFactory( $this->createMock( ContainerInterface::class ) ), []
+		);
 		$skinFactory->register(
 			'fakemonobook',
 			'FakeMonoBook',

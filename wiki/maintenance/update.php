@@ -25,6 +25,8 @@
  * @ingroup Maintenance
  */
 
+// NO_AUTOLOAD -- due to hashbang above
+
 require_once __DIR__ . '/Maintenance.php';
 
 use MediaWiki\MediaWikiServices;
@@ -42,7 +44,6 @@ class UpdateMediaWiki extends Maintenance {
 		$this->addOption( 'skip-compat-checks', 'Skips compatibility checks, mostly for developers' );
 		$this->addOption( 'quick', 'Skip 5 second countdown before starting' );
 		$this->addOption( 'doshared', 'Also update shared tables' );
-		$this->addOption( 'nopurge', 'Do not purge the objectcache table after updates' );
 		$this->addOption( 'noschema', 'Only do the updates that are not done during schema updates' );
 		$this->addOption(
 			'schema',
@@ -138,7 +139,7 @@ class UpdateMediaWiki extends Maintenance {
 
 		# Attempt to connect to the database as a privileged user
 		# This will vomit up an error if there are permissions problems
-		$db = $this->getDB( DB_MASTER );
+		$db = $this->getDB( DB_PRIMARY );
 
 		# Check to see whether the database server meets the minimum requirements
 		/** @var DatabaseInstaller $dbInstallerClass */
@@ -161,7 +162,7 @@ class UpdateMediaWiki extends Maintenance {
 
 		if ( !$this->hasOption( 'quick' ) ) {
 			$this->output( "Abort with control-c in the next five seconds "
-				. "(skip this countdown with --quick) ... " );
+				. "(skip this countdown with --quick) ..." );
 			$this->countDown( 5 );
 		}
 
@@ -178,6 +179,17 @@ class UpdateMediaWiki extends Maintenance {
 		}
 
 		$updater = DatabaseUpdater::newForDB( $db, $shared, $this );
+
+		// Avoid upgrading from versions older than 1.29
+		// Using an implicit marker (ct_id field didn't exist until 1.29)
+		// TODO: Use an explicit marker
+		// See T259771
+		if ( !$updater->getDB()->fieldExists( 'change_tag', 'ct_id' ) ) {
+			$this->fatalError(
+				"Can not upgrade from versions older than 1.29, please upgrade to that version or later first."
+			);
+		}
+
 		$updater->doUpdates( $updates );
 
 		foreach ( $updater->getPostDatabaseUpdateMaintenance() as $maint ) {
@@ -197,9 +209,8 @@ class UpdateMediaWiki extends Maintenance {
 		}
 
 		$updater->setFileAccess();
-		if ( !$this->hasOption( 'nopurge' ) ) {
-			$updater->purgeCache();
-		}
+
+		$updater->purgeCache();
 
 		$time2 = microtime( true );
 

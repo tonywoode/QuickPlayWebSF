@@ -31,7 +31,7 @@
 
 use MediaWiki\MediaWikiServices;
 
-require_once __DIR__ . '/cleanupTable.inc';
+require_once __DIR__ . '/TableCleanup.php';
 
 /**
  * Maintenance script to remove broken, unparseable titles in the watchlist table.
@@ -78,7 +78,7 @@ class CleanupWatchlist extends TableCleanup {
 
 	private function removeWatch( $row ) {
 		if ( !$this->dryrun && $this->hasOption( 'fix' ) ) {
-			$dbw = $this->getDB( DB_MASTER );
+			$dbw = $this->getDB( DB_PRIMARY );
 			$dbw->delete(
 				'watchlist',
 				[ 'wl_id' => $row->wl_id ],

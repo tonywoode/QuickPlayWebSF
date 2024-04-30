@@ -1,13 +1,13 @@
 {
 	"@metadata": {
 		"authors": [
-			"Milicevic01",
-			"Aktron",
-			"Сербијана",
 			"Acamicamacaraca",
+			"Aktron",
 			"BadDog",
 			"Kizule",
-			"Obsuser"
+			"Milicevic01",
+			"Obsuser",
+			"Сербијана"
 		]
 	},
 	"apihelp-main-param-action": "Коју радњу извршити.",
@@ -43,6 +43,7 @@
 	"apihelp-move-summary": "Премештање странице.",
 	"apihelp-opensearch-param-suggest": "Више се не користи.",
 	"apihelp-opensearch-param-format": "Формат излаза.",
+	"apihelp-parse-paramvalue-prop-parsewarnings": "Даје упозорења која су се појавила при парсовању садржаја (као викитекст).",
 	"apihelp-parse-param-wrapoutputclass": "CSS класа која ће се користити за излаз парсера.",
 	"apihelp-query+alldeletedrevisions-param-miser-user-namespace": "<strong>Напомена:</strong> Због [[mw:Special:MyLanguage/Manual:$wgMiserMode|режима штедње]], коришћење <var>$1user</var> и <var>$1namespace</var> заједно може да резултује враћањем мање од <var>$1limit</var> резултата пре наставка; у екстремним случајевима, нула резултата такође може да буде враћено.",
 	"apihelp-query+allrevisions-param-namespace": "Само списак страница у овом именском простору.",
@@ -60,7 +61,6 @@
 	"apihelp-stashedit-param-text": "Садржај странице.",
 	"apihelp-unblock-summary": "Деблокирање корисника.",
 	"apihelp-userrights-param-user": "Корисник.",
-	"api-format-title": "Медијавики API резултат",
 	"api-format-prettyprint-header": "Ово је HTML верзија исписа за формат $1. HTML је добар за дебаговање, али није погодан за употребу апликације.\n\nОдредити параметар <var>format</var> да би се променио формат излаза. Да би се видела не-HTML верзија исписа формата $1, користити <kbd>format=$2</kbd>.\n\nПогледајте [[mw:Special:MyLanguage/API|комплетну документацију]] или [[Special:ApiHelp/main|помоћ око API-ја]] за више информација.",
 	"api-format-prettyprint-header-only-html": "Ово је HTML верзија исписа намењена за дебаговање и није погодна за употребу апликације.\n\nПогледајте [[mw:Special:MyLanguage/API|комплетну документацију]] или [[Special:ApiHelp/main|помоћ око API-ја]] за више информација.",
 	"api-login-fail-aborted": "Аутентификација захтева корисничку интеракцију, коју не подржава <kbd>action=login</kbd>. Да би се могли пријавити са <kbd>action=login</kbd>, погледајте [[Special:BotPasswords]]. Да би сте наставили користити пријаву преко главног налога, погледајте <kbd>[[Special:ApiHelp/clientlogin|action=clientlogin]]</kbd>.",

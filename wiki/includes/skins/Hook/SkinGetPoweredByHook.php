@@ -5,7 +5,10 @@ namespace MediaWiki\Hook;
 use Skin;
 
 /**
- * @stable to implement
+ * This is a hook handler interface, see docs/Hooks.md.
+ * Use the hook name "SkinGetPoweredBy" to register handlers implementing this interface.
+ *
+ * @deprecated since 1.37
  * @ingroup Hooks
  */
 interface SkinGetPoweredByHook {

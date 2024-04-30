@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Milicevic01",
-			"Zoranzoki21",
 			"Obsuser",
+			"Zoranzoki21",
 			"Сербијана"
 		]
 	},
@@ -40,6 +40,7 @@
 	"apihelp-move-summary": "Premeštanje stranice.",
 	"apihelp-opensearch-param-suggest": "Više se ne koristi.",
 	"apihelp-opensearch-param-format": "Format izlaza.",
+	"apihelp-parse-paramvalue-prop-parsewarnings": "Daje upozorenja koja su se pojavila pri parsovanju sadržaja (kao vikitekst).",
 	"apihelp-parse-param-wrapoutputclass": "CSS klasa koja će se koristiti za izlaz parsera.",
 	"apihelp-query+alldeletedrevisions-param-miser-user-namespace": "<strong>Napomena:</strong> Zbog [[mw:Special:MyLanguage/Manual:$wgMiserMode|režima štednje]], korišćenje <var>$1user</var> i <var>$1namespace</var> zajedno može da rezultuje vraćanjem manje od <var>$1limit</var> rezultata pre nastavka; u ekstremnim slučajevima, nula rezultata takođe može da bude vraćeno.",
 	"apihelp-query+allrevisions-param-namespace": "Samo spisak stranica u ovom imenskom prostoru.",

@@ -35,8 +35,9 @@
 class HTMLAutoCompleteSelectField extends HTMLTextField {
 	protected $autocompleteData = [];
 
-	/*
+	/**
 	 * @stable to call
+	 * @inheritDoc
 	 */
 	public function __construct( $params ) {
 		$params += [
@@ -133,9 +134,9 @@ class HTMLAutoCompleteSelectField extends HTMLTextField {
 		] + parent::getAttributes( $list );
 
 		if ( $this->getOptions() ) {
-			$attribs['data-hide-if'] = FormatJson::encode(
-				[ '!==', $this->mName . '-select', 'other' ]
-			);
+			$attribs['data-cond-state'] = FormatJson::encode( [
+				'hide' => [ '!==', $this->mName . '-select', 'other' ],
+			] );
 		}
 
 		return $attribs;

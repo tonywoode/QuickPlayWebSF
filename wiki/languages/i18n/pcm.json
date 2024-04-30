@@ -1,9 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
+			"Amire80",
 			"Egiebizzy",
 			"Samatics",
-			"Amire80",
 			"Kambai Akau"
 		]
 	},
@@ -113,6 +113,7 @@
 	"talk": "Tok abaut am",
 	"views": "How dem see am",
 	"toolbox": "Tins wey you go yuz wok",
+	"cactions": "Oda tins wey dey",
 	"otherlanguages": "For difren difren langwej-dem",
 	"redirectedfrom": "(E kom from $1)",
 	"redirectpagesub": "Ridaret pej",
@@ -157,6 +158,7 @@
 	"viewdeleted": "See $1?",
 	"red-link-title": "$1 (pej no dey)",
 	"nstab-main": "Pej",
+	"nstab-user": "{{GENDER:$1|Yuza pej}}",
 	"nstab-media": "Media pej",
 	"nstab-special": "Impotant pej",
 	"nstab-project": "Projet pej",
@@ -229,6 +231,7 @@
 	"noarticletext": "Dem no rait enitin for dis pej nau.\nYou fit [[Special:Search/{{PAGENAME}}|luk for dis pej topik]] for oda pej-dem,\n<span class=\"plainlinks\">[{{fullurl:{{#Special:Log}}|page={{FULLPAGENAMEE}}}} mek you find rekod wey dey like am],\nabi [{{fullurl:{{FULLPAGENAME}}|action=edit}} mek you mek dis pej]</span>.",
 	"noarticletext-nopermission": "No text dey for dis pej now.\nYou fit [[Special:Search/{{PAGENAME}}|luk for dis pej topik]] for oda pej-dem, abi <span class=\"plainlinks\">[{{fullurl:{{#Special:Log}}|page={{FULLPAGENAMEE}}}} find log-dem wey dey like am]</span>, bot you no get pemishon to mek dis pej.",
 	"userpage-userdoesnotexist-view": "Dem no rejista di yuza akaunt \"$1\"",
+	"previewnote": "<strong>Mek you rimemba sey dis one na jos how e go dey.</strong>\nYou neva poblish di chenj-dem!",
 	"continue-editing": "Go wie dem dey du chenj",
 	"editing": "You don dey chenj $1",
 	"creating": "You don dey mek $1",
@@ -237,9 +240,11 @@
 	"templatesusedpreview": "{{PLURAL:$1|Templet|Templet-dem}} wey dem yuz for di wey e go dey:",
 	"template-protected": "(e get proteshon)",
 	"template-semiprotected": "(dem protet am smol)",
+	"hiddencategories": "Dis pej dey among {{PLURAL:$1|katigori wey dem hide|$1 katigori-dem wey dem hide}}:",
 	"permissionserrors": "Pemishon mistek",
 	"permissionserrorstext-withaction": "You no get pemishon to $2, for dis {{PLURAL:$1|tins wey mek-am bi like dat|tins-dem wey mek-am bi like dat}}:",
 	"recreate-moveddeleted-warn": "<strong>Dey kiafu: You dey mek pej wey dem don komot bifo.</strong>\n\nMek you tink am wel wel if e mek sense mek you dey chenj dis pej.\nYou fit si di log wey dey for komot an muv for dis pej hie:",
+	"moveddeleted-notice": "Dis pej no dey.\nDi log for dilit, protet, an muv for di pej dey onda hie for rekod.",
 	"content-model-wikitext": "wikitext",
 	"undo-failure": "You no fit kansu di chenj bikos anoda chenj-dem hapun as you dey do your chenj",
 	"viewpagelogs": "See log-dem for dis pej",
@@ -253,6 +258,7 @@
 	"last": "bifo",
 	"page_first": "first",
 	"page_last": "last",
+	"histlegend": "Dif seleshon: Mak di redio botin-dem wey dey di rivishon-dem to kompie-am an mek you hit enta or di botin wey dey for botom.<br />\nWetin e min: <strong>({{int:cur}})</strong> = difrens wey dey for di last rivishon, <strong>({{int:last}})</strong> = difrens wey dey for rivishon wey kom bifo dis one, <strong>{{int:minoreditletter}}</strong> = smol smol chenj.",
 	"history-fieldset-title": "Filter revision-dem",
 	"histfirst": "di one wey old pas",
 	"histlast": "di one wey niu pas",
@@ -263,6 +269,8 @@
 	"rev-showdeleted": "show-am",
 	"revdelete-show-file-submit": "Yes",
 	"mergelog": "Join di log togeda",
+	"history-title": "$1: Tins wey don hapun for di rivishon",
+	"difference-title": "$1: Difrens wey dey for rivishon-dem",
 	"lineno": "Line $1:",
 	"compareselectedversions": "Kompie di rivishon-dem wey you chuz",
 	"editundo": "chenj-am bak",
@@ -472,6 +480,7 @@
 	"emailsend": "Send",
 	"watchlist": "Wochlist",
 	"mywatchlist": "Wochlist",
+	"watchlistfor2": "For $1",
 	"watch": "Woch",
 	"unwatch": "Komot-am for wetin you dey woch",
 	"watchlist-details": "{{PLURAL:$1|$1 pej na|$1 pej-dem na}} wey dey your Wochlist (plos tok pej-dem).",
@@ -493,6 +502,7 @@
 	"restriction-upload": "Upload-am",
 	"namespace": "Nemspes:",
 	"blanknamespace": "(Main)",
+	"contributions": "Tins wey di yuza put",
 	"contributions-title": "Tins wey $1 put",
 	"mycontris": "Tins wey you put",
 	"anoncontribs": "Tins wey dem put",
@@ -573,5 +583,6 @@
 	"htmlform-submit": "Somit-am",
 	"revdelete-content-hid": "dem hide wetin dey inside",
 	"searchsuggest-search": "Find-am for {{SITENAME}}",
+	"searchsuggest-containing": "Find pej-dem wey get",
 	"duration-days": "$1 {{PLURAL:$1|day|day-dem}}"
 }

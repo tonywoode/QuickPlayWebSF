@@ -36,6 +36,8 @@
 # T17461: Make IE8 turn off content sniffing. Everybody else should ignore this
 # We're adding it here so that it's *always* set, even for alternate entry
 # points and when $wgOut gets disabled or overridden.
+use MediaWiki\Settings\SettingsBuilder;
+
 header( 'X-Content-Type-Options: nosniff' );
 
 # Valid web server entry point, enable includes.
@@ -51,38 +53,40 @@ if ( $IP === false ) {
 	$IP = dirname( __DIR__ );
 }
 
+/**
+ * @param SettingsBuilder $settings
+ *
+ * @return never
+ */
+function wfWebStartNoLocalSettings( SettingsBuilder $settings ) {
+	# LocalSettings.php is the per-site customization file. If it does not exist
+	# the wiki installer needs to be launched or the generated file uploaded to
+	# the root wiki directory. Give a hint, if it is not readable by the server.
+	require_once MW_INSTALL_PATH . '/includes/NoLocalSettings.php';
+	die();
+}
+
+require_once "$IP/includes/BootstrapHelperFunctions.php";
+
 // If no LocalSettings file exists, try to display an error page
 // (use a callback because it depends on TemplateParser)
 if ( !defined( 'MW_CONFIG_CALLBACK' ) ) {
-	if ( !defined( 'MW_CONFIG_FILE' ) ) {
-		define( 'MW_CONFIG_FILE', "$IP/LocalSettings.php" );
-	}
+	wfDetectLocalSettingsFile( $IP );
 	if ( !is_readable( MW_CONFIG_FILE ) ) {
-
-		function wfWebStartNoLocalSettings() {
-			# LocalSettings.php is the per-site customization file. If it does not exist
-			# the wiki installer needs to be launched or the generated file uploaded to
-			# the root wiki directory. Give a hint, if it is not readable by the server.
-			global $IP;
-			require_once "$IP/includes/NoLocalSettings.php";
-			die();
-		}
-
 		define( 'MW_CONFIG_CALLBACK', 'wfWebStartNoLocalSettings' );
+	}
+}
+
+function wfWebStartSetup( SettingsBuilder $settings ) {
+	// Initialise output buffering
+	// Check for previously set up buffers, to avoid a mix of gzip and non-gzip output.
+	if ( ob_get_level() == 0 ) {
+		ob_start( 'MediaWiki\\OutputHandler::handle' );
 	}
 }
 
 // Custom setup for WebStart entry point
 if ( !defined( 'MW_SETUP_CALLBACK' ) ) {
-
-	function wfWebStartSetup() {
-		// Initialise output buffering
-		// Check for previously set up buffers, to avoid a mix of gzip and non-gzip output.
-		if ( ob_get_level() == 0 ) {
-			ob_start( 'MediaWiki\\OutputHandler::handle' );
-		}
-	}
-
 	define( 'MW_SETUP_CALLBACK', 'wfWebStartSetup' );
 }
 

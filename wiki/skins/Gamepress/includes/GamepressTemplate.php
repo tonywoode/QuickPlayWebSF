@@ -19,7 +19,9 @@ class GamepressTemplate extends BaseTemplate {
 	public function execute() {
 		global $wgSitename;
 
-		$this->data['pageLanguage'] = $this->getSkin()->getTitle()->getPageViewLanguage()->getHtmlCode();
+		$skin = $this->getSkin();
+
+		$this->data['pageLanguage'] = $skin->getTitle()->getPageViewLanguage()->getHtmlCode();
 
 		$tagline = '';
 		if ( !$this->getMsg( 'tagline' )->isDisabled() ) {
@@ -119,6 +121,7 @@ class GamepressTemplate extends BaseTemplate {
 						// For MediaWiki, it doesn't really work for various
 						// reasons, so I just took it off [[for now]].
 						?>
+						<?php echo $this->getIndicators(); ?>
 						<div class="entry-header">
 							<h1 id="firstHeading" class="firstHeading" lang="<?php $this->text( 'pageLanguage' ); ?>"><?php $this->html( 'title' ) ?></h1>
 						</div>
@@ -194,7 +197,7 @@ class GamepressTemplate extends BaseTemplate {
 	<!-- END #PREFOOTER -->
 	<?php } ?>
 	<?php
-		$validFooterIcons = $this->getFooterIcons( 'icononly' );
+		$validFooterIcons = $this->get( 'footericons' );
 		$validFooterLinks = $this->getFooterLinks( 'flat' ); // Additional footer links
 
 		if ( count( $validFooterIcons ) + count( $validFooterLinks ) > 0 ) { ?>
@@ -212,11 +215,14 @@ class GamepressTemplate extends BaseTemplate {
 
 		echo '<span class="alignleft">';
 
-		foreach ( $validFooterIcons as $blockName => $footerIcons ) { ?>
+		foreach ( $validFooterIcons as $blockName => &$footerIcons ) { ?>
 	<div id="f-<?php echo htmlspecialchars( $blockName ); ?>ico">
 <?php
-			foreach ( $footerIcons as $icon ) {
-				echo $this->getSkin()->makeFooterIcon( $icon );
+			foreach ( $footerIcons as $footerIconKey => $icon ) {
+				if ( !isset( $footerIcon['src'] ) ) {
+					unset( $footerIcons[$footerIconKey] );
+				}
+				echo $skin->makeFooterIcon( $icon );
 			}
 ?>
 	</div>
@@ -284,7 +290,6 @@ class GamepressTemplate extends BaseTemplate {
 	}
 
 	function searchBox() {
-		global $wgUseTwoButtonsSearchForm;
 ?>
 		<div class="widget">
 			<form role="search" method="get" id="searchform" class="searchform" action="<?php $this->text( 'wgScript' ) ?>">
@@ -292,12 +297,9 @@ class GamepressTemplate extends BaseTemplate {
 				<?php
 					echo $this->makeSearchInput( [ 'id' => 'searchInput' ] );
 					echo $this->makeSearchButton( 'go', [ 'id' => 'searchGoButton', 'class' => 'searchButton' ] );
-					if ( $wgUseTwoButtonsSearchForm ) {
-						echo '&#160;';
-						echo $this->makeSearchButton( 'fulltext', [ 'id' => 'mw-searchButton', 'class' => 'searchButton' ] );
-					} else { ?>
-						<div><a href="<?php $this->text( 'searchaction' ) ?>" rel="search"><?php $this->msg( 'powersearch-legend' ) ?></a></div><?php
-					} ?>
+					echo '&#160;';
+					echo $this->makeSearchButton( 'fulltext', [ 'id' => 'mw-searchButton', 'class' => 'searchButton' ] );
+				?>
 			</form>
 		</div>
 <?php
@@ -326,7 +328,8 @@ class GamepressTemplate extends BaseTemplate {
 		<h3 class="widget-title"><?php $this->msg( 'toolbox' ) ?></h3>
 		<ul>
 <?php
-		foreach ( $this->getToolbox() as $key => $tbItem ) {
+		$toolbox = $this->get( 'sidebar' )['TOOLBOX'];
+		foreach ( $toolbox as $key => $tbItem ) {
 			echo $this->makeListItem( $key, $tbItem );
 		}
 

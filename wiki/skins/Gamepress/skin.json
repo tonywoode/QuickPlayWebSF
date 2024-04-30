@@ -1,6 +1,6 @@
 {
 	"name": "Gamepress",
-	"version": "1.3.1",
+	"version": "1.4.0",
 	"author": [
 		"[http://webtuts.pl/themes/ Aleksandra Łączek]",
 		"Jack Phoenix",
@@ -12,10 +12,25 @@
 	"descriptionmsg": "gamepress-desc",
 	"type": "skin",
 	"requires": {
-		"MediaWiki": ">= 1.32.0"
+		"MediaWiki": ">= 1.35.0"
 	},
 	"ValidSkinNames": {
-		"gamepress": "Gamepress"
+		"gamepress": {
+			"class": "SkinGamepress",
+			"args": [
+				{
+					"name": "gamepress",
+					"template": "GamepressTemplate",
+					"responsive": true,
+					"styles": [
+						"skins.gamepress.site",
+						"mediawiki.skinning.interface",
+						"mediawiki.skinning.content.externallinks",
+						"skins.gamepress.styles"
+					]
+				}
+			]
+		}
 	},
 	"MessagesDirs": {
 		"SkinGamepress": [
@@ -48,6 +63,9 @@
 				},
 				"resources/css/mobile.css": {
 					"media": "screen and (max-width: 750px)"
+				},
+				"resources/css/print.css": {
+					"media": "print"
 				}
 			}
 		},
@@ -76,11 +94,6 @@
 					"media": "screen"
 				}
 			}
-		}
-	},
-	"ResourceModuleSkinStyles": {
-		"gamepress": {
-			"+mediawiki.special.preferences.styles": "resources/css/special.preferences.styles.css"
 		}
 	},
 	"manifest_version": 1

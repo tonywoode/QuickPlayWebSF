@@ -5,8 +5,11 @@ namespace MediaWiki\Rest;
 use ExtensionRegistry;
 use IContextSource;
 use MediaWiki;
+use MediaWiki\Config\ServiceOptions;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Rest\BasicAccess\CompoundAuthorizer;
 use MediaWiki\Rest\BasicAccess\MWBasicAuthorizer;
+use MediaWiki\Rest\Reporter\MWErrorReporter;
 use MediaWiki\Rest\Validator\Validator;
 use RequestContext;
 use Title;
@@ -22,30 +25,34 @@ class EntryPoint {
 	private $router;
 	/** @var RequestContext */
 	private $context;
+	/** @var CorsUtils */
+	private $cors;
 	/** @var ?RequestInterface */
 	private static $mainRequest;
 
 	/**
 	 * @param IContextSource $context
 	 * @param RequestInterface $request
+	 * @param ResponseFactory $responseFactory
+	 * @param CorsUtils $cors
 	 * @return Router
 	 */
 	private static function createRouter(
-		IContextSource $context, RequestInterface $request
+		IContextSource $context, RequestInterface $request, ResponseFactory $responseFactory, CorsUtils $cors
 	): Router {
 		$services = MediaWikiServices::getInstance();
 		$conf = $services->getMainConfig();
 
-		$responseFactory = new ResponseFactory( self::getTextFormatters( $services ) );
-
-		$authorizer = new MWBasicAuthorizer( $context->getUser(),
-			$services->getPermissionManager() );
+		$authority = $context->getAuthority();
+		$authorizer = new CompoundAuthorizer();
+		$authorizer
+			->addAuthorizer( new MWBasicAuthorizer( $authority ) )
+			->addAuthorizer( $cors );
 
 		$objectFactory = $services->getObjectFactory();
 		$restValidator = new Validator( $objectFactory,
-			$services->getPermissionManager(),
 			$request,
-			RequestContext::getMain()->getUser()
+			$authority
 		);
 
 		// Always include the "official" routes. Include additional routes if specified.
@@ -53,12 +60,12 @@ class EntryPoint {
 			[ 'includes/Rest/coreRoutes.json' ],
 			$conf->get( 'RestAPIAdditionalRouteFiles' )
 		);
-		array_walk( $routeFiles, function ( &$val, $key ) {
+		array_walk( $routeFiles, static function ( &$val, $key ) {
 			global $IP;
 			$val = "$IP/$val";
 		} );
 
-		return new Router(
+		return ( new Router(
 			$routeFiles,
 			ExtensionRegistry::getInstance()->getAttribute( 'RestRoutes' ),
 			$conf->get( 'CanonicalServer' ),
@@ -66,16 +73,18 @@ class EntryPoint {
 			$services->getLocalServerObjectCache(),
 			$responseFactory,
 			$authorizer,
+			$authority,
 			$objectFactory,
 			$restValidator,
+			new MWErrorReporter(),
 			$services->getHookContainer()
-		);
+		) )->setCors( $cors );
 	}
 
 	/**
-	 * @return ?RequestInterface The RequestInterface object used by this entry point.
+	 * @return RequestInterface The RequestInterface object used by this entry point.
 	 */
-	public static function getMainRequest(): ?RequestInterface {
+	public static function getMainRequest(): RequestInterface {
 		if ( self::$mainRequest === null ) {
 			$conf = MediaWikiServices::getInstance()->getMainConfig();
 			self::$mainRequest = new RequestFromGlobals( [
@@ -99,15 +108,28 @@ class EntryPoint {
 		$services = MediaWikiServices::getInstance();
 		$conf = $services->getMainConfig();
 
+		$responseFactory = new ResponseFactory( self::getTextFormatters( $services ) );
+		$responseFactory->setSendExceptionBacktrace( $conf->get( 'ShowExceptionDetails' ) );
+
+		$cors = new CorsUtils(
+			new ServiceOptions(
+				CorsUtils::CONSTRUCTOR_OPTIONS, $conf
+			),
+			$responseFactory,
+			$context->getUser()
+		);
+
 		$request = self::getMainRequest();
 
-		$router = self::createRouter( $context, $request );
+		$router = self::createRouter( $context, $request, $responseFactory, $cors );
 
 		$entryPoint = new self(
 			$context,
 			$request,
 			$wgRequest->response(),
-			$router );
+			$router,
+			$cors
+		);
 		$entryPoint->execute();
 	}
 
@@ -117,13 +139,12 @@ class EntryPoint {
 	 * @param MediaWikiServices $services
 	 * @return ITextFormatter[]
 	 */
-	public static function getTextFormatters( MediaWikiServices $services ) {
-		$langs = array_unique( [
-			$services->getMainConfig()->get( 'ContLang' )->getCode(),
-			'en'
-		] );
+	private static function getTextFormatters( MediaWikiServices $services ) {
+		$code = $services->getContentLanguage()->getCode();
+		$langs = array_unique( [ $code, 'en' ] );
 		$textFormatters = [];
 		$factory = $services->getMessageFormatterFactory();
+
 		foreach ( $langs as $lang ) {
 			$textFormatters[] = $factory->getTextFormatter( $lang );
 		}
@@ -131,17 +152,21 @@ class EntryPoint {
 	}
 
 	public function __construct( RequestContext $context, RequestInterface $request,
-		WebResponse $webResponse, Router $router
+		WebResponse $webResponse, Router $router, CorsUtils $cors
 	) {
 		$this->context = $context;
 		$this->request = $request;
 		$this->webResponse = $webResponse;
 		$this->router = $router;
+		$this->cors = $cors;
 	}
 
 	public function execute() {
 		ob_start();
-		$response = $this->router->execute( $this->request );
+		$response = $this->cors->modifyResponse(
+			$this->request,
+			$this->router->execute( $this->request )
+		);
 
 		$this->webResponse->header(
 			'HTTP/' . $response->getProtocolVersion() . ' ' .

@@ -21,7 +21,6 @@
  */
 
 use MediaWiki\Auth\AuthManager;
-use MediaWiki\MediaWikiServices;
 
 /**
  * Change authentication data with AuthManager
@@ -29,18 +28,29 @@ use MediaWiki\MediaWikiServices;
  * @ingroup API
  */
 class ApiChangeAuthenticationData extends ApiBase {
+	/** @var AuthManager */
+	private $authManager;
 
-	public function __construct( ApiMain $main, $action ) {
+	/**
+	 * @param ApiMain $main
+	 * @param string $action
+	 * @param AuthManager $authManager
+	 */
+	public function __construct(
+		ApiMain $main,
+		$action,
+		AuthManager $authManager
+	) {
 		parent::__construct( $main, $action, 'changeauth' );
+		$this->authManager = $authManager;
 	}
 
 	public function execute() {
-		if ( !$this->getUser()->isLoggedIn() ) {
+		if ( !$this->getUser()->isRegistered() ) {
 			$this->dieWithError( 'apierror-mustbeloggedin-changeauthenticationdata', 'notloggedin' );
 		}
 
-		$manager = MediaWikiServices::getInstance()->getAuthManager();
-		$helper = new ApiAuthManagerHelper( $this, $manager );
+		$helper = new ApiAuthManagerHelper( $this, $this->authManager );
 
 		// Check security-sensitive operation status
 		$helper->securitySensitiveOperation( 'ChangeCredentials' );
@@ -56,12 +66,12 @@ class ApiChangeAuthenticationData extends ApiBase {
 		$req = reset( $reqs );
 
 		// Make the change
-		$status = $manager->allowsAuthenticationDataChange( $req, true );
+		$status = $this->authManager->allowsAuthenticationDataChange( $req, true );
 		$this->getHookRunner()->onChangeAuthenticationDataAudit( $req, $status );
 		if ( !$status->isGood() ) {
 			$this->dieStatus( $status );
 		}
-		$manager->changeAuthenticationData( $req );
+		$this->authManager->changeAuthenticationData( $req );
 
 		$this->getResult()->addValue( null, 'changeauthenticationdata', [ 'status' => 'success' ] );
 	}

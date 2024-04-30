@@ -17,6 +17,7 @@
 	"rest-permission-denied-anon": "No accesible por usuario anónimo",
 	"rest-permission-denied-title": "El usuario no tiene permisos para leer el título ($1)",
 	"rest-permission-denied-revision": "El usuario no tiene acceso a la revisión solicitada ($1).",
+	"rest-resource-limit-exceeded": "Se excedieron los límites de recursos al procesar la solicitud.",
 	"rest-pagehistory-incompatible-params": "Los parámetros \"older_than\" y \"newer_than\" no se pueden especificar",
 	"rest-pagehistory-param-range-error": "El id de revisión debe ser mayor que 0",
 	"rest-pagehistory-timestamp-error": "No se puede recuperar la marca de tiempo para la revisión especificada ($1)",

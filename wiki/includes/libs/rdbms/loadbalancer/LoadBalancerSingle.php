@@ -33,6 +33,8 @@ class LoadBalancerSingle extends LoadBalancer {
 	private $db;
 
 	/**
+	 * You probably want to use {@link newFromConnection} instead.
+	 *
 	 * @param array $params An associative array with one member:
 	 *   - connection: An IDatabase connection object
 	 */
@@ -57,6 +59,7 @@ class LoadBalancerSingle extends LoadBalancer {
 			'wanCache' => $params['wanCache'] ?? null,
 			'localDomain' => $params['localDomain'] ?? $this->db->getDomainID(),
 			'readOnlyReason' => $params['readOnlyReason'] ?? false,
+			'clusterName' => $params['clusterName'] ?? null,
 		] );
 
 		if ( isset( $params['readOnlyReason'] ) ) {

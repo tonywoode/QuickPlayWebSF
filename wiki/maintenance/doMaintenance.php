@@ -25,6 +25,7 @@
  * @ingroup Maintenance
  */
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Settings\SettingsBuilder;
 
 if ( !defined( 'RUN_MAINTENANCE_IF_MAIN' ) ) {
 	echo "This file must be included after Maintenance.php\n";
@@ -32,7 +33,7 @@ if ( !defined( 'RUN_MAINTENANCE_IF_MAIN' ) ) {
 }
 
 // Wasn't included from the file scope, halt execution (probably wanted the class)
-// If a class is using commandLine.inc (old school maintenance), they definitely
+// If a class is using CommandLineInc (old school maintenance), they definitely
 // cannot be included and will proceed with execution
 // @phan-suppress-next-line PhanSuspiciousValueComparisonInGlobalScope
 if ( !Maintenance::shouldExecute() && $maintClass != CommandLineInc::class ) {
@@ -55,7 +56,7 @@ $IP = getenv( 'MW_INSTALL_PATH' );
 /** @var Maintenance $maintenance */
 $maintenance = new $maintClass();
 
-// Basic sanity checks and such
+// Basic checks and such
 $maintenance->setup();
 
 // We used to call this variable $self, but it was moved
@@ -63,26 +64,30 @@ $maintenance->setup();
 $self = $maintenance->getName();
 
 // Define how settings are loaded (e.g. LocalSettings.php)
-if ( !defined( 'MW_CONFIG_CALLBACK' ) && !defined( 'MW_CONFIG_FILE' ) ) {
-	define( 'MW_CONFIG_FILE', $maintenance->loadSettings() );
+if ( !defined( 'MW_CONFIG_CALLBACK' ) ) {
+	$maintenance->loadSettings();
 }
 
 // Custom setup for Maintenance entry point
 if ( !defined( 'MW_SETUP_CALLBACK' ) ) {
 
-	function wfMaintenanceSetup() {
-		// phpcs:ignore MediaWiki.NamingConventions.ValidGlobalName.wgPrefix
-		global $maintenance, $wgLocalisationCacheConf, $wgCacheDirectory;
+	function wfMaintenanceSetup( SettingsBuilder $settingsBuilder ) {
+		global $maintenance;
+		$config = $settingsBuilder->getConfig();
+
 		if ( $maintenance->getDbType() === Maintenance::DB_NONE ) {
-			if ( $wgLocalisationCacheConf['storeClass'] === false
-				&& ( $wgLocalisationCacheConf['store'] == 'db'
-					|| ( $wgLocalisationCacheConf['store'] == 'detect' && !$wgCacheDirectory ) )
+			$cacheConf = $config->get( 'LocalisationCacheConf' );
+			if ( $cacheConf['storeClass'] === false
+				&& ( $cacheConf['store'] == 'db'
+					|| ( $cacheConf['store'] == 'detect'
+						&& !$config->get( 'CacheDirectory' ) ) )
 			) {
-				$wgLocalisationCacheConf['storeClass'] = LCStoreNull::class;
+				$cacheConf['storeClass'] = LCStoreNull::class;
+				$settingsBuilder->putConfigValue( 'LocalisationCacheConf', $cacheConf );
 			}
 		}
 
-		$maintenance->finalSetup();
+		$maintenance->finalSetup( $settingsBuilder );
 	}
 
 	define( 'MW_SETUP_CALLBACK', 'wfMaintenanceSetup' );
@@ -93,12 +98,14 @@ require_once "$IP/includes/Setup.php";
 // Initialize main config instance
 $maintenance->setConfig( MediaWikiServices::getInstance()->getMainConfig() );
 
-// Sanity-check required extensions are installed
+// Double check required extensions are installed
 $maintenance->checkRequiredExtensions();
 
-// A good time when no DBs have writes pending is around lag checks.
-// This avoids having long running scripts just OOM and lose all the updates.
-$maintenance->setAgentAndTriggers();
+if ( $maintenance->getDbType() == Maintenance::DB_NONE ) {
+	// Be strict with maintenance tasks that claim to not need a database by
+	// disabling the storage backend.
+	MediaWikiServices::disableStorageBackend();
+}
 
 $maintenance->validateParamsAndArgs();
 
@@ -126,24 +133,7 @@ try {
 // Potentially debug globals
 $maintenance->globals();
 
-if ( $maintenance->getDbType() !== Maintenance::DB_NONE &&
-	// Service might be disabled, e.g. when running install.php
-	!MediaWikiServices::getInstance()->isServiceDisabled( 'DBLoadBalancerFactory' )
-) {
-	// Perform deferred updates.
-	$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
-	$lbFactory->commitMasterChanges( $maintClass );
-	DeferredUpdates::doUpdates();
-}
-
-// log profiling info
-wfLogProfilingData();
-
-if ( isset( $lbFactory ) ) {
-	// Commit and close up!
-	$lbFactory->commitMasterChanges( 'doMaintenance' );
-	$lbFactory->shutdown( $lbFactory::SHUTDOWN_NO_CHRONPROT );
-}
+$maintenance->shutdown();
 
 // Exit with an error status if execute() returned false
 if ( $success === false ) {

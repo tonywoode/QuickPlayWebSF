@@ -85,10 +85,12 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 
 		$this->automaticFailover = $params['automaticFailover'] ?? true;
 
-		$this->attrMap[self::ATTR_SYNCWRITES] = self::QOS_SYNCWRITES_NONE;
+		// ...and uses rdb snapshots (redis.conf default)
+		$this->attrMap[self::ATTR_DURABILITY] = self::QOS_DURABILITY_DISK;
 	}
 
 	protected function doGet( $key, $flags = 0, &$casToken = null ) {
+		$getToken = ( $casToken === self::PASS_BY_REF );
 		$casToken = null;
 
 		$conn = $this->getConnection( $key );
@@ -98,15 +100,21 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 
 		$e = null;
 		try {
-			$value = $conn->get( $key );
-			$casToken = $value;
-			$result = $this->unserialize( $value );
+			$blob = $conn->get( $key );
+			if ( $getToken && $blob !== false ) {
+				$casToken = $blob;
+			}
+			$result = $this->unserialize( $blob );
+			$valueSize = strlen( $blob );
 		} catch ( RedisException $e ) {
 			$result = false;
+			$valueSize = false;
 			$this->handleException( $conn, $e );
 		}
 
 		$this->logRequest( 'get', $key, $conn->getServer(), $e );
+
+		$this->updateOpStats( self::METRIC_OP_GET, [ $key => [ 0, $valueSize ] ] );
 
 		return $result;
 	}
@@ -118,13 +126,15 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 		}
 
 		$ttl = $this->getExpirationAsTTL( $exptime );
+		$serialized = $this->getSerialized( $value, $key );
+		$valueSize = strlen( $serialized );
 
 		$e = null;
 		try {
 			if ( $ttl ) {
-				$result = $conn->setex( $key, $ttl, $this->getSerialized( $value, $key ) );
+				$result = $conn->setex( $key, $ttl, $serialized );
 			} else {
-				$result = $conn->set( $key, $this->getSerialized( $value, $key ) );
+				$result = $conn->set( $key, $serialized );
 			}
 		} catch ( RedisException $e ) {
 			$result = false;
@@ -132,6 +142,8 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 		}
 
 		$this->logRequest( 'set', $key, $conn->getServer(), $e );
+
+		$this->updateOpStats( self::METRIC_OP_SET, [ $key => [ $valueSize, 0 ] ] );
 
 		return $result;
 	}
@@ -153,6 +165,8 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 
 		$this->logRequest( 'delete', $key, $conn->getServer(), $e );
 
+		$this->updateOpStats( self::METRIC_OP_DELETE, [ $key ] );
+
 		return $result;
 	}
 
@@ -169,7 +183,7 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 			}
 		}
 
-		$result = [];
+		$blobsFound = [];
 		foreach ( $batches as $server => $batchKeys ) {
 			$conn = $conns[$server];
 
@@ -186,9 +200,9 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 					continue;
 				}
 
-				foreach ( $batchResult as $i => $value ) {
-					if ( $value !== false ) {
-						$result[$batchKeys[$i]] = $this->unserialize( $value );
+				foreach ( $batchResult as $i => $blob ) {
+					if ( $blob !== false ) {
+						$blobsFound[$batchKeys[$i]] = $blob;
 					}
 				}
 			} catch ( RedisException $e ) {
@@ -198,10 +212,31 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 			$this->logRequest( 'get', implode( ',', $batchKeys ), $server, $e );
 		}
 
+		// Preserve the order of $keys
+		$result = [];
+		$valueSizesByKey = [];
+		foreach ( $keys as $key ) {
+			if ( array_key_exists( $key, $blobsFound ) ) {
+				$blob = $blobsFound[$key];
+				$value = $this->unserialize( $blob );
+				if ( $value !== false ) {
+					$result[$key] = $value;
+				}
+				$valueSize = strlen( $blob );
+			} else {
+				$valueSize = false;
+			}
+			$valueSizesByKey[$key] = [ 0, $valueSize ];
+		}
+
+		$this->updateOpStats( self::METRIC_OP_GET, $valueSizesByKey );
+
 		return $result;
 	}
 
 	protected function doSetMulti( array $data, $exptime = 0, $flags = 0 ) {
+		$result = true;
+
 		/** @var RedisConnRef[]|Redis[] $conns */
 		$conns = [];
 		$batches = [];
@@ -211,13 +246,15 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 				$server = $conn->getServer();
 				$conns[$server] = $conn;
 				$batches[$server][] = $key;
+			} else {
+				$result = false;
 			}
 		}
 
 		$ttl = $this->getExpirationAsTTL( $exptime );
 		$op = $ttl ? 'setex' : 'set';
 
-		$result = true;
+		$valueSizesByKey = [];
 		foreach ( $batches as $server => $batchKeys ) {
 			$conn = $conns[$server];
 
@@ -226,17 +263,21 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 				// Avoid mset() to reduce CPU hogging from a single request
 				$conn->multi( Redis::PIPELINE );
 				foreach ( $batchKeys as $key ) {
+					$serialized = $this->getSerialized( $data[$key], $key );
 					if ( $ttl ) {
-						$conn->setex( $key, $ttl, $this->getSerialized( $data[$key], $key ) );
+						$conn->setex( $key, $ttl, $serialized );
 					} else {
-						$conn->set( $key, $this->getSerialized( $data[$key], $key ) );
+						$conn->set( $key, $serialized );
 					}
+					$valueSizesByKey[$key] = [ strlen( $serialized ), 0 ];
 				}
 				$batchResult = $conn->exec();
 				if ( $batchResult === false ) {
+					$result = false;
 					$this->logRequest( $op, implode( ',', $batchKeys ), $server, true );
 					continue;
 				}
+
 				$result = $result && !in_array( false, $batchResult, true );
 			} catch ( RedisException $e ) {
 				$this->handleException( $conn, $e );
@@ -246,10 +287,14 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 			$this->logRequest( $op, implode( ',', $batchKeys ), $server, $e );
 		}
 
+		$this->updateOpStats( self::METRIC_OP_SET, $valueSizesByKey );
+
 		return $result;
 	}
 
 	protected function doDeleteMulti( array $keys, $flags = 0 ) {
+		$result = true;
+
 		/** @var RedisConnRef[]|Redis[] $conns */
 		$conns = [];
 		$batches = [];
@@ -259,10 +304,11 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 				$server = $conn->getServer();
 				$conns[$server] = $conn;
 				$batches[$server][] = $key;
+			} else {
+				$result = false;
 			}
 		}
 
-		$result = true;
 		foreach ( $batches as $server => $batchKeys ) {
 			$conn = $conns[$server];
 
@@ -275,6 +321,7 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 				}
 				$batchResult = $conn->exec();
 				if ( $batchResult === false ) {
+					$result = false;
 					$this->logRequest( 'delete', implode( ',', $batchKeys ), $server, true );
 					continue;
 				}
@@ -288,10 +335,14 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 			$this->logRequest( 'delete', implode( ',', $batchKeys ), $server, $e );
 		}
 
+		$this->updateOpStats( self::METRIC_OP_DELETE, array_values( $keys ) );
+
 		return $result;
 	}
 
-	public function changeTTLMulti( array $keys, $exptime, $flags = 0 ) {
+	public function doChangeTTLMulti( array $keys, $exptime, $flags = 0 ) {
+		$result = true;
+
 		/** @var RedisConnRef[]|Redis[] $conns */
 		$conns = [];
 		$batches = [];
@@ -301,6 +352,8 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 				$server = $conn->getServer();
 				$conns[$server] = $conn;
 				$batches[$server][] = $key;
+			} else {
+				$result = false;
 			}
 		}
 
@@ -309,7 +362,6 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 			? 'persist'
 			: ( $relative ? 'expire' : 'expireAt' );
 
-		$result = true;
 		foreach ( $batches as $server => $batchKeys ) {
 			$conn = $conns[$server];
 
@@ -327,6 +379,7 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 				}
 				$batchResult = $conn->exec();
 				if ( $batchResult === false ) {
+					$result = false;
 					$this->logRequest( $op, implode( ',', $batchKeys ), $server, true );
 					continue;
 				}
@@ -339,6 +392,8 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 			$this->logRequest( $op, implode( ',', $batchKeys ), $server, $e );
 		}
 
+		$this->updateOpStats( self::METRIC_OP_CHANGE_TTL, array_values( $keys ) );
+
 		return $result;
 	}
 
@@ -349,10 +404,13 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 		}
 
 		$ttl = $this->getExpirationAsTTL( $expiry );
+		$serialized = $this->getSerialized( $value, $key );
+		$valueSize = strlen( $serialized );
+
 		try {
 			$result = $conn->set(
 				$key,
-				$this->getSerialized( $value, $key ),
+				$serialized,
 				$ttl ? [ 'nx', 'ex' => $ttl ] : [ 'nx' ]
 			);
 		} catch ( RedisException $e ) {
@@ -361,6 +419,8 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 		}
 
 		$this->logRequest( 'add', $key, $conn->getServer(), $result );
+
+		$this->updateOpStats( self::METRIC_OP_ADD, [ $key => [ $valueSize, 0 ] ] );
 
 		return $result;
 	}
@@ -384,6 +444,8 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 
 		$this->logRequest( 'incr', $key, $conn->getServer(), $result );
 
+		$this->updateOpStats( self::METRIC_OP_INCR, [ $key ] );
+
 		return $result;
 	}
 
@@ -406,7 +468,40 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 
 		$this->logRequest( 'decr', $key, $conn->getServer(), $result );
 
+		$this->updateOpStats( self::METRIC_OP_DECR, [ $key ] );
+
 		return $result;
+	}
+
+	protected function doIncrWithInit( $key, $exptime, $step, $init, $flags ) {
+		$conn = $this->getConnection( $key );
+		if ( !$conn ) {
+			return false;
+		}
+
+		$ttl = $this->getExpirationAsTTL( $exptime );
+
+		try {
+			if ( $init === $step && $exptime == self::TTL_INDEFINITE ) {
+				$newValue = $conn->incrBy( $key, $step );
+			} else {
+				$conn->multi( Redis::PIPELINE );
+				$conn->set(
+					$key,
+					(string)( $init - $step ),
+					$ttl ? [ 'nx', 'ex' => $ttl ] : [ 'nx' ]
+				);
+				$conn->incrBy( $key, $step );
+				$batchResult = $conn->exec();
+				$newValue = ( $batchResult === false ) ? false : $batchResult[1];
+				$this->logRequest( 'incrWithInit', $key, $conn->getServer(), $newValue === false );
+			}
+		} catch ( RedisException $e ) {
+			$newValue = false;
+			$this->handleException( $conn, $e );
+		}
+
+		return $newValue;
 	}
 
 	protected function doChangeTTL( $key, $exptime, $flags ) {
@@ -431,6 +526,8 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 			$result = false;
 			$this->handleException( $conn, $e );
 		}
+
+		$this->updateOpStats( self::METRIC_OP_CHANGE_TTL, [ $key ] );
 
 		return $result;
 	}
@@ -517,5 +614,13 @@ class RedisBagOStuff extends MediumSpecificBagOStuff {
 	 */
 	public function logRequest( $op, $keys, $server, $e = null ) {
 		$this->debug( "$op($keys) on $server: " . ( $e ? "failure" : "success" ) );
+	}
+
+	public function makeKeyInternal( $keyspace, $components ) {
+		return $this->genericKeyFromComponents( $keyspace, ...$components );
+	}
+
+	protected function convertGenericKey( $key ) {
+		return $key; // short-circuit; already uses "generic" keys
 	}
 }

@@ -3,12 +3,9 @@
 use Composer\Semver\Semver;
 use MediaWiki\Shell\Shell;
 use MediaWiki\ShellDisabledError;
-use Wikimedia\AtEase\AtEase;
 use Wikimedia\ScopedCallback;
 
 /**
- * ExtensionRegistry class
- *
  * The Registry loads JSON files, and uses a Processor
  * to extract information from them. It also registers
  * classes with the autoloader.
@@ -59,6 +56,7 @@ class ExtensionRegistry {
 	private const LAZY_LOADED_ATTRIBUTES = [
 		'TrackingCategories',
 		'QUnitTestModules',
+		'SkinLessImportPaths',
 	];
 
 	/**
@@ -68,7 +66,7 @@ class ExtensionRegistry {
 	 * by ExtensionProcessor::CREDIT_ATTRIBS (plus a 'path' key that
 	 * points to the skin or extension JSON file).
 	 *
-	 * This info may be accessed via via ExtensionRegistry::getAllThings.
+	 * This info may be accessed via ExtensionRegistry::getAllThings.
 	 *
 	 * @var array[]
 	 */
@@ -77,7 +75,7 @@ class ExtensionRegistry {
 	/**
 	 * List of paths that should be loaded
 	 *
-	 * @var array
+	 * @var int[]
 	 */
 	protected $queued = [];
 
@@ -176,9 +174,8 @@ class ExtensionRegistry {
 
 		$mtime = $wgExtensionInfoMTime;
 		if ( $mtime === false ) {
-			AtEase::suppressWarnings();
-			$mtime = filemtime( $path );
-			AtEase::restoreWarnings();
+			// phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged
+			$mtime = @filemtime( $path );
 			// @codeCoverageIgnoreStart
 			if ( $mtime === false ) {
 				$err = error_get_last();
@@ -190,7 +187,7 @@ class ExtensionRegistry {
 		$this->invalidateProcessCache();
 	}
 
-	private function getCache() : BagOStuff {
+	private function getCache(): BagOStuff {
 		// Can't call MediaWikiServices here, as we must not cause services
 		// to be instantiated before extensions have loaded.
 		return ObjectCache::makeLocalServerCache();
@@ -296,7 +293,7 @@ class ExtensionRegistry {
 	 * Get the current load queue. Not intended to be used
 	 * outside of the installer.
 	 *
-	 * @return array
+	 * @return int[] Map of extension.json files' modification timestamps keyed by absolute path
 	 */
 	public function getQueue() {
 		return $this->queued;
@@ -331,7 +328,7 @@ class ExtensionRegistry {
 	}
 
 	/**
-	 * Queries information about the software environment and constructs an appropiate version checker
+	 * Queries information about the software environment and constructs an appropriate version checker
 	 *
 	 * @return VersionChecker
 	 */
@@ -354,7 +351,7 @@ class ExtensionRegistry {
 	/**
 	 * Process a queue of extensions and return their extracted data
 	 *
-	 * @param array $queue keys are filenames, values are ignored
+	 * @param int[] $queue keys are filenames, values are ignored
 	 * @return array extracted info
 	 * @throws Exception
 	 * @throws ExtensionDependencyError
@@ -455,7 +452,6 @@ class ExtensionRegistry {
 	) {
 		if ( isset( $info['AutoloadClasses'] ) ) {
 			$autoload = self::processAutoLoader( $dir, $info['AutoloadClasses'] );
-			// @phan-suppress-next-line PhanUndeclaredVariableAssignOp
 			$GLOBALS['wgAutoloadClasses'] += $autoload;
 			$autoloadClasses += $autoload;
 		}
@@ -583,7 +579,7 @@ class ExtensionRegistry {
 	 * Whether a thing has been loaded
 	 * @param string $name
 	 * @param string $constraint The required version constraint for this dependency
-	 * @throws LogicException if a specific contraint is asked for,
+	 * @throws LogicException if a specific constraint is asked for,
 	 *                        but the extension isn't versioned
 	 * @return bool
 	 */
@@ -692,7 +688,7 @@ class ExtensionRegistry {
 	 * Fully expand autoloader paths
 	 *
 	 * @param string $dir
-	 * @param array $files
+	 * @param string[] $files
 	 * @return array
 	 */
 	protected static function processAutoLoader( $dir, array $files ) {

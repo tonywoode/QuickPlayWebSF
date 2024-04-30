@@ -2,11 +2,11 @@
 	"@metadata": {
 		"authors": [
 			"Andrijko Z.",
+			"D'AroemenenZullenNiVergaan",
+			"Stephanecbisson",
 			"Кумулај Маркус",
 			"Макѕе",
 			"Приетен тев",
-			"D'AroemenenZullenNiVergaan",
-			"Stephanecbisson",
 			"Amire80"
 		]
 	},
@@ -68,7 +68,6 @@
 	"category-empty": "''Ăn țeastă categorie nu ari mo țiva.''",
 	"category-subcat-count": "{{PLURAL:$2|Țeastă categorie ari salde ună sumcategorie.|Țeastă categorie ari {{PLURAL:$1|sumcategoriili| $1 subcategoriľ|$1 di sumcategoriľ}}, din $2.}}",
 	"category-subcat-count-limited": "Țeastă categorie ari {{PLURAL:$1|sumcategoria|$1 subcategoriľ|$1 di subcategoriľ}}.",
-	"listingcontinuesabbrev": "kontinu",
 	"index-category": "Frunzi indexati",
 	"noindex-category": "Frunzi neindexati",
 	"about": "Di noi",
@@ -146,7 +145,7 @@
 	"page-atom-feed": "„$1” Abonare Atom",
 	"red-link-title": "$1 (nu ari ăncă țeastă frunză)",
 	"nstab-main": "Frunză",
-	"nstab-user": "Pažu d'utilizatoru",
+	"nstab-user": "Frunză utilizator",
 	"nstab-project": "Frunza la proiect",
 	"nstab-image": "Fișier",
 	"nstab-mediawiki": "Carti",
@@ -229,7 +228,7 @@
 	"namespace": "lSpaţi:",
 	"invert": "Ķskluda spaţul",
 	"blanknamespace": "(Principu)",
-	"contributions": "Kontribuţi d'utilizatori",
+	"tool-link-contributions": "Kontribuţi d'utilizatori",
 	"mycontris": "Mes kontribuţi",
 	"contribsub2": "Pentru $1 ($2)",
 	"uctop": "susverf",

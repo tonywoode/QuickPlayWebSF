@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Iltever",
 			"Ernác",
+			"Iltever",
 			"Къарачайлы"
 		]
 	},
@@ -210,6 +210,11 @@
 	"config-upload-help": "Файл джюклеуле, серверни къоркъуусузлугъуна заран салыргъа боллукъду.\nАндан да аслам информация ючюн [https://www.mediawiki.org/wiki/Special:MyLanguage/Manual:Security къоркъуусузлукъну юсюнден бёлюмге] къарагъыз.\n\nФайл джюклеулени джандырыр ючюн, MediaWiki-ни тамыр директориясыны тюбюдеги <code>images</code> тюб директориядагъы модну, веб-серверин джаздыралыр ючюн, тюрлендиригиз.\nЫзындан да бу опцияны джандырыгъыз.",
 	"config-upload-deleted": "Кетерилген файлла ючюн директория:",
 	"config-upload-deleted-help": "Кетерилген файлланы архивлендирир ючюн директория сайлагъыз.\nЭм ашхысы, мыннга Интернетден кирирча болмасады.",
+	"config-personalization-settings": "Персонализация",
+	"config-logo-summary": "Бу къырланы хар бири ючюн келишген ёлчемде сурат джюклемегиз эмда URL-ни тюбюндеги къыргъа киргизтиуюгюз керекди. Логогъуз бу джоллагъа кёре эсе, <code>$wgStylePath</code> неда <code>$wgScriptPath</code> хайырланыргъа боллукъсуз. Бу къырланы къайсысын излесегиз да бош къояргъа боллукъсуз.",
+	"config-logo-preview-main": "Баш бет",
+	"config-logo-sidebar": "Къабыргъа панелни логосу (амалсыз тюлдю):",
+	"config-logo-filedrop": "Бери сурат файлны тартыгъыз",
 	"config-instantcommons": "Instant Commons-ну джандыр",
 	"config-instantcommons-help": "[https://www.mediawiki.org/wiki/Special:MyLanguage/InstantCommons Instant Commons] — [https://commons.wikimedia.org/ Викигёзенден] суратланы, тауушланы эмда башха медиафайлланы хайырланыргъа амал берген функцияды.\nMediaWiki-ни бу функциясы ишлер ючюн Интернетге кириш керекди.\n\nБу энчиликни юсюнден, Wikimedia Commons тышында викиле ючюн, къалай джарашдырыллыгъыны юсюнден буйрукъла да къошулуб, асламыракъ информация ючюн [https://www.mediawiki.org/wiki/Special:MyLanguage/Manual:$wgForeignFileRepos китабха] къарагъыз.",
 	"config-cc-error": "Creative Commons лицензияны сайлаучусу эсеб бермеди.\nЛицензияны къолугъуз бла киргизигиз.",

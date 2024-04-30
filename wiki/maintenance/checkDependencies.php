@@ -1,6 +1,6 @@
 <?php
 /**
- * (C) 2019 Kunal Mehta <legoktm@member.fsf.org>
+ * (C) 2019 Kunal Mehta <legoktm@debian.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -136,7 +136,7 @@ class CheckDependencies extends Maintenance {
 				// missing-phpExtension
 				// missing-ability
 				// XXX: ???
-				throw $e;
+				$this->fatalError( $e->getMessage() );
 			}
 
 			$this->addToDependencies( $dependencies, $extensions, $skins, $name, $reason, $e->getMessage() );

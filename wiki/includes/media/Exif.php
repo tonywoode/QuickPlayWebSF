@@ -25,6 +25,8 @@
  * @file
  */
 
+use Wikimedia\AtEase\AtEase;
+
 /**
  * Class to extract and validate Exif data from jpeg (and possibly tiff) files.
  * @ingroup Media
@@ -87,7 +89,7 @@ class Exif {
 	/** @var string The basename of the file being processed */
 	private $basename;
 
-	/** @var string The private log to log to, e.g. 'exif' */
+	/** @var string|false The private log to log to, e.g. 'exif' */
 	private $log = false;
 
 	/** @var string The byte order of the file. Needed because php's extension
@@ -292,9 +294,9 @@ class Exif {
 
 		$this->debugFile( __FUNCTION__, true );
 		if ( function_exists( 'exif_read_data' ) ) {
-			Wikimedia\suppressWarnings();
-			$data = exif_read_data( $this->file, 0, true );
-			Wikimedia\restoreWarnings();
+			AtEase::suppressWarnings();
+			$data = exif_read_data( $this->file, '', true );
+			AtEase::restoreWarnings();
 		} else {
 			throw new MWException( "Internal error: exif_read_data not present. " .
 				"\$wgShowEXIF may be incorrectly set or not checked by an extension." );
@@ -316,26 +318,24 @@ class Exif {
 	private function makeFilteredData() {
 		$this->mFilteredExifData = [];
 
-		foreach ( array_keys( $this->mRawExifData ) as $section ) {
+		foreach ( $this->mRawExifData as $section => $data ) {
 			if ( !array_key_exists( $section, $this->mExifTags ) ) {
 				$this->debug( $section, __FUNCTION__, "'$section' is not a valid Exif section" );
 				continue;
 			}
 
-			foreach ( array_keys( $this->mRawExifData[$section] ) as $tag ) {
+			foreach ( $data as $tag => $value ) {
 				if ( !array_key_exists( $tag, $this->mExifTags[$section] ) ) {
 					$this->debug( $tag, __FUNCTION__, "'$tag' is not a valid tag in '$section'" );
 					continue;
 				}
 
-				$this->mFilteredExifData[$tag] = $this->mRawExifData[$section][$tag];
-				// This is ok, as the tags in the different sections do not conflict.
-				// except in computed and thumbnail section, which we don't use.
-
-				$value = $this->mRawExifData[$section][$tag];
-				if ( !$this->validate( $section, $tag, $value ) ) {
+				if ( $this->validate( $section, $tag, $value ) ) {
+					// This is ok, as the tags in the different sections do not conflict.
+					// except in computed and thumbnail section, which we don't use.
+					$this->mFilteredExifData[$tag] = $value;
+				} else {
 					$this->debug( $value, __FUNCTION__, "'$tag' contained invalid data" );
-					unset( $this->mFilteredExifData[$tag] );
 				}
 			}
 		}
@@ -365,20 +365,30 @@ class Exif {
 		$this->exifGPStoNumber( 'GPSLongitude' );
 		$this->exifGPStoNumber( 'GPSDestLongitude' );
 
-		if ( isset( $this->mFilteredExifData['GPSAltitude'] )
-			&& isset( $this->mFilteredExifData['GPSAltitudeRef'] )
-		) {
+		if ( isset( $this->mFilteredExifData['GPSAltitude'] ) ) {
 			// We know altitude data is a <num>/<denom> from the validation
 			// functions ran earlier. But multiplying such a string by -1
 			// doesn't work well, so convert.
 			list( $num, $denom ) = explode( '/', $this->mFilteredExifData['GPSAltitude'] );
-			$this->mFilteredExifData['GPSAltitude'] = $num / $denom;
+			$this->mFilteredExifData['GPSAltitude'] = (int)$num / (int)$denom;
 
-			if ( $this->mFilteredExifData['GPSAltitudeRef'] === "\1" ) {
-				$this->mFilteredExifData['GPSAltitude'] *= -1;
+			if ( isset( $this->mFilteredExifData['GPSAltitudeRef'] ) ) {
+				switch ( $this->mFilteredExifData['GPSAltitudeRef'] ) {
+				case "\0":
+					// Above sea level
+					break;
+				case "\1":
+					// Below sea level
+					$this->mFilteredExifData['GPSAltitude'] *= -1;
+					break;
+				default:
+					// Invalid
+					unset( $this->mFilteredExifData['GPSAltitude'] );
+					break;
+				}
 			}
-			unset( $this->mFilteredExifData['GPSAltitudeRef'] );
 		}
+		unset( $this->mFilteredExifData['GPSAltitudeRef'] );
 
 		$this->exifPropToOrd( 'FileSource' );
 		$this->exifPropToOrd( 'SceneType' );
@@ -466,17 +476,17 @@ class Exif {
 					break;
 			}
 			if ( $charset ) {
-				Wikimedia\suppressWarnings();
+				AtEase::suppressWarnings();
 				$val = iconv( $charset, 'UTF-8//IGNORE', $val );
-				Wikimedia\restoreWarnings();
+				AtEase::restoreWarnings();
 			} else {
 				// if valid utf-8, assume that, otherwise assume windows-1252
 				$valCopy = $val;
 				UtfNormal\Validator::quickIsNFCVerify( $valCopy ); // validates $valCopy.
 				if ( $valCopy !== $val ) {
-					Wikimedia\suppressWarnings();
+					AtEase::suppressWarnings();
 					$val = iconv( 'Windows-1252', 'UTF-8//IGNORE', $val );
-					Wikimedia\restoreWarnings();
+					AtEase::restoreWarnings();
 				}
 			}
 
@@ -509,7 +519,7 @@ class Exif {
 
 	/**
 	 * Convert gps in exif form to a single floating point number
-	 * for example 10 degress 20`40`` S -> -10.34444
+	 * for example 10 degrees 20`40`` S -> -10.34444
 	 * @param string $prop A GPS coordinate exif tag name (like GPSLongitude)
 	 */
 	private function exifGPStoNumber( $prop ) {
@@ -521,11 +531,11 @@ class Exif {
 			&& ( $dir === 'N' || $dir === 'S' || $dir === 'E' || $dir === 'W' )
 		) {
 			list( $num, $denom ) = explode( '/', $loc[0] );
-			$res = $num / $denom;
+			$res = (int)$num / (int)$denom;
 			list( $num, $denom ) = explode( '/', $loc[1] );
-			$res += ( $num / $denom ) * ( 1 / 60 );
+			$res += ( (int)$num / (int)$denom ) * ( 1 / 60 );
 			list( $num, $denom ) = explode( '/', $loc[2] );
-			$res += ( $num / $denom ) * ( 1 / 3600 );
+			$res += ( (int)$num / (int)$denom ) * ( 1 / 3600 );
 
 			if ( $dir === 'S' || $dir === 'W' ) {
 				$res *= -1; // make negative
@@ -611,7 +621,7 @@ class Exif {
 		}
 
 		if ( preg_match( "/[^\x0a\x20-\x7e]/", $in ) ) {
-			$this->debug( $in, __FUNCTION__, 'found a character not in our whitelist' );
+			$this->debug( $in, __FUNCTION__, 'found a character that is not allowed' );
 
 			return false;
 		}

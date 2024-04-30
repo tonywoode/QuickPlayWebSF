@@ -1,5 +1,8 @@
 <?php
 
+// phpcs:disable MediaWiki.Commenting.FunctionComment.ObjectTypeHintParam
+// phpcs:disable MediaWiki.Commenting.FunctionComment.ObjectTypeHintReturn
+
 use Wikimedia\Assert\PostconditionException;
 
 /**
@@ -40,7 +43,7 @@ trait LanguageFallbackTestTrait {
 		$mockLocCache->expects( $this->exactly( $expectedGets ) )->method( 'getItem' )
 			->with( $this->anything(),
 				$this->logicalOr( 'fallbackSequence', 'originalFallbackSequence' ) )
-			->will( $this->returnCallback( function ( $code, $key ) use ( $map ) {
+			->will( $this->returnCallback( static function ( $code, $key ) use ( $map ) {
 				if ( $key === 'originalFallbackSequence' || $code === 'en' ) {
 					return $map[$code];
 				}

@@ -14,16 +14,16 @@ error_reporting( E_ALL );
 # If you customize your file layout, set $IP to the directory that contains
 
 # the other MediaWiki files. It will be used as a base to locate files.
-if( defined( 'MW_INSTALL_PATH' ) ) {
-	$IP = MW_INSTALL_PATH;
-} else {
-	$IP = dirname( __FILE__ );
-}
+#if( defined( 'MW_INSTALL_PATH' ) ) {
+#	$IP = MW_INSTALL_PATH;
+#} else {
+#	$IP = dirname( __FILE__ );
+#}
 
 $path = array( $IP, "$IP/includes", "$IP/languages" );
 set_include_path( implode( PATH_SEPARATOR, $path ) );
 
-require_once( "includes/DefaultSettings.php" );
+#require_once( "includes/DefaultSettings.php" );
 # added after locahost styles issue: https://www.mediawiki.org/wiki/Topic:Vfwzrueqzyqu2vqq
 require_once("$IP/includes/json/FormatJson.php");
 
@@ -73,7 +73,7 @@ $wgEnotifUserTalk = true; # UPO
 $wgEnotifWatchlist = true; # UPO
 $wgEmailAuthentication = true;
 
-$wgServer = "http://quickplay.sourceforge.net/wiki";
+$wgServer = "http://quickplay.sourceforge.net";
 ## note when upgrading mediawiki I had to change wgDBServer from "locahost" to "127.0.0.1:8889"
 $wgDBserver = "";
 $wgDBname = "";

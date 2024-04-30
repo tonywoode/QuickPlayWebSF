@@ -1,18 +1,17 @@
 {
 	"@metadata": {
 		"authors": [
+			"KuboF",
 			"Michawiki",
 			"Mihxil",
 			"Mirin",
+			"NMaia",
 			"Objectivesea",
 			"Petrus Adamus",
 			"Robin van der Vliet",
 			"Tlustulimu",
 			"Yekrats",
-			"YvesNevelsteen",
-			"KuboF",
-			"NMaia",
-			"Ziko"
+			"YvesNevelsteen"
 		]
 	},
 	"exif-imagewidth": "Larĝeco",
@@ -203,11 +202,8 @@
 	"exif-photometricinterpretation-3": "Paletro",
 	"exif-photometricinterpretation-4": "Masko de travideblo",
 	"exif-photometricinterpretation-5": "Apartigita (Verŝajne Cejanblua-Fuksina-Flava-Nigra)",
-	"exif-photometricinterpretation-8": "CIE L*a*b*",
 	"exif-photometricinterpretation-9": "CIE L*a*b* (laŭ enkodigo de ICC)",
 	"exif-photometricinterpretation-10": "CIE L*a*b* (laŭ enkodigo de ITU)",
-	"exif-photometricinterpretation-32803": "Kolora Filtrilo-Aro",
-	"exif-photometricinterpretation-34892": "Lineara kruda",
 	"exif-unknowndate": "Nekonata dato",
 	"exif-orientation-1": "Normala",
 	"exif-orientation-2": "Spegulumita horizontale",
@@ -278,9 +274,6 @@
 	"exif-scenetype-1": "Rekte fotita bildo",
 	"exif-customrendered-0": "Norma proceso",
 	"exif-customrendered-1": "Propra procezo",
-	"exif-customrendered-2": "HDR (neniu originalo konservita)",
-	"exif-customrendered-3": "HDR (originalo konservita)",
-	"exif-customrendered-4": "Originala (por HDR)",
 	"exif-customrendered-6": "Panoramo",
 	"exif-customrendered-7": "Portreta HDR",
 	"exif-customrendered-8": "Portreto",
@@ -369,5 +362,9 @@
 	"exif-urgency-normal": "Norma ($1)",
 	"exif-urgency-low": "Malalta ($1)",
 	"exif-urgency-high": "Alta ($1)",
-	"exif-urgency-other": "Prioritato difinita de uzanto ($1)"
+	"exif-urgency-other": "Prioritato difinita de uzanto ($1)",
+	"exif-usepanoramaviewer-true": "Jes",
+	"exif-usepanoramaviewer-false": "Ne",
+	"exif-exposurelockused-true": "Jes",
+	"exif-exposurelockused-false": "Ne"
 }

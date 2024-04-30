@@ -82,9 +82,6 @@ class DateFormatter {
 	/** e.g. 2001-01-15 */
 	private const ISO = 4;
 
-	/** The highest ID that is a valid user preference */
-	private const LASTPREF = 4;
-
 	/** e.g. 2001, 15 January */
 	private const YDM = 5;
 
@@ -275,11 +272,9 @@ class DateFormatter {
 					$isoBits[] = $match['isoDay'];
 					$isoDate = implode( '-', $isoBits );
 
-					// Output is not strictly HTML (it's wikitext), but <span> is whitelisted.
-					$text = Html::rawElement( 'span',
+					// Output is not strictly HTML (it's wikitext), but <span> is allowed.
+					return Html::rawElement( 'span',
 						[ 'class' => 'mw-formatted-date', 'title' => $isoDate ], $text );
-
-					return $text;
 				}, $text
 			);
 		}
@@ -288,7 +283,7 @@ class DateFormatter {
 
 	/**
 	 * Makes an ISO month, e.g. 02, from a month name
-	 * @param string $monthName Month name
+	 * @param string $monthName
 	 * @return string|false ISO month name, or false if the input was invalid
 	 */
 	private function makeIsoMonth( $monthName ) {

@@ -26,12 +26,13 @@ use MediaWiki\ResourceLoader\HookRunner;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Wikimedia\AtEase\AtEase;
 use Wikimedia\RelPath;
+use Wikimedia\RequestTimeout\TimeoutException;
 
 /**
  * Abstraction for ResourceLoader modules, with name registration and maxage functionality.
  *
+ * @see $wgResourceModules for the available options when registering a module.
  * @stable to extend
  * @ingroup ResourceLoader
  * @since 1.17
@@ -83,6 +84,15 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	/** @var string Scripts and styles */
 	public const TYPE_COMBINED = 'combined';
 
+	/** @var string */
+	public const GROUP_SITE = 'site';
+	/** @var string */
+	public const GROUP_USER = 'user';
+	/** @var string */
+	public const GROUP_PRIVATE = 'private';
+	/** @var string */
+	public const GROUP_NOSCRIPT = 'noscript';
+
 	/** @var string Module only has styles (loaded via <style> or <link rel=stylesheet>) */
 	public const LOAD_STYLES = 'styles';
 	/** @var string Module may have other resources (loaded via mw.loader from a script) */
@@ -103,6 +113,9 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	/** @var int An access constant; make sure this is kept as the largest number in this group */
 	public const ORIGIN_ALL = 10;
 
+	/** @var int Cache version for user-script JS validation errors from validateScriptFile(). */
+	private const USERJSPARSE_CACHE_VERSION = 2;
+
 	/**
 	 * Get this module's name. This is set when the module is registered
 	 * with ResourceLoader::register()
@@ -121,6 +134,19 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 */
 	public function setName( $name ) {
 		$this->name = $name;
+	}
+
+	/**
+	 * Provide overrides for skinStyles to modules that support that.
+	 *
+	 * This MUST be called after self::setName().
+	 *
+	 * @since 1.37
+	 * @see $wgResourceModuleSkinStyles
+	 * @param array $moduleSkinStyles
+	 */
+	public function setSkinStylesOverride( array $moduleSkinStyles ): void {
+		// Stub, only supported by FileModule currently.
 	}
 
 	/**
@@ -217,8 +243,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 */
 	public function getConfig() {
 		if ( $this->config === null ) {
-			// Ugh, fall back to default
-			$this->config = MediaWikiServices::getInstance()->getMainConfig();
+			throw new RuntimeException( 'Config accessed before it is set' );
 		}
 
 		return $this->config;
@@ -255,7 +280,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 * @internal For use only by ResourceLoader::getModule
 	 * @param HookContainer $hookContainer
 	 */
-	public function setHookContainer( HookContainer $hookContainer ) : void {
+	public function setHookContainer( HookContainer $hookContainer ): void {
 		$this->hookRunner = new HookRunner( $hookContainer );
 	}
 
@@ -266,36 +291,49 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 *   without notice.
 	 * @return HookRunner
 	 */
-	protected function getHookRunner() : HookRunner {
+	protected function getHookRunner(): HookRunner {
 		return $this->hookRunner;
 	}
 
 	/**
-	 * Get the URL or URLs to load for this module's JS in debug mode.
-	 * The default behavior is to return a load.php?only=scripts URL for
-	 * the module, but file-based modules will want to override this to
-	 * load the files directly.
+	 * Get alternative script URLs for legacy debug mode.
 	 *
-	 * This function is called only when 1) we're in debug mode, 2) there
-	 * is no only= parameter and 3) supportsURLLoading() returns true.
-	 * #2 is important to prevent an infinite loop, therefore this function
-	 * MUST return either an only= URL or a non-load.php URL.
+	 * The default behavior is to return a `load.php?only=scripts&module=<name>` URL.
+	 *
+	 * Module classes that merely wrap one or more other script files in production mode, may
+	 * override this method to return an array of raw URLs for those underlying scripts,
+	 * if those are individually web-accessible.
+	 *
+	 * The mw.loader client will load and execute each URL consecutively. This has the caveat of
+	 * executing legacy debug scripts in the global scope, which is why non-package file modules
+	 * tend to use file closures (T50886).
+	 *
+	 * This function MUST NOT be called, unless all the following are true:
+	 *
+	 * 1. We're in debug mode,
+	 * 2. There is no `only=` parameter in the context,
+	 * 3. self::supportsURLLoading() has returned true.
+	 *
+	 * Point 2 prevents an infinite loop since we use the `only=` mechanism in the return value.
+	 * Overrides must similarly return with `only`, or return or a non-load.php URL.
 	 *
 	 * @stable to override
 	 * @param ResourceLoaderContext $context
-	 * @return array Array of URLs
+	 * @return string[]
 	 */
 	public function getScriptURLsForDebug( ResourceLoaderContext $context ) {
-		$resourceLoader = $context->getResourceLoader();
+		$rl = $context->getResourceLoader();
 		$derivative = new DerivativeResourceLoaderContext( $context );
 		$derivative->setModules( [ $this->getName() ] );
 		$derivative->setOnly( 'scripts' );
-		$derivative->setDebug( true );
 
-		$url = $resourceLoader->createLoaderURL(
+		$url = $rl->createLoaderURL(
 			$this->getSource(),
 			$derivative
 		);
+
+		// Expand debug URL in case we are another wiki's module source (T255367)
+		$url = $rl->expandUrl( $this->getConfig()->get( 'Server' ), $url );
 
 		return [ $url ];
 	}
@@ -330,7 +368,15 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 * Get the URL or URLs to load for this module's CSS in debug mode.
 	 * The default behavior is to return a load.php?only=styles URL for
 	 * the module, but file-based modules will want to override this to
-	 * load the files directly. See also getScriptURLsForDebug()
+	 * load the files directly
+	 *
+	 * This function must only be called when:
+	 *
+	 * 1. We're in debug mode,
+	 * 2. There is no `only=` parameter and,
+	 * 3. self::supportsURLLoading() returns true.
+	 *
+	 * See also getScriptURLsForDebug().
 	 *
 	 * @stable to override
 	 * @param ResourceLoaderContext $context
@@ -341,7 +387,6 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 		$derivative = new DerivativeResourceLoaderContext( $context );
 		$derivative->setModules( [ $this->getName() ] );
 		$derivative->setOnly( 'styles' );
-		$derivative->setDebug( true );
 
 		$url = $resourceLoader->createLoaderURL(
 			$this->getSource(),
@@ -357,7 +402,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 * To get a JSON blob with messages, use MessageBlobStore::get()
 	 *
 	 * @stable to override
-	 * @return array List of message keys. Keys may occur more than once
+	 * @return string[] List of message keys. Keys may occur more than once
 	 */
 	public function getMessages() {
 		// Stub, override expected
@@ -368,7 +413,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 * Get the group this module is in.
 	 *
 	 * @stable to override
-	 * @return string Group name
+	 * @return string|null Group name
 	 */
 	public function getGroup() {
 		// Stub, override expected
@@ -397,7 +442,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 *
 	 * @stable to override
 	 * @param ResourceLoaderContext|null $context
-	 * @return array List of module names as strings
+	 * @return string[] List of module names as strings
 	 */
 	public function getDependencies( ResourceLoaderContext $context = null ) {
 		// Stub, override expected
@@ -408,7 +453,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 * Get target(s) for the module, eg ['desktop'] or ['desktop', 'mobile']
 	 *
 	 * @stable to override
-	 * @return array Array of strings
+	 * @return string[]
 	 */
 	public function getTargets() {
 		return $this->targets;
@@ -445,11 +490,25 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	}
 
 	/**
-	 * Get the indirect dependencies for this module persuant to the skin/language context
+	 * Whether the module requires ES6 support in the client.
+	 *
+	 * If the client does not support ES6, attempting to load a module that requires ES6 will
+	 * result in an error.
+	 *
+	 * @stable to override
+	 * @since 1.36
+	 * @return bool
+	 */
+	public function requiresES6() {
+		return false;
+	}
+
+	/**
+	 * Get the indirect dependencies for this module pursuant to the skin/language context
 	 *
 	 * These are only image files referenced by the module's stylesheet
 	 *
-	 * If niether setFileDependencies() nor setDependencyLoadCallback() was called, this
+	 * If neither setFileDependencies() nor setDependencyLoadCallback() was called, this
 	 * will simply return a placeholder with an empty file list
 	 *
 	 * @see ResourceLoader::setFileDependencies()
@@ -476,7 +535,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	}
 
 	/**
-	 * Set the indirect dependencies for this module persuant to the skin/language context
+	 * Set the indirect dependencies for this module pursuant to the skin/language context
 	 *
 	 * These are only image files referenced by the module's stylesheet
 	 *
@@ -492,7 +551,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	}
 
 	/**
-	 * Save the indirect dependencies for this module persuant to the skin/language context
+	 * Save the indirect dependencies for this module pursuant to the skin/language context
 	 *
 	 * @param ResourceLoaderContext $context
 	 * @param string[] $curFileRefs List of newly computed indirect file dependencies
@@ -523,6 +582,8 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 				self::getRelativePaths( $curFileRefs ),
 				self::getRelativePaths( $this->getFileDependencies( $context ) )
 			);
+		} catch ( TimeoutException $e ) {
+			throw $e;
 		} catch ( Exception $e ) {
 			$this->getLogger()->warning(
 				__METHOD__ . ": failed to update dependencies: {$e->getMessage()}",
@@ -543,7 +604,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 */
 	public static function getRelativePaths( array $filePaths ) {
 		global $IP;
-		return array_map( function ( $path ) use ( $IP ) {
+		return array_map( static function ( $path ) use ( $IP ) {
 			return RelPath::getRelativePath( $path, $IP );
 		}, $filePaths );
 	}
@@ -557,7 +618,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 */
 	public static function expandRelativePaths( array $filePaths ) {
 		global $IP;
-		return array_map( function ( $path ) use ( $IP ) {
+		return array_map( static function ( $path ) use ( $IP ) {
 			return RelPath::joinPath( $IP, $path );
 		}, $filePaths );
 	}
@@ -726,11 +787,10 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 		$content = [];
 
 		// Scripts
-		// If we are in debug mode, we'll want to return an array of URLs if possible
-		// However, we can't do this if the module doesn't support it.
-		// We also can't do this if there is an only= parameter, because we have to give
-		// the module a way to return a load.php URL without causing an infinite loop
-		if ( $context->getDebug() && !$context->getOnly() && $this->supportsURLLoading() ) {
+		if ( $context->getDebug() === $context::DEBUG_LEGACY && !$context->getOnly() && $this->supportsURLLoading() ) {
+			// In legacy debug mode, let supporting modules like FileModule replace the bundled
+			// script closure with an array of alternative script URLs to consecutively load instead.
+			// See self::getScriptURLsForDebug() more details.
 			$scripts = $this->getScriptURLsForDebug( $context );
 		} else {
 			$scripts = $this->getScript( $context );
@@ -741,11 +801,8 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 			// line break as separator which matches JavaScript native logic for implicitly
 			// ending statements even if a semi-colon is missing.
 			// Bugs: T29054, T162719.
-			if ( is_string( $scripts )
-				&& strlen( $scripts )
-				&& substr( $scripts, -1 ) !== "\n"
-			) {
-				$scripts .= "\n";
+			if ( is_string( $scripts ) ) {
+				$scripts = ResourceLoader::ensureNewline( $scripts );
 			}
 		}
 		$content['scripts'] = $scripts;
@@ -816,20 +873,29 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 * Get a string identifying the current version of this module in a given context.
 	 *
 	 * Whenever anything happens that changes the module's response (e.g. scripts, styles, and
-	 * messages) this value must change. This value is used to store module responses in cache.
-	 * (Both client-side and server-side.)
+	 * messages) this value must change. This value is used to store module responses in caches,
+	 * both server-side (by a CDN, or other HTTP cache), and client-side (in `mw.loader.store`,
+	 * and in the browser's own HTTP cache).
 	 *
-	 * It is not recommended to override this directly. Use getDefinitionSummary() instead.
-	 * If overridden, one must call the parent getVersionHash(), append data and re-hash.
-	 *
-	 * This method should be quick because it is frequently run by ResourceLoaderStartUpModule to
-	 * propagate changes to the client and effectively invalidate cache.
+	 * The underlying methods called here for any given module should be quick because this
+	 * is called for potentially thousands of module bundles in the same request as part of the
+	 * ResourceLoaderStartUpModule, which is how we invalidate caches and propagate changes to
+	 * clients.
 	 *
 	 * @since 1.26
+	 * @see self::getDefinitionSummary for how to customize version computation.
 	 * @param ResourceLoaderContext $context
-	 * @return string Hash (should use ResourceLoader::makeHash)
+	 * @return string Hash formatted by ResourceLoader::makeHash
 	 */
-	public function getVersionHash( ResourceLoaderContext $context ) {
+	final public function getVersionHash( ResourceLoaderContext $context ) {
+		if ( $context->getDebug() ) {
+			// In debug mode, make uncached startup module extra fast by not computing any hashes.
+			// Server responses from load.php for individual modules already have no-cache so
+			// we don't need them. This also makes breakpoint debugging easier, as each module
+			// gets its own consistent URL. (T235672)
+			return '';
+		}
+
 		// Cache this somewhat expensive operation. Especially because some classes
 		// (e.g. startup module) iterate more than once over all modules to get versions.
 		$contextHash = $context->getHash();
@@ -933,7 +999,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	}
 
 	/**
-	 * Check whether this module should be embeded rather than linked
+	 * Check whether this module should be embedded rather than linked
 	 *
 	 * Modules returning true here will be embedded rather than loaded by
 	 * ResourceLoaderClientHtml.
@@ -944,55 +1010,65 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 * @return bool
 	 */
 	public function shouldEmbedModule( ResourceLoaderContext $context ) {
-		return $this->getGroup() === 'private';
+		return $this->getGroup() === self::GROUP_PRIVATE;
 	}
 
-	private static $parseCacheVersion = 1;
-
 	/**
-	 * Validate a given script file; if valid returns the original source.
-	 * If invalid, returns replacement JS source that throws an exception.
+	 * Validate a user-provided JavaScript blob.
 	 *
 	 * @param string $fileName
-	 * @param string $contents
-	 * @return string JS with the original, or a replacement error
+	 * @param string $contents JavaScript code
+	 * @return string JavaScript code, either the original content or a replacement
+	 *  that uses `mw.log.error()` to communicate a syntax error.
 	 */
 	protected function validateScriptFile( $fileName, $contents ) {
-		if ( !$this->getConfig()->get( 'ResourceLoaderValidateJS' ) ) {
+		$error = null;
+
+		if ( $this->getConfig()->get( 'ResourceLoaderValidateJS' ) ) {
+			$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
+			// Cache potentially slow parsing of JavaScript code during the
+			// critical path. This happens lazily when responding to requests
+			// for modules=site, modules=user, and Gadgets.
+			$error = $cache->getWithSetCallback(
+				$cache->makeKey(
+					'resourceloader-userjsparse',
+					self::USERJSPARSE_CACHE_VERSION,
+					md5( $contents ),
+					$fileName
+				),
+				$cache::TTL_WEEK,
+				static function () use ( $contents, $fileName ) {
+					$parser = new JSParser();
+					try {
+						// Ignore compiler warnings (T77169)
+						// phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged
+						@$parser->parse( $contents, $fileName, 1 );
+					} catch ( TimeoutException $e ) {
+						throw $e;
+					} catch ( Exception $e ) {
+						return $e->getMessage();
+					}
+					// Cache success as null
+					return null;
+				}
+			);
+		}
+
+		if ( $error ) {
+			// Send the error to the browser console client-side.
+			// By returning this as replacement for the actual script,
+			// we ensure user-provided scripts are safe to include in a batch
+			// request, without risk of a syntax error in this blob breaking
+			// the response itself.
+			return 'mw.log.error(' .
+				json_encode(
+					'JavaScript parse error (scripts need to be valid ECMAScript 5): ' .
+					$error
+				) .
+				');';
+		} else {
 			return $contents;
 		}
-		$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
-		return $cache->getWithSetCallback(
-			$cache->makeGlobalKey(
-				'resourceloader-jsparse',
-				self::$parseCacheVersion,
-				md5( $contents ),
-				$fileName
-			),
-			$cache::TTL_WEEK,
-			function () use ( $contents, $fileName ) {
-				$parser = new JSParser();
-				$err = null;
-				try {
-					AtEase::suppressWarnings();
-					$parser->parse( $contents, $fileName, 1 );
-				} catch ( Exception $e ) {
-					$err = $e;
-				} finally {
-					AtEase::restoreWarnings();
-				}
-				if ( $err ) {
-					// Send the error to the browser console client-side.
-					// By returning this as replacement for the actual script,
-					// we ensure modules are safe to load in a batch request,
-					// without causing other unrelated modules to break.
-					return 'mw.log.error(' . Xml::encodeJsVar(
-						'JavaScript parse error (scripts need to be valid ECMAScript 5): ' .
-						$err->getMessage() ) . ');';
-				}
-				return $contents;
-			}
-		);
 	}
 
 	/**
@@ -1000,7 +1076,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 * If the file does not exist or cannot be read, returns an empty string.
 	 *
 	 * @since 1.26 Uses MD4 instead of SHA1.
-	 * @param string $filePath File path
+	 * @param string $filePath
 	 * @return string Hash
 	 */
 	protected static function safeFileHash( $filePath ) {
@@ -1012,7 +1088,7 @@ abstract class ResourceLoaderModule implements LoggerAwareInterface {
 	 *
 	 * @internal For internal use only.
 	 * @param ResourceLoaderContext $context
-	 * @return string Vary string
+	 * @return string
 	 */
 	public static function getVary( ResourceLoaderContext $context ) {
 		return implode( '|', [

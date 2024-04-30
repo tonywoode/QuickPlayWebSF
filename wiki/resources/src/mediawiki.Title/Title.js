@@ -116,8 +116,19 @@ var toUpperMap,
 
 	/**
 	 * @private
+	 * @method isKnownNamespace
+	 * @param {number} namespace that may or may not exist
+	 * @return {boolean}
+	 */
+	isKnownNamespace = function ( namespace ) {
+		return namespace === NS_MAIN || mw.config.get( 'wgFormattedNamespaces' )[ namespace ] !== undefined;
+	},
+
+	/**
+	 * @private
 	 * @method getNamespacePrefix_
-	 * @param {number} namespace
+	 * @param {number} namespace that is valid and known. Callers should call
+	 *  `isKnownNamespace` before executing this method.
 	 * @return {string}
 	 */
 	getNamespacePrefix = function ( namespace ) {
@@ -137,9 +148,7 @@ var toUpperMap,
 		// to round-trip titles -- you can't link to them consistently.
 		'|%[\\dA-Fa-f]{2}' +
 		// XML/HTML character references produce similar issues.
-		'|&[\\dA-Za-z\u0080-\uFFFF]+;' +
-		'|&#\\d+;' +
-		'|&#x[\\dA-Fa-f]+;'
+		'|&[\\dA-Za-z\u0080-\uFFFF]+;'
 	),
 
 	// From MediaWikiTitleCodec::splitTitleString() in PHP
@@ -471,7 +480,11 @@ Title.newFromText = function ( title, namespace ) {
  * @return {mw.Title|null} A valid Title object or null if the title is invalid
  */
 Title.makeTitle = function ( namespace, title ) {
-	return mw.Title.newFromText( getNamespacePrefix( namespace ) + title );
+	if ( !isKnownNamespace( namespace ) ) {
+		return null;
+	} else {
+		return mw.Title.newFromText( getNamespacePrefix( namespace ) + title );
+	}
 };
 
 /**
@@ -507,7 +520,7 @@ Title.newFromUserInput = function ( title, defaultNamespace, options ) {
 		namespace = NS_MAIN;
 		title = title
 			// Strip colon
-			.substr( 1 )
+			.slice( 1 )
 			// Trim underscores
 			.replace( rUnderscoreTrim, '' );
 	}
@@ -596,7 +609,7 @@ Title.newFromImg = function ( img ) {
 /**
  * Check if a given namespace is a talk namespace
  *
- * See MWNamespace::isTalk in PHP
+ * See NamespaceInfo::isTalk in PHP
  *
  * @param {number} namespaceId Namespace ID
  * @return {boolean} Namespace is a talk namespace
@@ -608,7 +621,7 @@ Title.isTalkNamespace = function ( namespaceId ) {
 /**
  * Check if signature buttons should be shown in a given namespace
  *
- * See MWNamespace::wantSignatures in PHP
+ * See NamespaceInfo::wantSignatures in PHP
  *
  * @param {number} namespaceId Namespace ID
  * @return {boolean} Namespace is a signature namespace
@@ -720,9 +733,9 @@ Title.phpCharToUpper = function ( chr ) {
 	if ( !toUpperMap ) {
 		toUpperMap = require( './phpCharToUpper.json' );
 	}
-	if ( toUpperMap[ chr ] === '' ) {
+	if ( toUpperMap[ chr ] === 0 ) {
 		// Optimisation: When the override is to keep the character unchanged,
-		// we use an empty string in JSON. This reduces the data by 50%.
+		// we use 0 in JSON. This reduces the data by 50%.
 		return chr;
 	}
 	return toUpperMap[ chr ] || chr.toUpperCase();
@@ -800,18 +813,6 @@ Title.prototype = {
 	},
 
 	/**
-	 * Shortcut for appendable string to form the main page name.
-	 *
-	 * Returns a string like ".json", or "" if no extension.
-	 *
-	 * @return {string}
-	 */
-	getDotExtension: function () {
-		var ext = this.getExtension();
-		return ext === null ? '' : '.' + ext;
-	},
-
-	/**
 	 * Get the main page name
 	 *
 	 * Example: "Example_image.svg" for "File:Example_image.svg".
@@ -825,7 +826,8 @@ Title.prototype = {
 		) {
 			return this.title;
 		}
-		return mw.Title.phpCharToUpper( this.title[ 0 ] ) + this.title.slice( 1 );
+		var firstChar = mwString.charAt( this.title, 0 );
+		return mw.Title.phpCharToUpper( firstChar ) + this.title.slice( firstChar.length );
 	},
 
 	/**

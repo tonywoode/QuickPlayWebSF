@@ -21,8 +21,6 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\MediaWikiServices;
-
 /**
  * Special page lists various statistics, including the contents of
  * `site_stats`, plus page view details if enabled
@@ -39,6 +37,7 @@ class SpecialStatistics extends SpecialPage {
 
 	public function execute( $par ) {
 		$this->setHeaders();
+		$this->outputHeader();
 		$this->getOutput()->addModuleStyles( 'mediawiki.special' );
 
 		$this->edits = SiteStats::edits();
@@ -125,10 +124,13 @@ class SpecialStatistics extends SpecialPage {
 			Xml::tags( 'th', [ 'colspan' => '2' ], $this->msg( 'statistics-header-pages' )
 				->parse() ) .
 			Xml::closeElement( 'tr' ) .
-				$this->formatRow( $linkRenderer->makeKnownLink(
-					$specialAllPagesTitle,
-					$this->msg( 'statistics-articles' )->text(),
-					[], [ 'hideredirects' => 1 ] ),
+				$this->formatRow(
+					$this->getConfig()->get( 'MiserMode' )
+						? $this->msg( 'statistics-articles' )->escaped()
+						: $linkRenderer->makeKnownLink(
+							$specialAllPagesTitle,
+							$this->msg( 'statistics-articles' )->text(),
+							[], [ 'hideredirects' => 1 ] ),
 					$this->getLanguage()->formatNum( $this->good ),
 					[ 'class' => 'mw-statistics-articles' ],
 					'statistics-articles-desc' ) .
@@ -144,7 +146,7 @@ class SpecialStatistics extends SpecialPage {
 				$linkRenderer->makeKnownLink( SpecialPage::getTitleFor( 'MediaStatistics' ),
 				$this->msg( 'statistics-files' )->text() ),
 				$this->getLanguage()->formatNum( $this->images ),
-				[ 'class' => 'mw-statistics-files' ] );
+				[ 'class' => 'mw-statistics-files' ], 'statistics-files-desc' );
 		}
 
 		return $pageStatsHtml;
@@ -201,21 +203,9 @@ class SpecialStatistics extends SpecialPage {
 				|| $group == '*' ) {
 				continue;
 			}
-			$groupname = htmlspecialchars( $group );
-			$msg = $this->msg( 'group-' . $groupname );
-			if ( $msg->isBlank() ) {
-				$groupnameLocalized = $groupname;
-			} else {
-				$groupnameLocalized = $msg->text();
-			}
-			$msg = $this->msg( 'grouppage-' . $groupname )->inContentLanguage();
-			if ( $msg->isBlank() ) {
-				$grouppageLocalized = MediaWikiServices::getInstance()->getNamespaceInfo()->
-					getCanonicalName( NS_PROJECT ) . ':' . $groupname;
-			} else {
-				$grouppageLocalized = $msg->text();
-			}
-			$linkTarget = Title::newFromText( $grouppageLocalized );
+			$groupnameLocalized = UserGroupMembership::getGroupName( $group );
+			$linkTarget = UserGroupMembership::getGroupPage( $group )
+				?: Title::makeTitleSafe( NS_PROJECT, $group );
 
 			if ( $linkTarget ) {
 				$grouppage = $linkRenderer->makeLink(
@@ -234,7 +224,7 @@ class SpecialStatistics extends SpecialPage {
 			);
 			# Add a class when a usergroup contains no members to allow hiding these rows
 			$classZero = '';
-			$countUsers = SiteStats::numberingroup( $groupname );
+			$countUsers = SiteStats::numberingroup( $group );
 			if ( $countUsers == 0 ) {
 				$classZero = ' statistics-group-zero';
 			}

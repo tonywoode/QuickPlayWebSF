@@ -4,8 +4,7 @@ use MediaWiki\Block\BlockManager;
 use MediaWiki\Block\CompositeBlock;
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\Block\SystemBlock;
-use MediaWiki\MediaWikiServices;
-use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -19,14 +18,14 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	/** @var User */
 	protected $user;
 
-	/** @var int */
-	protected $sysopId;
+	/** @var User */
+	protected $sysopUser;
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 
 		$this->user = $this->getTestUser()->getUser();
-		$this->sysopId = $this->getTestSysop()->getUser()->getId();
+		$this->sysopUser = $this->getTestSysop()->getUser();
 		$this->blockManagerConfig = [
 			'wgApplyIpBlocksToXff' => true,
 			'wgCookieSetOnAutoblock' => true,
@@ -49,8 +48,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	private function getBlockManagerConstructorArgs( $overrideConfig ) {
 		$blockManagerConfig = array_merge( $this->blockManagerConfig, $overrideConfig );
 		$this->setMwGlobals( $blockManagerConfig );
-		$logger = $this->getMockBuilder( LoggerInterface::class )->getMock();
-		$services = MediaWikiServices::getInstance();
+		$services = $this->getServiceContainer();
 		return [
 			new LoggedServiceOptions(
 				self::$serviceOptionsAccessLog,
@@ -58,7 +56,8 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 				$services->getMainConfig()
 			),
 			$services->getPermissionManager(),
-			$logger,
+			$services->getUserFactory(),
+			new NullLogger(),
 			$services->getHookContainer()
 		];
 	}
@@ -68,7 +67,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testGetBlock() {
 		// Reset so that hooks are called
-		$permissionManager = MediaWikiServices::getInstance()->getPermissionManager();
+		$permissionManager = $this->getServiceContainer()->getPermissionManager();
 		$permissionManager->invalidateUsersRightsCache();
 
 		// Ensure that the `UserGetRights` hook in PermissionManager is triggerred
@@ -79,7 +78,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 		$onUserGetRightsCalled = false;
 		$this->setTemporaryHook(
 			'UserGetRights',
-			function ( $user, &$rights ) use ( &$onUserGetRightsCalled ) {
+			static function ( $user, &$rights ) use ( &$onUserGetRightsCalled ) {
 				$onUserGetRightsCalled = true;
 				$rights[] = 'ipblock-exempt';
 				return true;
@@ -89,7 +88,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 		$onGetUserBlockIP = false;
 		$this->setTemporaryHook(
 			'GetUserBlock',
-			function ( $user, $ip, &$block ) use ( &$onGetUserBlockCalled, &$onGetUserBlockIP ) {
+			static function ( $user, $ip, &$block ) use ( &$onGetUserBlockCalled, &$onGetUserBlockIP ) {
 				$onGetUserBlockCalled = true;
 				$onGetUserBlockIP = $ip;
 				return true;
@@ -107,7 +106,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $onUserGetRightsCalled, 'Extensions should be able to grant rights' );
 		$this->assertTrue(
 			$onGetUserBlockCalled,
-			'Sanity check: HookRunner::onGetUserBlock should have been called'
+			'Check that HookRunner::onGetUserBlock was called'
 		);
 		$this->assertNull(
 			$onGetUserBlockIP,
@@ -122,6 +121,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	 * @covers ::shouldApplyCookieBlock
 	 */
 	public function testGetBlockFromCookieValue( $options, $expected ) {
+		/** @var BlockManager $blockManager */
 		$blockManager = TestingAccessWrapper::newFromObject(
 			$this->getBlockManager( [
 				'wgCookieSetOnAutoblock' => true,
@@ -129,13 +129,14 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			] )
 		);
 
+		$blockStore = $this->getServiceContainer()->getDatabaseBlockStore();
 		$block = new DatabaseBlock( array_merge( [
 			'address' => $options['target'] ?: $this->user,
-			'by' => $this->sysopId,
+			'by' => $this->sysopUser,
 		], $options['blockOptions'] ) );
-		$block->insert();
+		$blockStore->insertBlock( $block );
 
-		$user = $options['loggedIn'] ? $this->user : new User();
+		$user = $options['registered'] ? $this->user : new User();
 		$user->getRequest()->setCookie( 'BlockID', $blockManager->getCookieValue( $block ) );
 
 		$this->assertSame( $expected, (bool)$blockManager->getBlockFromCookieValue(
@@ -143,7 +144,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			$user->getRequest()
 		) );
 
-		$block->delete();
+		$blockStore->deleteBlock( $block );
 	}
 
 	/**
@@ -152,6 +153,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	 * @covers ::shouldApplyCookieBlock
 	 */
 	public function testTrackBlockWithCookieRemovesBlocks( $options, $expectKeepCookie ) {
+		/** @var BlockManager $blockManager */
 		$blockManager = TestingAccessWrapper::newFromObject(
 			$this->getBlockManager( [
 				'wgCookieSetOnAutoblock' => true,
@@ -159,26 +161,29 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			] )
 		);
 
+		$blockStore = $this->getServiceContainer()->getDatabaseBlockStore();
 		$block = new DatabaseBlock( array_merge( [
 			'address' => $options['target'] ?: $this->user,
-			'by' => $this->sysopId,
+			'by' => $this->sysopUser,
 		], $options['blockOptions'] ) );
-		$block->insert();
+		$blockStore->insertBlock( $block );
 
-		$user = $options['loggedIn'] ? $this->user : new User();
+		$user = $options['registered'] ? $this->user : new User();
 		$user->getRequest()->setCookie( 'BlockID', $blockManager->getCookieValue( $block ) );
+
+		$response = new FauxResponse;
 
 		$blockManager->trackBlockWithCookie(
 			$user,
-			$user->getRequest()->response()
+			$response
 		);
 
 		$this->assertCount(
 			$expectKeepCookie ? 0 : 1,
-			$user->getRequest()->response()->getCookies()
+			$response->getCookies()
 		);
 
-		$block->delete();
+		$blockStore->deleteBlock( $block );
 	}
 
 	public static function provideBlocksForShouldApplyCookieBlock() {
@@ -186,7 +191,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			'Autoblocking user block' => [
 				[
 					'target' => '',
-					'loggedIn' => true,
+					'registered' => true,
 					'blockOptions' => [
 						'enableAutoblock' => true
 					],
@@ -196,7 +201,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			'Autoblocking user block for anonymous user' => [
 				[
 					'target' => '',
-					'loggedIn' => false,
+					'registered' => false,
 					'blockOptions' => [
 						'enableAutoblock' => true
 					],
@@ -206,7 +211,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			'Non-autoblocking user block' => [
 				[
 					'target' => '',
-					'loggedIn' => true,
+					'registered' => true,
 					'blockOptions' => [],
 				],
 				false,
@@ -214,7 +219,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			'IP block for anonymous user' => [
 				[
 					'target' => '127.0.0.1',
-					'loggedIn' => false,
+					'registered' => false,
 					'blockOptions' => [],
 				],
 				true,
@@ -222,7 +227,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			'IP block for logged in user' => [
 				[
 					'target' => '127.0.0.1',
-					'loggedIn' => true,
+					'registered' => true,
 					'blockOptions' => [],
 				],
 				false,
@@ -230,7 +235,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 			'IP range block for anonymous user' => [
 				[
 					'target' => '127.0.0.0/8',
-					'loggedIn' => false,
+					'registered' => false,
 					'blockOptions' => [],
 				],
 				true,
@@ -243,6 +248,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	 * @covers ::isLocallyBlockedProxy
 	 */
 	public function testIsLocallyBlockedProxy( $proxyList, $expected ) {
+		/** @var BlockManager $blockManager */
 		$blockManager = TestingAccessWrapper::newFromObject(
 			$this->getBlockManager( [
 				'wgProxyList' => $proxyList
@@ -276,7 +282,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 
 		$blockManager = $this->getMockBuilder( BlockManager::class )
 			->setConstructorArgs( $this->getBlockManagerConstructorArgs( $blockManagerConfig ) )
-			->setMethods( [ 'checkHost' ] )
+			->onlyMethods( [ 'checkHost' ] )
 			->getMock();
 		$blockManager->method( 'checkHost' )
 			->will( $this->returnValueMap( [ [
@@ -380,16 +386,17 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	public function testGetUniqueBlocks() {
 		$blockId = 100;
 
+		/** @var BlockManager $blockManager */
 		$blockManager = TestingAccessWrapper::newFromObject( $this->getBlockManager( [] ) );
 
 		$block = $this->getMockBuilder( DatabaseBlock::class )
-			->setMethods( [ 'getId' ] )
+			->onlyMethods( [ 'getId' ] )
 			->getMock();
 		$block->method( 'getId' )
 			->willReturn( $blockId );
 
 		$autoblock = $this->getMockBuilder( DatabaseBlock::class )
-			->setMethods( [ 'getParentBlockId', 'getType' ] )
+			->onlyMethods( [ 'getParentBlockId', 'getType' ] )
 			->getMock();
 		$autoblock->method( 'getParentBlockId' )
 			->willReturn( $blockId );
@@ -416,7 +423,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 		$response = $request->response();
 
 		$user = $this->getMockBuilder( User::class )
-			->setMethods( [ 'getBlock', 'getRequest' ] )
+			->onlyMethods( [ 'getBlock', 'getRequest' ] )
 			->getMock();
 		$user->method( 'getBlock' )
 			->willReturn( $options['block'] );
@@ -514,7 +521,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 
 	private function getTrackableBlock( $blockId ) {
 		$block = $this->getMockBuilder( DatabaseBlock::class )
-			->setMethods( [ 'getType', 'getId' ] )
+			->onlyMethods( [ 'getType', 'getId' ] )
 			->getMock();
 		$block->method( 'getType' )
 			->willReturn( DatabaseBlock::TYPE_IP );
@@ -582,6 +589,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	 * @covers ::shouldTrackBlockWithCookie
 	 */
 	public function testShouldTrackBlockWithCookieSystemBlock() {
+		/** @var BlockManager $blockManager */
 		$blockManager = TestingAccessWrapper::newFromObject( $this->getBlockManager( [] ) );
 		$this->assertFalse( $blockManager->shouldTrackBlockWithCookie(
 			new SystemBlock(),
@@ -595,7 +603,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testShouldTrackBlockWithCookie( $options, $expected ) {
 		$block = $this->getMockBuilder( DatabaseBlock::class )
-			->setMethods( [ 'getType', 'isAutoblocking' ] )
+			->onlyMethods( [ 'getType', 'isAutoblocking' ] )
 			->getMock();
 		$block->method( 'getType' )
 			->willReturn( $options['type'] );
@@ -604,6 +612,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 				->willReturn( $options['autoblocking'] );
 		}
 
+		/** @var BlockManager $blockManager */
 		$blockManager = TestingAccessWrapper::newFromObject(
 			$this->getBlockManager( $options['blockManagerConfig'] )
 		);
@@ -768,7 +777,7 @@ class BlockManagerTest extends MediaWikiIntegrationTestCase {
 		] );
 
 		$block = $this->getMockBuilder( DatabaseBlock::class )
-			->setMethods( [ 'getId' ] )
+			->onlyMethods( [ 'getId' ] )
 			->getMock();
 		$block->method( 'getId' )
 			->willReturn( $options['blockId'] );

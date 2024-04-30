@@ -7,6 +7,9 @@ use Skin;
 use Title;
 
 /**
+ * This is a hook handler interface, see docs/Hooks.md.
+ * Use the hook name "SkinEditSectionLinks" to register handlers implementing this interface.
+ *
  * @stable to implement
  * @ingroup Hooks
  */
@@ -21,7 +24,7 @@ interface SkinEditSectionLinksHook {
 	 *   if the section is included from a template)
 	 * @param string $section Designation of the section being pointed to, to be included in
 	 *   the link, like "&section=$section"
-	 * @param string $tooltip Default tooltip. Escape before using.
+	 * @param string|null $tooltip Default tooltip. Escape before using.
 	 *   By default, this is wrapped in the 'editsectionhint' message.
 	 * @param array &$result Array containing all link detail arrays. Each link detail array should
 	 *   contain the following keys:

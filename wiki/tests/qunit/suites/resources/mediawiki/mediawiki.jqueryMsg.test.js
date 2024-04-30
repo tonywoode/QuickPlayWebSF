@@ -23,9 +23,13 @@
 			this.parserDefaults = mw.jqueryMsg.getParserDefaults();
 			mw.jqueryMsg.setParserDefaults( {
 				magic: {
-					PAGENAME: '2 + 2',
-					PAGENAMEE: mw.util.wikiUrlencode( '2 + 2' ),
-					SITENAME: 'Wiki'
+					SITENAME: 'Wiki',
+					// Repeat parserDefaults.magic from mediawiki.jqueryMsg.js. The original
+					// runs before the mock config is set up.
+					PAGENAME: mw.config.get( 'wgPageName' ),
+					PAGENAMEE: mw.util.wikiUrlencode( mw.config.get( 'wgPageName' ) ),
+					SERVERNAME: mw.config.get( 'wgServerName' )
+
 				}
 			} );
 
@@ -34,9 +38,9 @@
 			expectedListUsers = '注册<a title="Special:ListUsers" href="/wiki/Special:ListUsers">用户</a>';
 			expectedListUsersSitename = '注册<a title="Special:ListUsers" href="/wiki/Special:ListUsers">用户' +
 				'Wiki</a>';
-			expectedLinkPagenamee = '<a href="https://example.org/wiki/Foo?bar=baz#val/2_%2B_2">Test</a>';
+			expectedLinkPagenamee = '<a href="https://example.org/wiki/Foo?bar=baz#val/2_%2B_2" class="external">Test</a>';
 
-			expectedEntrypoints = '<a href="https://www.mediawiki.org/wiki/Manual:index.php">index.php</a>';
+			expectedEntrypoints = '<a href="https://www.mediawiki.org/wiki/Manual:index.php" class="external">index.php</a>';
 
 			formatText = mw.jqueryMsg.getMessageFunction( {
 				format: 'text'
@@ -51,6 +55,8 @@
 			mw.jqueryMsg.setParserDefaults( this.parserDefaults );
 		},
 		config: {
+			wgPageName: '2 + 2',
+			wgServerName: 'wiki.xyz',
 			wgArticlePath: '/wiki/$1',
 			wgNamespaceIds: {
 				template: 10,
@@ -163,17 +169,17 @@
 
 		assert.strictEqual(
 			formatParse( 'external-link-replace', 'http://example.org/?x=y&z' ),
-			'Foo <a href="http://example.org/?x=y&amp;z">bar</a>',
+			'Foo <a href="http://example.org/?x=y&amp;z" class="external">bar</a>',
 			'Href is not double-escaped in wikilink function'
 		);
 		assert.strictEqual(
 			formatParse( 'external-link-plural', 1, 'http://example.org' ),
-			'Foo is <a href="http://example.org">one</a> things.',
+			'Foo is <a href="http://example.org" class="external">one</a> things.',
 			'Link is expanded inside plural and is not escaped html'
 		);
 		assert.strictEqual(
 			formatParse( 'external-link-plural', 2, 'http://example.org' ),
-			'Foo <a href="http://example.org">two</a> things.',
+			'Foo <a href="http://example.org" class="external">two</a> things.',
 			'Link is expanded inside an explicit plural form and is not escaped html'
 		);
 		assert.strictEqual(
@@ -188,7 +194,7 @@
 		);
 		assert.strictEqual(
 			formatParse( 'external-link-plural', 6, 'http://example.org' ),
-			'Foo are <a href="http://example.org">some</a> things.',
+			'Foo are <a href="http://example.org" class="external">some</a> things.',
 			'Plural fallback to the "other" plural form'
 		);
 		assert.strictEqual(
@@ -324,6 +330,13 @@
 		assert.strictEqual( formatParse( 'mixed-to-sentence' ), 'This has messed up capitalization', 'To sentence case' );
 		mw.messages.set( 'all-caps-except-first', '{{lcfirst:{{uc:thIS hAS MEsSed uP CapItaliZatiON}}}}' );
 		assert.strictEqual( formatParse( 'all-caps-except-first' ), 'tHIS HAS MESSED UP CAPITALIZATION', 'To opposite sentence case' );
+
+		mw.messages.set( 'ucfirst-outside-BMP', '{{ucfirst:\uD803\uDCC0 is U+10CC0 (OLD HUNGARIAN SMALL LETTER A)}}' );
+		assert.strictEqual( formatParse( 'ucfirst-outside-BMP' ), '\uD803\uDC80 is U+10CC0 (OLD HUNGARIAN SMALL LETTER A)', 'Ucfirst outside BMP' );
+
+		mw.messages.set( 'lcfirst-outside-BMP', '{{lcfirst:\uD803\uDC80 is U+10C80 (OLD HUNGARIAN CAPITAL LETTER A)}}' );
+		assert.strictEqual( formatParse( 'lcfirst-outside-BMP' ), '\uD803\uDCC0 is U+10C80 (OLD HUNGARIAN CAPITAL LETTER A)', 'Lcfirst outside BMP' );
+
 	} );
 
 	QUnit.test( 'Grammar', function ( assert ) {
@@ -331,6 +344,17 @@
 
 		mw.messages.set( 'grammar-msg-wrong-syntax', 'Przeszukaj {{GRAMMAR:grammar_case_xyz}}' );
 		assert.strictEqual( formatParse( 'grammar-msg-wrong-syntax' ), 'Przeszukaj ', 'Grammar Test with wrong grammar template syntax' );
+	} );
+
+	QUnit.test( 'Variables', function ( assert ) {
+		mw.messages.set( 'variables-pagename', '{{PAGENAME}}' );
+		assert.strictEqual( formatParse( 'variables-pagename' ), '2 + 2', 'PAGENAME' );
+		mw.messages.set( 'variables-pagenamee', '{{PAGENAMEE}}' );
+		assert.strictEqual( formatParse( 'variables-pagenamee' ), mw.util.wikiUrlencode( '2 + 2' ), 'PAGENAMEE' );
+		mw.messages.set( 'variables-sitename', '{{SITENAME}}' );
+		assert.strictEqual( formatParse( 'variables-sitename' ), 'Wiki', 'SITENAME' );
+		mw.messages.set( 'variables-servername', '{{SERVERNAME}}' );
+		assert.strictEqual( formatParse( 'variables-servername' ), 'wiki.xyz', 'SERVERNAME' );
 	} );
 
 	QUnit.test( 'Bi-di', function ( assert ) {
@@ -447,12 +471,12 @@
 			[
 				'extlink-html-full',
 				'asd [http://example.org <strong>Example</strong>] asd',
-				'asd <a href="http://example.org"><strong>Example</strong></a> asd'
+				'asd <a href="http://example.org" class="external"><strong>Example</strong></a> asd'
 			],
 			[
 				'extlink-html-partial',
 				'asd [http://example.org foo <strong>Example</strong> bar] asd',
-				'asd <a href="http://example.org">foo <strong>Example</strong> bar</a> asd'
+				'asd <a href="http://example.org" class="external">foo <strong>Example</strong> bar</a> asd'
 			],
 			[
 				'wikilink-html-full',
@@ -485,32 +509,32 @@
 			[
 				'extlink-param-href-full',
 				'asd [$1 Example] asd',
-				'asd <a href="http://example.com">Example</a> asd'
+				'asd <a href="http://example.com" class="external">Example</a> asd'
 			],
 			[
 				'extlink-param-href-partial',
 				'asd [$1/example Example] asd',
-				'asd <a href="http://example.com/example">Example</a> asd'
+				'asd <a href="http://example.com/example" class="external">Example</a> asd'
 			],
 			[
 				'extlink-param-text-full',
 				'asd [http://example.org $2] asd',
-				'asd <a href="http://example.org">Text</a> asd'
+				'asd <a href="http://example.org" class="external">Text</a> asd'
 			],
 			[
 				'extlink-param-text-partial',
 				'asd [http://example.org Example $2] asd',
-				'asd <a href="http://example.org">Example Text</a> asd'
+				'asd <a href="http://example.org" class="external">Example Text</a> asd'
 			],
 			[
 				'extlink-param-both-full',
 				'asd [$1 $2] asd',
-				'asd <a href="http://example.com">Text</a> asd'
+				'asd <a href="http://example.com" class="external">Text</a> asd'
 			],
 			[
 				'extlink-param-both-partial',
 				'asd [$1/example Example $2] asd',
-				'asd <a href="http://example.com/example">Example Text</a> asd'
+				'asd <a href="http://example.com/example" class="external">Example Text</a> asd'
 			],
 			[
 				'wikilink-param-href-full',
@@ -617,7 +641,7 @@
 		);
 		assert.htmlEqual(
 			formatParse( 'external-link-replace', 'http://example.com' ),
-			'Foo <a href="http://example.com">bar</a>',
+			'Foo <a href="http://example.com" class="external">bar</a>',
 			'External link message processed when format is \'parse\''
 		);
 		assert.htmlEqual(
@@ -627,7 +651,7 @@
 		);
 		assert.htmlEqual(
 			formatParse( 'external-link-replace', '//example.com' ),
-			'Foo <a href="//example.com">bar</a>',
+			'Foo <a href="//example.com" class="external">bar</a>',
 			'External link message allows protocol-relative URL when processed'
 		);
 		assert.htmlEqual(
@@ -867,7 +891,7 @@
 		{
 			lang: 'hi',
 			number: '123456789.123456789',
-			result: '१२,३४,५६,७८९',
+			result: '१२,३४,५६,७८९.१२३',
 			description: 'formatnum test for Hindi'
 		},
 		{
@@ -950,13 +974,13 @@
 		assert.htmlEqual(
 			formatParse( 'jquerymsg-script-msg' ),
 			'&lt;script  &gt;alert( &quot;Who put this tag here?&quot; );&lt;/script&gt;',
-			'Tag outside whitelist escaped in parse mode'
+			'Tag outside list of allowed ones is escaped in parse mode'
 		);
 
 		assert.strictEqual(
 			formatText( 'jquerymsg-script-msg' ),
 			mw.messages.get( 'jquerymsg-script-msg' ),
-			'Tag outside whitelist unchanged in text mode'
+			'Tag outside list of allowed ones is unchanged in text mode'
 		);
 
 		mw.messages.set( 'jquerymsg-script-link-msg', '<script>[[Foo|bar]]</script>' );
@@ -976,15 +1000,15 @@
 		mw.messages.set( 'jquerymsg-script-and-external-link', '<script>alert( "jquerymsg-script-and-external-link test" );</script> [http://example.com <i>Foo</i> bar]' );
 		assert.htmlEqual(
 			formatParse( 'jquerymsg-script-and-external-link' ),
-			'&lt;script&gt;alert( "jquerymsg-script-and-external-link test" );&lt;/script&gt; <a href="http://example.com"><i>Foo</i> bar</a>',
+			'&lt;script&gt;alert( "jquerymsg-script-and-external-link test" );&lt;/script&gt; <a href="http://example.com" class="external"><i>Foo</i> bar</a>',
 			'HTML tags in external links not interfering with escaping of other tags'
 		);
 
 		mw.messages.set( 'jquerymsg-link-script', '[http://example.com <script>alert( "jquerymsg-link-script test" );</script>]' );
 		assert.htmlEqual(
 			formatParse( 'jquerymsg-link-script' ),
-			'<a href="http://example.com">&lt;script&gt;alert( "jquerymsg-link-script test" );&lt;/script&gt;</a>',
-			'Non-whitelisted HTML tag in external link anchor treated as text'
+			'<a href="http://example.com" class="external">&lt;script&gt;alert( "jquerymsg-link-script test" );&lt;/script&gt;</a>',
+			'HTML tag not is list of allowed ones in external link anchor is treated as text'
 		);
 
 		// Intentionally not using htmlEqual for the quote tests
@@ -1019,7 +1043,7 @@
 		mw.messages.set( 'jquerymsg-wikitext-contents-parsed', '<i>[http://example.com Example]</i>' );
 		assert.htmlEqual(
 			formatParse( 'jquerymsg-wikitext-contents-parsed' ),
-			'<i><a href="http://example.com">Example</a></i>',
+			'<i><a href="http://example.com" class="external">Example</a></i>',
 			'Contents of valid tag are treated as wikitext, so external link is parsed'
 		);
 
@@ -1266,7 +1290,7 @@
 			mw.messages.set( 'object-double-replace', 'Foo 1: $1 2: $1' );
 			$messageArgument = $( '<div class="bar">&gt;</div>' );
 			$message = $( '<span>' ).msg( 'object-double-replace', $messageArgument );
-			assert.ok(
+			assert.true(
 				$message[ 0 ].contains( $messageArgument[ 0 ] ),
 				'The original jQuery object is actually in the DOM'
 			);
@@ -1334,26 +1358,7 @@
 				FOO: 'foo',
 				BAR: 'bar'
 			},
-			'setParserDefaults is shallow by default'
-		);
-
-		mw.jqueryMsg.setParserDefaults(
-			{
-				magic: {
-					BAZ: 'baz'
-				}
-			},
-			true
-		);
-
-		assert.deepEqual(
-			mw.jqueryMsg.getParserDefaults().magic,
-			{
-				FOO: 'foo',
-				BAR: 'bar',
-				BAZ: 'baz'
-			},
-			'setParserDefaults is deep if requested'
+			'setParserDefaults updates the parser defaults'
 		);
 	} );
 }() );

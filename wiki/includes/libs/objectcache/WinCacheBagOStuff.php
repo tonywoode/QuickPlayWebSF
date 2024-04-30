@@ -31,9 +31,18 @@ class WinCacheBagOStuff extends MediumSpecificBagOStuff {
 	public function __construct( array $params = [] ) {
 		$params['segmentationSize'] = $params['segmentationSize'] ?? INF;
 		parent::__construct( $params );
+
+		if ( PHP_SAPI === 'cli' ) {
+			$this->attrMap[self::ATTR_DURABILITY] = ini_get( 'wincache.enablecli' )
+				? self::QOS_DURABILITY_SCRIPT
+				: self::QOS_DURABILITY_NONE;
+		} else {
+			$this->attrMap[self::ATTR_DURABILITY] = self::QOS_DURABILITY_SERVICE;
+		}
 	}
 
 	protected function doGet( $key, $flags = 0, &$casToken = null ) {
+		$getToken = ( $casToken === self::PASS_BY_REF );
 		$casToken = null;
 
 		$blob = wincache_ucache_get( $key );
@@ -42,7 +51,7 @@ class WinCacheBagOStuff extends MediumSpecificBagOStuff {
 		}
 
 		$value = $this->unserialize( $blob );
-		if ( $value !== false ) {
+		if ( $getToken && $value !== false ) {
 			$casToken = (string)$blob; // don't bother hashing this
 		}
 
@@ -54,7 +63,7 @@ class WinCacheBagOStuff extends MediumSpecificBagOStuff {
 			return false;
 		}
 
-		$curCasToken = null; // passed by reference
+		$curCasToken = self::PASS_BY_REF; // passed by reference
 		$this->doGet( $key, self::READ_LATEST, $curCasToken );
 		if ( $casToken === $curCasToken ) {
 			$success = $this->set( $key, $value, $exptime, $flags );
@@ -102,35 +111,64 @@ class WinCacheBagOStuff extends MediumSpecificBagOStuff {
 		return true;
 	}
 
-	public function makeKeyInternal( $keyspace, $args ) {
+	public function makeKeyInternal( $keyspace, $components ) {
 		// WinCache keys have a maximum length of 150 characters. From that,
 		// subtract the number of characters we need for the keyspace and for
 		// the separator character needed for each argument. To handle some
 		// custom prefixes used by thing like WANObjectCache, limit to 125.
 		// NOTE: Same as in memcached, except the max key length there is 255.
-		$charsLeft = 125 - strlen( $keyspace ) - count( $args );
+		$charsLeft = 125 - strlen( $keyspace ) - count( $components );
 
-		$args = array_map(
-			function ( $arg ) use ( &$charsLeft ) {
+		$components = array_map(
+			static function ( $component ) use ( &$charsLeft ) {
 				// 33 = 32 characters for the MD5 + 1 for the '#' prefix.
-				if ( $charsLeft > 33 && strlen( $arg ) > $charsLeft ) {
-					$arg = '#' . md5( $arg );
+				if ( $charsLeft > 33 && strlen( $component ) > $charsLeft ) {
+					$component = '#' . md5( $component );
 				}
 
-				$charsLeft -= strlen( $arg );
-				return $arg;
+				$charsLeft -= strlen( $component );
+				return $component;
 			},
-			$args
+			$components
 		);
 
 		if ( $charsLeft < 0 ) {
-			return $keyspace . ':BagOStuff-long-key:##' . md5( implode( ':', $args ) );
+			return $keyspace . ':BagOStuff-long-key:##' . md5( implode( ':', $components ) );
 		}
 
-		return $keyspace . ':' . implode( ':', $args );
+		return $keyspace . ':' . implode( ':', $components );
+	}
+
+	public function doIncrWithInit( $key, $exptime, $step, $init, $flags ) {
+		if ( !wincache_lock( $key ) ) { // optimize with FIFO lock
+			return false;
+		}
+
+		$curValue = $this->doGet( $key );
+		if ( $curValue === false ) {
+			$newValue = $this->doSet( $key, $init, $exptime ) ? $init : false;
+		} elseif ( $this->isInteger( $curValue ) ) {
+			$sum = max( $curValue + $step, 0 );
+			$oldTTL = wincache_ucache_info( false, $key )["ucache_entries"][1]["ttl_seconds"];
+			$newValue = $this->doSet( $key, $sum, $oldTTL ) ? $sum : false;
+		} else {
+			$newValue = false;
+		}
+
+		wincache_unlock( $key );
+
+		return $newValue;
 	}
 
 	public function incr( $key, $value = 1, $flags = 0 ) {
+		return $this->doIncr( $key, $value, $flags );
+	}
+
+	public function decr( $key, $value = 1, $flags = 0 ) {
+		return $this->doIncr( $key, -$value, $flags );
+	}
+
+	private function doIncr( $key, $value = 1, $flags = 0 ) {
 		if ( !wincache_lock( $key ) ) { // optimize with FIFO lock
 			return false;
 		}
@@ -139,7 +177,7 @@ class WinCacheBagOStuff extends MediumSpecificBagOStuff {
 		if ( $this->isInteger( $n ) ) {
 			$n = max( $n + (int)$value, 0 );
 			$oldTTL = wincache_ucache_info( false, $key )["ucache_entries"][1]["ttl_seconds"];
-			$this->set( $key, $n, $oldTTL );
+			$this->doSet( $key, $n, $oldTTL );
 		} else {
 			$n = false;
 		}
@@ -147,9 +185,5 @@ class WinCacheBagOStuff extends MediumSpecificBagOStuff {
 		wincache_unlock( $key );
 
 		return $n;
-	}
-
-	public function decr( $key, $value = 1, $flags = 0 ) {
-		return $this->incr( $key, -$value, $flags );
 	}
 }

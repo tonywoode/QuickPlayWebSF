@@ -1,10 +1,10 @@
 {
 	"@metadata": {
 		"authors": [
-			"Чаховіч Уладзіслаў",
-			"Mechanizatar",
 			"Artsiom91",
-			"ZlyiLev"
+			"Mechanizatar",
+			"ZlyiLev",
+			"Чаховіч Уладзіслаў"
 		]
 	},
 	"config-desc": "Інсталятар MediaWiki",

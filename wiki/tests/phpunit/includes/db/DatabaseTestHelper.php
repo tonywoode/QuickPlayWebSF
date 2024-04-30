@@ -4,6 +4,7 @@ use Psr\Log\NullLogger;
 use Wikimedia\Rdbms\Database;
 use Wikimedia\Rdbms\DatabaseDomain;
 use Wikimedia\Rdbms\TransactionProfiler;
+use Wikimedia\RequestTimeout\RequestTimeout;
 
 /**
  * Helper for testing the methods from the Database class
@@ -12,13 +13,13 @@ use Wikimedia\Rdbms\TransactionProfiler;
 class DatabaseTestHelper extends Database {
 
 	/**
-	 * __CLASS__ of the test suite,
+	 * @var string[] __CLASS__ of the test suite,
 	 * used to determine, if the function name is passed every time to query()
 	 */
 	protected $testName = [];
 
 	/**
-	 * Array of lastSqls passed to query(),
+	 * @var string[] Array of lastSqls passed to query(),
 	 * This is an array since some methods in Database can do more than one
 	 * query. Cleared when calling getLastSqls().
 	 */
@@ -33,13 +34,13 @@ class DatabaseTestHelper extends Database {
 	protected $lastError = null;
 
 	/**
-	 * Array of tables to be considered as existing by tableExist()
+	 * @var string[] Array of tables to be considered as existing by tableExist()
 	 * Use setExistingTables() to alter.
 	 */
 	protected $tablesExists;
 
 	/**
-	 * Value to return from unionSupportsOrderAndLimit()
+	 * @var bool Value to return from unionSupportsOrderAndLimit()
 	 */
 	protected $unionSupportsOrderAndLimit = true;
 
@@ -57,6 +58,7 @@ class DatabaseTestHelper extends Database {
 			'flags' => 0,
 			'cliMode' => true,
 			'agent' => '',
+			'serverName' => null,
 			'topologyRole' => null,
 			'topologicalMaster' => null,
 			'srvCache' => new HashBagOStuff(),
@@ -65,12 +67,14 @@ class DatabaseTestHelper extends Database {
 			'connLogger' => new NullLogger(),
 			'queryLogger' => new NullLogger(),
 			'replLogger' => new NullLogger(),
-			'errorLogger' => function ( Exception $e ) {
+			'errorLogger' => static function ( Exception $e ) {
 				wfWarn( get_class( $e ) . ": {$e->getMessage()}" );
 			},
-			'deprecationLogger' => function ( $msg ) {
+			'deprecationLogger' => static function ( $msg ) {
 				wfWarn( $msg );
-			}
+			},
+			'criticalSectionProvider' =>
+				RequestTimeout::singleton()->createCriticalSectionProvider( 120 )
 		] );
 
 		$this->testName = $testName;
@@ -173,7 +177,7 @@ class DatabaseTestHelper extends Database {
 		return 'test';
 	}
 
-	public function open( $server, $user, $password, $dbName, $schema, $tablePrefix ) {
+	public function open( $server, $user, $password, $db, $schema, $tablePrefix ) {
 		$this->conn = (object)[ 'test' ];
 
 		return true;
@@ -191,20 +195,8 @@ class DatabaseTestHelper extends Database {
 		return -1;
 	}
 
-	public function numFields( $res ) {
-		return -1;
-	}
-
-	public function fieldName( $res, $n ) {
-		return 'test';
-	}
-
 	public function insertId() {
 		return -1;
-	}
-
-	public function dataSeek( $res, $row ) {
-		/* nop */
 	}
 
 	public function lastErrno() {

@@ -51,7 +51,7 @@ class RefreshExternallinksIndex extends LoggedUpdateMaintenance {
 	}
 
 	protected function doDBUpdates() {
-		$dbw = $this->getDB( DB_MASTER );
+		$dbw = $this->getDB( DB_PRIMARY );
 		if ( !$dbw->tableExists( 'externallinks', __METHOD__ ) ) {
 			$this->error( "externallinks table does not exist" );
 			return false;
@@ -68,7 +68,7 @@ class RefreshExternallinksIndex extends LoggedUpdateMaintenance {
 		$updated = 0;
 		$deleted = 0;
 		$start = $minmax->min - 1;
-		$last = $minmax->max;
+		$last = (int)$minmax->max;
 		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 		while ( $start < $last ) {
 			$end = min( $start + $this->mBatchSize, $last );

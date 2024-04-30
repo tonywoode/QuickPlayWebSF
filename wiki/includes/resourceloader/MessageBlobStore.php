@@ -164,7 +164,7 @@ class MessageBlobStore implements LoggerAwareInterface {
 	 *
 	 * @param string $key Message key
 	 */
-	public function updateMessage( $key ) : void {
+	public function updateMessage( $key ): void {
 		$moduleNames = $this->resourceloader->getModulesByMessage( $key );
 		foreach ( $moduleNames as $moduleName ) {
 			// Uses a holdoff to account for database replica DB lag (for MessageCache)
@@ -228,6 +228,8 @@ class MessageBlobStore implements LoggerAwareInterface {
 		$messages = [];
 		foreach ( $module->getMessages() as $key ) {
 			$value = $this->fetchMessage( $key, $lang );
+			// If the message does not exist, omit it from the blob so that
+			// client-side mw.message may do its own existence handling.
 			if ( $value !== null ) {
 				$messages[$key] = $value;
 			}

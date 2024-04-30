@@ -17,12 +17,17 @@
  *
  * @file
  */
+
+use MediaWiki\Logger\LoggerFactory;
+use Psr\Log\LoggerInterface;
 use Wikimedia\ScopedCallback;
 
 /**
- * Arbitrary section name based PHP profiling. This custom profiler can track
- * code execution that doesn't cleanly map to a function call and thus can't be
- * handled by Xhprof or Excimer. For example, parser invocations or DB queries.
+ * Arbitrary section name based PHP profiling.
+ *
+ * This custom profiler can track code execution that doesn't cleanly map to a
+ * function call and thus can't be handled by ProfilerXhprof or ProfilerExcimer.
+ * For example, parser invocations or DB queries.
  *
  * @since 1.25
  * @ingroup Profiler
@@ -46,13 +51,21 @@ class SectionProfiler {
 	protected $collateOnly = true;
 	/** @var array Cache of a standard broken collation entry */
 	protected $errorEntry;
+	/** @var LoggerInterface */
+	protected $logger;
 
 	/**
 	 * @param array $params
 	 */
 	public function __construct( array $params = [] ) {
 		$this->errorEntry = $this->getErrorEntry();
+		// collateOnly (meaning: no tracing) is true by default.
+		// Setting trace=true produces collateOnly=false
 		$this->collateOnly = empty( $params['trace'] );
+		if ( !$this->collateOnly ) {
+			wfDeprecated( __CLASS__ . ' with "trace" option', '1.38' );
+		}
+		$this->logger = LoggerFactory::getInstance( 'profiler' );
 	}
 
 	/**
@@ -231,14 +244,14 @@ class SectionProfiler {
 	public function profileOutInternal( $functionname ) {
 		$item = array_pop( $this->workStack );
 		if ( $item === null ) {
-			$this->debugGroup( 'profileerror', "Profiling error: $functionname" );
+			$this->logger->error( "Profiling error: $functionname" );
 			return;
 		}
 		list( $ofname, /* $ocount */, $ortime, $octime, $omem ) = $item;
 
 		if ( $functionname === 'close' ) {
 			$message = "Profile section ended by close(): {$ofname}";
-			$this->debugGroup( 'profileerror', $message );
+			$this->logger->error( $message );
 			if ( $this->collateOnly ) {
 				$this->collated[$message] = $this->errorEntry;
 			} else {
@@ -247,7 +260,7 @@ class SectionProfiler {
 			$functionname = $ofname;
 		} elseif ( $ofname !== $functionname ) {
 			$message = "Profiling error: in({$ofname}), out($functionname)";
-			$this->debugGroup( 'profileerror', $message );
+			$this->logger->error( $message );
 			if ( $this->collateOnly ) {
 				$this->collated[$message] = $this->errorEntry;
 			} else {
@@ -473,29 +486,6 @@ class SectionProfiler {
 			return $time;
 		} else {
 			return microtime( true );
-		}
-	}
-
-	/**
-	 * Add an entry in the debug log file
-	 *
-	 * @param string $s String to output
-	 */
-	protected function debug( $s ) {
-		if ( function_exists( 'wfDebug' ) ) {
-			wfDebug( $s );
-		}
-	}
-
-	/**
-	 * Add an entry in the debug log group
-	 *
-	 * @param string $group Group to send the message to
-	 * @param string $s String to output
-	 */
-	protected function debugGroup( $group, $s ) {
-		if ( function_exists( 'wfDebugLog' ) ) {
-			wfDebugLog( $group, $s );
 		}
 	}
 }

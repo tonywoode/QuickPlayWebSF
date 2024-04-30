@@ -37,10 +37,6 @@ use MediaWiki\MediaWikiServices;
  *        A place to store lightweight data that is not canonically
  *        stored anywhere else (e.g. a "hoard" of objects).
  *
- * The former should always use strongly consistent stores, so callers don't
- * have to deal with stale reads. The latter may be eventually consistent, but
- * callers can use BagOStuff:READ_LATEST to see the latest available data.
- *
  * Primary entry points:
  *
  * - ObjectCache::getLocalServerInstance( $fallbackType )
@@ -149,6 +145,10 @@ class ObjectCache {
 			'reportDupes' => true,
 		];
 
+		if ( !isset( $params['stats'] ) ) {
+			$params['stats'] = MediaWikiServices::getInstance()->getStatsdDataFactory();
+		}
+
 		if ( isset( $params['factory'] ) ) {
 			return call_user_func( $params['factory'], $params );
 		}
@@ -177,11 +177,12 @@ class ObjectCache {
 				}
 			} elseif ( !isset( $params['localKeyLB'] ) ) {
 				$params['localKeyLB'] = [
-					'factory' => function () {
+					'factory' => static function () {
 						return MediaWikiServices::getInstance()->getDBLoadBalancer();
 					}
 				];
 			}
+			$params += [ 'writeBatchSize' => $conf->get( 'UpdateRowsPerQuery' ) ];
 		}
 
 		// Do b/c logic for MemcachedBagOStuff
@@ -197,7 +198,7 @@ class ObjectCache {
 	}
 
 	/**
-	 * Factory function for CACHE_ANYTHING (referenced from DefaultSettings.php)
+	 * Factory function for CACHE_ANYTHING (referenced by configuration)
 	 *
 	 * CACHE_ANYTHING means that stuff has to be cached, not caching is not an option.
 	 * If a caching method is configured for any of the main caches ($wgMainCacheType,
@@ -235,7 +236,7 @@ class ObjectCache {
 	}
 
 	/**
-	 * Factory function for CACHE_ACCEL (referenced from DefaultSettings.php)
+	 * Factory function for CACHE_ACCEL (referenced from configuration)
 	 *
 	 * This will look for any APC or APCu style server-local cache.
 	 * A fallback cache can be specified if none is found.
@@ -296,7 +297,7 @@ class ObjectCache {
 	 * @since 1.35
 	 * @return BagOStuff
 	 */
-	public static function makeLocalServerCache() : BagOStuff {
+	public static function makeLocalServerCache(): BagOStuff {
 		$params = [
 			'reportDupes' => false,
 			// Even simple caches must use a keyspace (T247562)
@@ -312,28 +313,5 @@ class ObjectCache {
 		}
 
 		return new EmptyBagOStuff( $params );
-	}
-
-	/**
-	 * Detects which local server cache library is present and returns a configuration for it.
-	 *
-	 * @since 1.32
-	 * @deprecated since 1.35 Use MediaWikiServices::getLocalServerObjectCache() or
-	 * ObjectCache::makeLocalServerCache() instead.
-	 * @return int|string Index to cache in $wgObjectCaches
-	 */
-	public static function detectLocalServerCache() {
-		wfDeprecated( __METHOD__, '1.35' );
-
-		if ( function_exists( 'apcu_fetch' ) ) {
-			// Make sure the APCu methods actually store anything
-			if ( PHP_SAPI !== 'cli' || ini_get( 'apc.enable_cli' ) ) {
-				return 'apcu';
-			}
-		} elseif ( function_exists( 'wincache_ucache_get' ) ) {
-			return 'wincache';
-		}
-
-		return CACHE_NONE;
 	}
 }

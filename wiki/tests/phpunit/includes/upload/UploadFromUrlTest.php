@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\MediaWikiServices;
-
 /**
  * @group large
  * @group Upload
@@ -10,9 +8,11 @@ use MediaWiki\MediaWikiServices;
  * @covers UploadFromUrl
  */
 class UploadFromUrlTest extends ApiTestCase {
+	use MockHttpTrait;
+
 	private $user;
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 		$this->user = self::$users['sysop']->getUser();
 
@@ -22,20 +22,23 @@ class UploadFromUrlTest extends ApiTestCase {
 		] );
 		$this->setGroupPermissions( 'sysop', 'upload_by_url', true );
 
-		if ( MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo()
+		if ( $this->getServiceContainer()->getRepoGroup()->getLocalRepo()
 			->newFile( 'UploadFromUrlTest.png' )->exists()
 		) {
 			$this->deleteFile( 'UploadFromUrlTest.png' );
 		}
+
+		$this->installMockHttp();
 	}
 
 	/**
 	 * Ensure that the job queue is empty before continuing
 	 */
 	public function testClearQueue() {
-		$job = JobQueueGroup::singleton()->pop();
+		$jobQueueGroup = $this->getServiceContainer()->getJobQueueGroup();
+		$job = $jobQueueGroup->pop();
 		while ( $job ) {
-			$job = JobQueueGroup::singleton()->pop();
+			$job = $jobQueueGroup->pop();
 		}
 		$this->assertFalse( $job );
 	}
@@ -140,7 +143,7 @@ class UploadFromUrlTest extends ApiTestCase {
 		}
 		$this->assertTrue( $exception, "Got exception" );
 
-		$this->user->removeGroup( 'sysop' );
+		$this->getServiceContainer()->getUserGroupManager()->removeUserFromGroup( $this->user, 'sysop' );
 		$exception = false;
 		try {
 			$this->doApiRequest( [
@@ -151,25 +154,40 @@ class UploadFromUrlTest extends ApiTestCase {
 			], $data );
 		} catch ( ApiUsageException $e ) {
 			$exception = true;
-			$this->assertStringStartsWith( "The action you have requested is limited to users in the group:",
+			// Two error messages are possible depending on the number of groups in the wiki with upload rights:
+			// - The action you have requested is limited to users in the group:
+			// - The action you have requested is limited to users in one of the groups:
+			$this->assertStringStartsWith( "The action you have requested is limited to users in",
 				$e->getMessage() );
 		}
 		$this->assertTrue( $exception, "Got exception" );
+	}
+
+	private function assertUploadOk( UploadBase $upload ) {
+		$verificationResult = $upload->verifyUpload();
+
+		if ( $verificationResult['status'] !== UploadBase::OK ) {
+			$this->fail(
+				'Upload verification returned ' . $upload->getVerificationErrorCode(
+					$verificationResult['status']
+				)
+			);
+		}
 	}
 
 	/**
 	 * @depends testClearQueue
 	 */
 	public function testSyncDownload( $data ) {
-		$token = $this->user->getEditToken();
+		$file = __DIR__ . '/../../data/upload/png-plain.png';
+		$this->installMockHttp( file_get_contents( $file ) );
 
-		$this->user->addGroup( 'users' );
-		$data = $this->doApiRequest( [
+		$this->getServiceContainer()->getUserGroupManager()->addUserToGroup( $this->user, 'users' );
+		$data = $this->doApiRequestWithToken( [
 			'action' => 'upload',
 			'filename' => 'UploadFromUrlTest.png',
 			'url' => 'http://upload.wikimedia.org/wikipedia/mediawiki/b/bc/Wiki.png',
 			'ignorewarnings' => true,
-			'token' => $token,
 		], $data );
 
 		$this->assertEquals( 'Success', $data[0]['upload']['result'] );
@@ -183,15 +201,51 @@ class UploadFromUrlTest extends ApiTestCase {
 		$this->assertTrue( $t->exists(), "File '$name' exists" );
 
 		if ( $t->exists() ) {
-			$file = MediaWikiServices::getInstance()->getRepoGroup()
+			$file = $this->getServiceContainer()->getRepoGroup()
 				->findFile( $name, [ 'ignoreRedirect' => true ] );
 			$empty = "";
 			FileDeleteForm::doDelete( $t, $file, $empty, "none", true, $this->user );
-			$page = WikiPage::factory( $t );
-			$page->doDeleteArticleReal( "testing", $this->user );
+			$page = $this->getServiceContainer()->getWikiPageFactory()->newFromTitle( $t );
+			$this->deletePage( $page );
 		}
 		$t = Title::newFromText( $name, NS_FILE );
 
 		$this->assertFalse( $t->exists(), "File '$name' was deleted" );
 	}
+
+	public function testUploadFromUrl() {
+		$file = __DIR__ . '/../../data/upload/png-plain.png';
+		$this->installMockHttp( file_get_contents( $file ) );
+
+		$upload = new UploadFromUrl();
+		$upload->initialize( 'Test.png', 'http://www.example.com/test.png' );
+		$status = $upload->fetchFile();
+
+		$this->assertTrue( $status->isOK() );
+		$this->assertUploadOk( $upload );
+	}
+
+	public function testUploadFromUrlWithRedirect() {
+		$file = __DIR__ . '/../../data/upload/png-plain.png';
+		$this->installMockHttp( [
+			// First response is a redirect
+			$this->makeFakeHttpRequest(
+				'Blaba',
+				302,
+				[ 'Location' => 'http://static.example.com/files/test.png' ]
+			),
+			// Second response is a file
+			$this->makeFakeHttpRequest(
+				file_get_contents( $file )
+			),
+		] );
+
+		$upload = new UploadFromUrl();
+		$upload->initialize( 'Test.png', 'http://www.example.com/test.png' );
+		$status = $upload->fetchFile();
+
+		$this->assertTrue( $status->isOK() );
+		$this->assertUploadOk( $upload );
+	}
+
 }

@@ -53,8 +53,7 @@ class ExtensionProcessor implements Processor {
 		'ResourceLoaderSources',
 		'RevokePermissions',
 		'SessionProviders',
-		'SpecialPages',
-		'ValidSkinNames',
+		'SpecialPages'
 	];
 
 	/**
@@ -170,11 +169,6 @@ class ExtensionProcessor implements Processor {
 	protected $credits = [];
 
 	/**
-	 * @var array
-	 */
-	protected $config = [];
-
-	/**
 	 * Any thing else in the $info that hasn't
 	 * already been processed
 	 *
@@ -200,6 +194,8 @@ class ExtensionProcessor implements Processor {
 		$this->extractHooks( $info, $path );
 		$this->extractExtensionMessagesFiles( $dir, $info );
 		$this->extractMessagesDirs( $dir, $info );
+		$this->extractSkins( $dir, $info );
+		$this->extractSkinImportPaths( $dir, $info );
 		$this->extractNamespaces( $info );
 		$this->extractResourceLoaderModules( $dir, $info );
 		if ( isset( $info['ServiceWiringFiles'] ) ) {
@@ -223,7 +219,7 @@ class ExtensionProcessor implements Processor {
 
 		// config should be after all core globals are extracted,
 		// so duplicate setting detection will work fully
-		if ( $version === 2 ) {
+		if ( $version >= 2 ) {
 			$this->extractConfig2( $info, $dir );
 		} else {
 			// $version === 1
@@ -243,7 +239,7 @@ class ExtensionProcessor implements Processor {
 			}
 		}
 
-		if ( $version === 2 ) {
+		if ( $version >= 2 ) {
 			$this->extractAttributes( $path, $info );
 		}
 
@@ -258,8 +254,8 @@ class ExtensionProcessor implements Processor {
 				continue;
 			}
 
-			if ( $version === 2 ) {
-				// Only whitelisted attributes are set
+			if ( $version >= 2 ) {
+				// Only allowed attributes are set
 				if ( in_array( $key, self::CORE_ATTRIBS ) ) {
 					$this->storeToArray( $path, $key, $val, $this->attributes );
 				}
@@ -268,7 +264,7 @@ class ExtensionProcessor implements Processor {
 				if ( !in_array( $key, self::NOT_ATTRIBS )
 					&& !in_array( $key, self::CREDIT_ATTRIBS )
 				) {
-					// If it's not blacklisted, it's an attribute
+					// If it's not disallowed, it's an attribute
 					$this->storeToArrayRecursive( $path, $key, $val, $this->attributes );
 				}
 			}
@@ -313,7 +309,6 @@ class ExtensionProcessor implements Processor {
 
 		return [
 			'globals' => $this->globals,
-			'config' => $this->config,
 			'defines' => $this->defines,
 			'callbacks' => $this->callbacks,
 			'credits' => $this->credits,
@@ -338,7 +333,7 @@ class ExtensionProcessor implements Processor {
 		// picking the non-null if one is, or combines
 		// the two. Note that it is not possible for
 		// both inputs to be null.
-		$pick = function ( $a, $b ) {
+		$pick = static function ( $a, $b ) {
 			if ( $a === null ) {
 				return $b;
 			} elseif ( $b === null ) {
@@ -541,7 +536,9 @@ class ExtensionProcessor implements Processor {
 				if ( isset( $ns['capitallinkoverride'] ) ) {
 					$this->globals['wgCapitalLinkOverrides'][$id] = $ns['capitallinkoverride'];
 				}
-
+				if ( isset( $ns['includable'] ) && !$ns['includable'] ) {
+					$this->globals['wgNonincludableNamespaces'][] = $id;
+				}
 			}
 		}
 	}
@@ -630,6 +627,53 @@ class ExtensionProcessor implements Processor {
 	}
 
 	/**
+	 * Extract skins and handle path correction for templateDirectory.
+	 *
+	 * @param string $dir
+	 * @param array $info
+	 */
+	protected function extractSkins( $dir, array $info ) {
+		if ( isset( $info['ValidSkinNames'] ) ) {
+			foreach ( $info['ValidSkinNames'] as $skinKey => $data ) {
+				if ( isset( $data['args'][0]['templateDirectory'] ) ) {
+					$templateDirectory = $data['args'][0]['templateDirectory'];
+					$correctedPath = $dir . '/' . $templateDirectory;
+					// Historically the template directory was relative to core
+					// but it really should've been relative to the skin directory.
+					// If the path exists relative to the skin directory, assume that
+					// is what was intended. Otherwise fall back on the previous behavior
+					// of having it relative to core.
+					if ( is_dir( $correctedPath ) ) {
+						$data['args'][0]['templateDirectory'] = $correctedPath;
+					} else {
+						$data['args'][0]['templateDirectory'] = $templateDirectory;
+						wfDeprecatedMsg(
+							'Template directory should be relative to skin or omitted for skin ' . $skinKey,
+							'1.37'
+						);
+					}
+				} elseif ( isset( $data['args'][0] ) ) {
+					// If not set, we set a sensible default.
+					$data['args'][0]['templateDirectory'] = $dir . '/templates';
+				}
+				$this->globals['wgValidSkinNames'][$skinKey] = $data;
+			}
+		}
+	}
+
+	/**
+	 * @param string $dir
+	 * @param array $info
+	 */
+	protected function extractSkinImportPaths( $dir, array $info ) {
+		if ( isset( $info['SkinLessImportPaths'] ) ) {
+			foreach ( $info['SkinLessImportPaths'] as $skin => $subpath ) {
+				$this->attributes['SkinLessImportPaths'][$skin] = "$dir/$subpath";
+			}
+		}
+	}
+
+	/**
 	 * @param string $path
 	 * @param array $info
 	 * @return string Name of thing
@@ -694,9 +738,13 @@ class ExtensionProcessor implements Processor {
 		$prefix = $info['config_prefix'] ?? 'wg';
 		if ( isset( $info['config'] ) ) {
 			foreach ( $info['config'] as $key => $data ) {
+				if ( !array_key_exists( 'value', $data ) ) {
+					throw new UnexpectedValueException( "Missing value for config $key" );
+				}
+
 				$value = $data['value'];
 				if ( isset( $data['path'] ) && $data['path'] ) {
-					$callback = function ( $value ) use ( $dir ) {
+					$callback = static function ( $value ) use ( $dir ) {
 						return "$dir/$value";
 					};
 					if ( is_array( $value ) ) {
@@ -713,7 +761,6 @@ class ExtensionProcessor implements Processor {
 				if ( isset( $info['ConfigRegistry'][0] ) ) {
 					$data['configregistry'] = array_keys( $info['ConfigRegistry'] )[0];
 				}
-				$this->config[$key] = $data;
 			}
 		}
 	}

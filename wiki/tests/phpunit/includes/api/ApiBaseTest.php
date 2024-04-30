@@ -12,11 +12,24 @@ use Wikimedia\TestingAccessWrapper;
  * @covers ApiBase
  */
 class ApiBaseTest extends ApiTestCase {
+
+	protected function setUp(): void {
+		parent::setUp();
+		$this->mergeMwGlobalArrayValue(
+			'wgGroupPermissions',
+			[
+				'*' => [
+					'read' => true,
+					'edit' => true,
+					'writeapi' => true,
+					'apihighlimits' => false,
+				],
+			]
+		);
+	}
+
 	/**
 	 * This covers a variety of stub methods that return a fixed value.
-	 *
-	 * @param string $expected Expected value
-	 * @param string|array $method Name of method, or [ name, params... ]
 	 *
 	 * @dataProvider provideStubMethods
 	 */
@@ -173,9 +186,6 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testGetTitleOrPageIdInvalidPageId() {
-		// FIXME: fails under postgres
-		$this->markTestSkippedIfDbType( 'postgres' );
-
 		$this->expectException( ApiUsageException::class );
 		$this->expectExceptionMessage( 'There is no page with ID 2147483648.' );
 		$mock = new MockApi();
@@ -220,7 +230,7 @@ class ApiBaseTest extends ApiTestCase {
 
 	public function testGetParameter() {
 		$mock = $this->getMockBuilder( MockApi::class )
-			->setMethods( [ 'getAllowedParams' ] )
+			->onlyMethods( [ 'getAllowedParams' ] )
 			->getMock();
 		$mock->method( 'getAllowedParams' )->willReturn( [
 			'foo' => [
@@ -329,7 +339,7 @@ class ApiBaseTest extends ApiTestCase {
 			} else {
 				$this->assertSame( $expected, $result );
 			}
-			$actualWarnings = array_map( function ( $warn ) {
+			$actualWarnings = array_map( static function ( $warn ) {
 				return $warn instanceof Message
 					? array_merge( [ $warn->getKey() ], $warn->getParams() )
 					: $warn;
@@ -719,7 +729,7 @@ class ApiBaseTest extends ApiTestCase {
 					'paramvalidator-badvalue-enumnotmulti',
 					Message::plaintextParam( 'myParam' ),
 					Message::plaintextParam( '-1' ),
-					Message::listParam( array_map( 'Message::plaintextParam', $namespaces ) ),
+					Message::listParam( array_map( [ Message::class, 'plaintextParam' ], $namespaces ) ),
 					Message::numParam( count( $namespaces ) ),
 				], 'badvalue' ),
 				[],
@@ -1299,7 +1309,7 @@ class ApiBaseTest extends ApiTestCase {
 
 		$msg = new Message( 'mainpage' );
 
-		// Sanity check empty array
+		// Check empty array
 		$expect = Status::newGood();
 		$this->assertEquals( $expect, $mock->errorArrayToStatus( [] ) );
 
@@ -1327,14 +1337,15 @@ class ApiBaseTest extends ApiTestCase {
 		$block = new DatabaseBlock( [
 			'address' => $user->getName(),
 			'user' => $user->getId(),
-			'by' => $this->getTestSysop()->getUser()->getId(),
+			'by' => $this->getTestSysop()->getUser(),
 			'reason' => __METHOD__,
 			'expiry' => time() + 100500,
 		] );
-		$block->insert();
+		$this->getServiceContainer()->getDatabaseBlockStore()->insertBlock( $block );
 
 		$mockTrait = $this->getMockForTrait( ApiBlockInfoTrait::class );
-		$mockTrait->method( 'getLanguage' )->willReturn( 'en' );
+		$language = $this->getServiceContainer()->getLanguageFactory()->getLanguage( 'en' );
+		$mockTrait->method( 'getLanguage' )->willReturn( $language );
 		$userInfoTrait = TestingAccessWrapper::newFromObject( $mockTrait );
 		$blockinfo = [ 'blockinfo' => $userInfoTrait->getBlockDetails( $block ) ];
 
@@ -1362,7 +1373,7 @@ class ApiBaseTest extends ApiTestCase {
 
 		$msg = new Message( 'mainpage' );
 
-		// Sanity check empty array
+		// Check empty array
 		$expect = Status::newGood();
 		$test = Status::newGood();
 		$mock->addBlockInfoToStatus( $test );
@@ -1386,14 +1397,15 @@ class ApiBaseTest extends ApiTestCase {
 		$block = new DatabaseBlock( [
 			'address' => $user->getName(),
 			'user' => $user->getId(),
-			'by' => $this->getTestSysop()->getUser()->getId(),
+			'by' => $this->getTestSysop()->getUser(),
 			'reason' => __METHOD__,
 			'expiry' => time() + 100500,
 		] );
-		$block->insert();
+		$this->getServiceContainer()->getDatabaseBlockStore()->insertBlock( $block );
 
 		$mockTrait = $this->getMockForTrait( ApiBlockInfoTrait::class );
-		$mockTrait->method( 'getLanguage' )->willReturn( 'en' );
+		$language = $this->getServiceContainer()->getLanguageFactory()->getLanguage( 'en' );
+		$mockTrait->method( 'getLanguage' )->willReturn( $language );
 		$userInfoTrait = TestingAccessWrapper::newFromObject( $mockTrait );
 		$blockinfo = [ 'blockinfo' => $userInfoTrait->getBlockDetails( $block ) ];
 
@@ -1478,7 +1490,7 @@ class ApiBaseTest extends ApiTestCase {
 
 		$mock = $this->getMockBuilder( ApiBase::class )
 			->setConstructorArgs( [ $main, 'test', 'xx' ] )
-			->setMethods( [ 'getAllowedParams' ] )
+			->onlyMethods( [ 'getAllowedParams' ] )
 			->getMockForAbstractClass();
 		$mock->method( 'getAllowedParams' )->willReturn( [
 			'notexists' => null,

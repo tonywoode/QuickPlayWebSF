@@ -1,21 +1,47 @@
 <?php
 
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Auth\AuthManager;
 use MediaWiki\ParamValidator\TypeDef\UserDef;
+use MediaWiki\User\UserFactory;
 
 /**
  * @ingroup API
  */
 class ApiValidatePassword extends ApiBase {
 
+	/** @var AuthManager */
+	private $authManager;
+
+	/** @var UserFactory */
+	private $userFactory;
+
+	/**
+	 * @param ApiMain $mainModule
+	 * @param string $moduleName
+	 * @param AuthManager $authManager
+	 * @param UserFactory $userFactory
+	 */
+	public function __construct(
+		ApiMain $mainModule,
+		string $moduleName,
+		AuthManager $authManager,
+		UserFactory $userFactory
+	) {
+		parent::__construct( $mainModule, $moduleName );
+		$this->authManager = $authManager;
+		$this->userFactory = $userFactory;
+	}
+
 	public function execute() {
 		$params = $this->extractRequestParams();
 
-		// For sanity
 		$this->requirePostedParameters( [ 'password' ] );
 
 		if ( $params['user'] !== null ) {
-			$user = User::newFromName( $params['user'], 'creatable' );
+			$user = $this->userFactory->newFromName(
+				$params['user'],
+				UserFactory::RIGOR_CREATABLE
+			);
 			if ( !$user ) {
 				$encParamName = $this->encodeParamName( 'user' );
 				$this->dieWithError(
@@ -24,9 +50,7 @@ class ApiValidatePassword extends ApiBase {
 				);
 			}
 
-			if ( !$user->isAnon() ||
-				MediaWikiServices::getInstance()->getAuthManager()->userExists( $user->getName() )
-			) {
+			if ( $user->isRegistered() || $this->authManager->userExists( $user->getName() ) ) {
 				$this->dieWithError( 'userexists' );
 			}
 

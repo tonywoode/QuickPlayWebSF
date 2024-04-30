@@ -75,21 +75,56 @@ class SrConverter extends LanguageConverterSpecific {
 	];
 
 	/**
-	 * @param Language $langobj
+	 * Get Main language code.
+	 * @since 1.36
+	 *
+	 * @return string
 	 */
-	public function __construct( $langobj ) {
-		$variants = [ 'sr', 'sr-ec', 'sr-el' ];
-		$variantfallbacks = [
+	public function getMainCode(): string {
+		return 'sr';
+	}
+
+	/**
+	 * Get supported variants of the language.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
+	public function getLanguageVariants(): array {
+		return [ 'sr', 'sr-ec', 'sr-el' ];
+	}
+
+	/**
+	 * Get language variants fallbacks.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
+	public function getVariantsFallbacks(): array {
+		return [
 			'sr' => 'sr-ec',
 			'sr-ec' => 'sr',
 			'sr-el' => 'sr',
 		];
+	}
 
-		$flags = [
-			'S' => 'S', 'писмо' => 'S', 'pismo' => 'S',
-			'W' => 'W', 'реч' => 'W', 'reč' => 'W', 'ријеч' => 'W', 'riječ' => 'W'
+	/**
+	 * Get strings that maps to the flags.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
+	protected function getAdditionalFlags(): array {
+		return [
+			'S' => 'S',
+			'писмо' => 'S',
+			'pismo' => 'S',
+			'W' => 'W',
+			'реч' => 'W',
+			'reč' => 'W',
+			'ријеч' => 'W',
+			'riječ' => 'W'
 		];
-		parent::__construct( $langobj, 'sr', $variants, $variantfallbacks, $flags );
 	}
 
 	protected function loadDefaultTables() {
@@ -129,11 +164,11 @@ class SrConverter extends LanguageConverterSpecific {
 				. implode( ',', array_keys( $this->mTables ) ) );
 		}
 		$ret = $this->mTables[$toVariant]->replace( $m[0] );
-		$mstart = $m[1] + strlen( $m[0] );
+		$mstart = (int)$m[1] + strlen( $m[0] );
 		foreach ( $matches as $m ) {
-			$ret .= substr( $text, $mstart, $m[1] - $mstart );
+			$ret .= substr( $text, $mstart, (int)$m[1] - $mstart );
 			$ret .= parent::translate( $m[0], $toVariant );
-			$mstart = $m[1] + strlen( $m[0] );
+			$mstart = (int)$m[1] + strlen( $m[0] );
 		}
 
 		return $ret;
@@ -162,5 +197,4 @@ class SrConverter extends LanguageConverterSpecific {
 			return false;
 		}
 	}
-
 }

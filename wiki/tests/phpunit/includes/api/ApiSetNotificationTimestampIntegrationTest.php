@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\MediaWikiServices;
-
 /**
  * @author Addshore
  * @covers ApiSetNotificationTimestamp
@@ -11,16 +9,21 @@ use MediaWiki\MediaWikiServices;
  */
 class ApiSetNotificationTimestampIntegrationTest extends ApiTestCase {
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
-		self::$users[__CLASS__] = new TestUser( __CLASS__ );
+
+		$this->tablesUsed = array_merge(
+			$this->tablesUsed,
+			[ 'watchlist', 'watchlist_expiry' ]
+		);
 	}
 
 	public function testStuff() {
-		$user = self::$users[__CLASS__]->getUser();
+		$user = $this->getTestUser()->getUser();
 		$page = WikiPage::factory( Title::newFromText( 'UTPage' ) );
 
-		$user->addWatch( $page->getTitle() );
+		$watchlistManager = $this->getServiceContainer()->getWatchlistManager();
+		$watchlistManager->addWatch( $user,  $page->getTitle() );
 
 		$result = $this->doApiRequestWithToken(
 			[
@@ -42,7 +45,7 @@ class ApiSetNotificationTimestampIntegrationTest extends ApiTestCase {
 			$result[0]
 		);
 
-		$watchedItemStore = MediaWikiServices::getInstance()->getWatchedItemStore();
+		$watchedItemStore = $this->getServiceContainer()->getWatchedItemStore();
 		$this->assertEquals(
 			$watchedItemStore->getNotificationTimestampsBatch( $user, [ $page->getTitle() ] ),
 			[ [ 'UTPage' => '20160101020202' ] ]

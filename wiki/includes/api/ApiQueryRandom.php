@@ -27,6 +27,11 @@
  * @ingroup API
  */
 class ApiQueryRandom extends ApiQueryGeneratorBase {
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 */
 	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'rn' );
 	}
@@ -44,7 +49,7 @@ class ApiQueryRandom extends ApiQueryGeneratorBase {
 	 * @param ApiPageSet|null $resultPageSet
 	 * @param int $limit Number of pages to fetch
 	 * @param string|null $start Starting page_random
-	 * @param int $startId Starting page_id
+	 * @param int|null $startId Starting page_id
 	 * @param string|null $end Ending page_random
 	 * @return array (int, string|null) Number of pages left to query and continuation string
 	 */

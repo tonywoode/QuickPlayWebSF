@@ -45,11 +45,7 @@
 				'A%23B',
 				'A%2523B',
 				// XML/HTML character entity references
-				// Note: The ones with # are commented out as those are interpreted as fragment and
-				// as such end up being valid.
 				'A &eacute; B',
-				// 'A &#233; B',
-				// 'A &#x00E9; B',
 				// Subject of NS_TALK does not roundtrip to NS_MAIN
 				'Talk:File:Example.svg',
 				// Directory navigation
@@ -216,7 +212,6 @@
 		assert.strictEqual( title.getName(), 'Foo_bar' );
 		assert.strictEqual( title.getNameText(), 'Foo bar' );
 		assert.strictEqual( title.getExtension(), 'JPG' );
-		assert.strictEqual( title.getDotExtension(), '.JPG' );
 		assert.strictEqual( title.getMain(), 'Foo_bar.JPG' );
 		assert.strictEqual( title.getMainText(), 'Foo bar.JPG' );
 		assert.strictEqual( title.getPrefixedDb(), 'File:Foo_bar.JPG' );
@@ -231,7 +226,6 @@
 		assert.strictEqual( title.getName(), '' );
 		assert.strictEqual( title.getNameText(), '' );
 		assert.strictEqual( title.getExtension(), 'foo' );
-		assert.strictEqual( title.getDotExtension(), '.foo' );
 		assert.strictEqual( title.getMain(), '.foo' );
 		assert.strictEqual( title.getMainText(), '.foo' );
 		assert.strictEqual( title.getPrefixedDb(), '.foo' );
@@ -356,6 +350,11 @@
 		}, 'Throw error on empty string' );
 	} );
 
+	QUnit.test( 'phpCharToUpper', function ( assert ) {
+		assert.strictEqual( mw.Title.phpCharToUpper( '' ), '', 'Empty string' );
+		assert.strictEqual( mw.Title.phpCharToUpper( '\uD801\uDC38' ), '\uD801\uDC10', 'U+10438 (DESERET SMALL LETTER H) 𐐸 -> U+10410 (DESERET CAPITAL LETTER H) 𐐐' );
+	} );
+
 	QUnit.test( 'Case-sensivity', function ( assert ) {
 		var title;
 
@@ -368,8 +367,14 @@
 		title = new mw.Title( 'ß' );
 		assert.strictEqual( title.toString(), 'ß', 'Uppercasing matches PHP behaviour (ß -> ß, not SS)' );
 
-		title = new mw.Title( 'ǆ (digraph)' );
-		assert.strictEqual( title.toString(), 'ǅ_(digraph)', 'Uppercasing matches PHP behaviour (ǆ -> ǅ, not Ǆ)' );
+		title = new mw.Title( 'ῳ' );
+		assert.strictEqual( title.toString(), 'ῼ', 'Uppercasing matches PHP behaviour (ῳ -> ῼ, not ΩΙ)' );
+
+		// U+10438 (DESERET SMALL LETTER H) U+10443 (DESERET SMALL LETTER ETH)
+		// gets changed to
+		// U+10410 (DESERET CAPITAL LETTER H) U+10443 (DESERET SMALL LETTER ETH)
+		title = new mw.Title( '\uD801\uDC38\uD801\uDC1B' );
+		assert.strictEqual( title.toString(), '\uD801\uDC10\uD801\uDC1B', 'Uppercase of U+10438 (DESERET SMALL LETTER H)' );
 
 		// $wgCapitalLinks = false;
 		mw.config.set( 'wgCaseSensitiveNamespaces', [ 0, -2, 1, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15 ] );
@@ -402,8 +407,6 @@
 		extTest( 'Foo..', null, 'Trailing dots are not an extension' );
 		extTest( 'Foo.a.', null, 'Page name with dots and ending in a dot does not have an extension' );
 
-		// @broken: Throws an exception
-		// extTest( '.NET', null, 'Leading dot is (or is not?) an extension' );
 	} );
 
 	QUnit.test( 'exists', function ( assert ) {
@@ -755,6 +758,22 @@
 				assert.strictEqual( title, null, caseItem.typeOfName + ', should not produce an mw.Title object' );
 			}
 		} );
+	} );
+
+	QUnit.test( 'makeTitle for non existent namespace', function ( assert ) {
+		var title, title2;
+		this.sandbox.stub( mw.config, 'get' )
+			.withArgs( 'wgFormattedNamespaces' ).returns( {
+				4: 'NoTalk'
+			} )
+			.withArgs( 'wgCaseSensitiveNamespaces' ).returns( [] )
+			.withArgs( 'wgNamespaceIds' ).returns( {
+				notalk: 4
+			} );
+		title = mw.Title.makeTitle( 4, 'Text' );
+		title2 = mw.Title.makeTitle( 5, 'Text' );
+		assert.strictEqual( title.getPrefixedDb(), 'NoTalk:Text' );
+		assert.strictEqual( title2, null, 'Namespace 5 is unknown' );
 	} );
 
 }() );

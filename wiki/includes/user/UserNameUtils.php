@@ -39,18 +39,20 @@ use Wikimedia\Message\MessageValue;
  *
  * @since 1.35
  */
-class UserNameUtils {
+class UserNameUtils implements UserRigorOptions {
 
+	/**
+	 * @internal For use by ServiceWiring
+	 */
 	public const CONSTRUCTOR_OPTIONS = [
 		'MaxNameChars',
 		'ReservedUsernames',
 		'InvalidUsernameCharacters'
 	];
 
-	public const RIGOR_CREATABLE = 'creatable';
-	public const RIGOR_USABLE = 'usable';
-	public const RIGOR_VALID = 'valid';
-	public const RIGOR_NONE = 'none';
+	/**
+	 * RIGOR_* constants are inherited from UserRigorOptions
+	 */
 
 	/**
 	 * @var ServiceOptions
@@ -123,7 +125,7 @@ class UserNameUtils {
 	 * @param string $name Name to match
 	 * @return bool
 	 */
-	public function isValid( string $name ) : bool {
+	public function isValid( string $name ): bool {
 		if ( $name === ''
 			|| $this->isIP( $name )
 			|| strpos( $name, '/' ) !== false
@@ -148,9 +150,9 @@ class UserNameUtils {
 			return false;
 		}
 
-		// Check an additional blacklist of troublemaker characters.
+		// Check an additional list of troublemaker characters.
 		// Should these be merged into the title char list?
-		$unicodeBlacklist = '/[' .
+		$unicodeList = '/[' .
 			'\x{0080}-\x{009f}' . # iso-8859-1 control chars
 			'\x{00a0}' . # non-breaking space
 			'\x{2000}-\x{200f}' . # various whitespace
@@ -158,7 +160,7 @@ class UserNameUtils {
 			'\x{3000}' . # ideographic space
 			'\x{e000}-\x{f8ff}' . # private use
 			']/u';
-		if ( preg_match( $unicodeBlacklist, $name ) ) {
+		if ( preg_match( $unicodeList, $name ) ) {
 			return false;
 		}
 
@@ -176,7 +178,7 @@ class UserNameUtils {
 	 * @param string $name Name to match
 	 * @return bool
 	 */
-	public function isUsable( string $name ) : bool {
+	public function isUsable( string $name ): bool {
 		// Must be a valid username, obviously ;)
 		if ( !$this->isValid( $name ) ) {
 			return false;
@@ -185,19 +187,19 @@ class UserNameUtils {
 		if ( !$this->reservedUsernames ) {
 			$reservedUsernames = $this->options->get( 'ReservedUsernames' );
 			$this->hookRunner->onUserGetReservedNames( $reservedUsernames );
+			foreach ( $reservedUsernames as &$reserved ) {
+				if ( substr( $reserved, 0, 4 ) === 'msg:' ) {
+					$reserved = $this->textFormatter->format(
+						MessageValue::new( substr( $reserved, 4 ) )
+					);
+				}
+			}
 			$this->reservedUsernames = $reservedUsernames;
 		}
 
 		// Certain names may be reserved for batch processes.
-		foreach ( $this->reservedUsernames as $reserved ) {
-			if ( substr( $reserved, 0, 4 ) === 'msg:' ) {
-				$reserved = $this->textFormatter->format(
-					MessageValue::new( substr( $reserved, 4 ) )
-				);
-			}
-			if ( $reserved === $name ) {
-				return false;
-			}
+		if ( in_array( $name, $this->reservedUsernames, true ) ) {
+			return false;
 		}
 		return true;
 	}
@@ -208,13 +210,13 @@ class UserNameUtils {
 	 * either by batch processes or by user accounts which have
 	 * already been created.
 	 *
-	 * Additional blacklisting may be added here rather than in
-	 * isValidUserName() to avoid disrupting existing accounts.
+	 * Additional preventions may be added here rather than in
+	 * isValid() to avoid disrupting existing accounts.
 	 *
 	 * @param string $name String to match
 	 * @return bool
 	 */
-	public function isCreatable( string $name ) : bool {
+	public function isCreatable( string $name ): bool {
 		// Ensure that the username isn't longer than 235 bytes, so that
 		// (at least for the builtin skins) user javascript and css files
 		// will work. (T25080)
@@ -265,8 +267,14 @@ class UserNameUtils {
 		}
 
 		// No need to proceed if no validation is requested, just
-		// clean up underscores and return
+		// clean up underscores and user namespace prefix (see T283915).
 		if ( $validate === self::RIGOR_NONE ) {
+			// This is only needed here because if validation is
+			// not self::RIGOR_NONE, it would be done at title parsing stage.
+			$nsPrefix = $this->contentLang->getNsText( NS_USER ) . ':';
+			if ( str_starts_with( $name, $nsPrefix ) ) {
+				$name = str_replace( $nsPrefix, '', $name );
+			}
 			$name = strtr( $name, '_', ' ' );
 			return $name;
 		}
@@ -327,12 +335,12 @@ class UserNameUtils {
 	 * addresses like this, if we allowed accounts like this to be created
 	 * new users could get the old edits of these anonymous users.
 	 *
-	 * Unlike User::isIP, this does //not// match IPv6 ranges (T239527)
+	 * This does //not// match IPv6 ranges (T239527)
 	 *
 	 * @param string $name Name to check
 	 * @return bool
 	 */
-	public function isIP( string $name ) : bool {
+	public function isIP( string $name ): bool {
 		$anyIPv4 = '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.(?:xxx|\d{1,3})$/';
 		$validIP = IPUtils::isValid( $name );
 		return $validIP || preg_match( $anyIPv4, $name );
@@ -344,7 +352,7 @@ class UserNameUtils {
 	 * @param string $range Range to check
 	 * @return bool
 	 */
-	public function isValidIPRange( string $range ) : bool {
+	public function isValidIPRange( string $range ): bool {
 		return IPUtils::isValidRange( $range );
 	}
 

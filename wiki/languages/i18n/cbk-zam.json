@@ -60,7 +60,9 @@
 	"searcharticle": "Anda",
 	"history_short": "Historia",
 	"printableversion": "El version que puede imprenta",
+	"view-view": "Lee",
 	"edit": "Revisa",
+	"view-edit": "Revisa",
 	"delete": "Bora",
 	"talkpagelinktext": "cuento",
 	"personaltools": "Maga herramientas personal",
@@ -91,7 +93,7 @@
 	"nstab-main": "Pagina",
 	"nstab-category": "Categoria",
 	"mainpage-nstab": "El primero pagina",
-	"acct_creation_throttle_hit": "Ya crea ya {{PLURAL:$1|un cuenta registro|$1 maga cuenta registro}} el maga visita de este wiki usando el de uste direccion de IP en el ultimo dia. Entonces, ya sobra ya na maximo numero que ta puede permiti el sistema para crea cuenta. Por causa de este razon, no puede mas crea nuevo cuenta usando el de uste direccion de IP este maga tiempo.",
+	"acct_creation_throttle_hit": "Ya crea ya {{PLURAL:$1|un cuenta registro|$1 maga cuenta registro}} el maga visita de este wiki usando el de uste direccion de IP  en el ultimo dia. Entonces, ya sobra ya na maximo numero que ta puede permiti el sistema para crea cuenta. Por causa de este razon, no puede mas crea nuevo cuenta usando el de uste direccion de IP este maga tiempo.",
 	"accountcreated": "El cuenta registro del usuario es creando",
 	"accountcreatedtext": "Creao ya el cuenta registro por usuario $1.",
 	"changepassword": "Cambia con el contraseña",
@@ -112,7 +114,7 @@
 	"created": "creao",
 	"changed": "cambiao",
 	"actioncomplete": "Completo el accion",
-	"contributions": "Maga contribuciones del usuario",
+	"tool-link-contributions": "Maga contribuciones del usuario",
 	"blockip": "Usuario prohibido",
 	"blockipsuccesssub": "El prohibicion es confirmado con exito",
 	"contribslink": "maga contribuciones",
@@ -122,5 +124,6 @@
 	"tooltip-n-mainpage-description": "Visita na primero pagina",
 	"pageinfo-contentpage-yes": "Si",
 	"tags-active-yes": "Si",
-	"searchsuggest-search": "Busca na {{SITENAME}}"
+	"searchsuggest-search": "Busca na {{SITENAME}}",
+	"nstab-mainpage": "El primero pagina"
 }

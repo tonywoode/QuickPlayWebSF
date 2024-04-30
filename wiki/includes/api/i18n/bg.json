@@ -1,12 +1,12 @@
 {
 	"@metadata": {
 		"authors": [
-			"Vodnokon4e",
-			"StanProg",
-			"Spas.Z.Spasov",
 			"ShockD",
+			"Spas.Z.Spasov",
+			"StanProg",
 			"Ted Masters",
-			"Vlad5250"
+			"Vlad5250",
+			"Vodnokon4e"
 		]
 	},
 	"apihelp-main-param-action": "Кое действие да се извърши.",

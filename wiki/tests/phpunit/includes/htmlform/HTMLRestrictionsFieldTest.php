@@ -36,7 +36,7 @@ class HTMLRestrictionsFieldTest extends PHPUnit\Framework\TestCase {
 		$context = new DerivativeContext( RequestContext::getMain() );
 		$context->setRequest( $request );
 		$form->setContext( $context );
-		$form->setTitle( Title::newFromText( 'Main Page' ) )->setSubmitCallback( function () {
+		$form->setTitle( Title::newFromText( 'Main Page' ) )->setSubmitCallback( static function () {
 			return true;
 		} )->prepareForm();
 		$status = $form->trySubmit();
@@ -55,7 +55,6 @@ class HTMLRestrictionsFieldTest extends PHPUnit\Framework\TestCase {
 			$this->assertEquals( $value, $restrictions->toArray()['IPAddresses'] );
 		}
 
-		// sanity
 		$form->getHTML( $status );
 	}
 
@@ -64,7 +63,7 @@ class HTMLRestrictionsFieldTest extends PHPUnit\Framework\TestCase {
 			// submitted text, value of 'IPAddresses' key or false for validation error
 			[ null, [ '0.0.0.0/0', '::/0' ] ],
 			[ '', [] ],
-			[ "1.2.3.4\n::/0", [ '1.2.3.4', '::/0' ] ],
+			[ "1.2.3.4\n::0", [ '1.2.3.4', '::0' ] ],
 			[ "1.2.3.4\n::/x", false ],
 		];
 	}

@@ -23,7 +23,7 @@
 namespace MediaWiki\Page;
 
 use ContentModelChange;
-use User;
+use MediaWiki\Permissions\Authority;
 use WikiPage;
 
 /**
@@ -32,14 +32,14 @@ use WikiPage;
 interface ContentModelChangeFactory {
 
 	/**
-	 * @param User $user
+	 * @param Authority $performer
 	 * @param WikiPage $wikipage
 	 * @param string $newContentModel
 	 * @return ContentModelChange
 	 */
 	public function newContentModelChange(
-		User $user,
+		Authority $performer,
 		WikiPage $wikipage,
 		string $newContentModel
-	) : ContentModelChange;
+	): ContentModelChange;
 }

@@ -154,9 +154,11 @@ class StatusValue {
 	 * Change operation status
 	 *
 	 * @param bool $ok
+	 * @return $this
 	 */
 	public function setOK( $ok ) {
 		$this->ok = $ok;
+		return $this;
 	}
 
 	/**
@@ -164,10 +166,62 @@ class StatusValue {
 	 *
 	 * @param bool $ok Whether the operation completed
 	 * @param mixed|null $value
+	 * @return $this
 	 */
 	public function setResult( $ok, $value = null ) {
 		$this->ok = (bool)$ok;
 		$this->value = $value;
+		return $this;
+	}
+
+	/**
+	 * Add a new error to the error array ($this->errors) if that error is not already in the
+	 * error array. Each error is passed as an array with the following fields:
+	 *
+	 * - type: 'error' or 'warning'
+	 * - message: a string (message key) or MessageSpecifier
+	 * - params: an array of string parameters
+	 *
+	 * If the new error is of type 'error' and it matches an existing error of type 'warning',
+	 * the existing error is upgraded to type 'error'. An error provided as a MessageSpecifier
+	 * will successfully match an error provided as the same string message key and array of
+	 * parameters as separate array elements.
+	 *
+	 * @param array $newError
+	 * @return $this
+	 */
+	private function addError( array $newError ) {
+		if ( $newError[ 'message' ] instanceof MessageSpecifier ) {
+			$isEqual = static function ( $existingError ) use ( $newError ) {
+				if ( $existingError['message'] instanceof MessageSpecifier ) {
+					// compare attributes of both MessageSpecifiers
+					return $newError['message'] == $existingError['message'];
+				} else {
+					return $newError['message']->getKey() === $existingError['message'] &&
+						$newError['message']->getParams() === $existingError['params'];
+				}
+			};
+		} else {
+			$isEqual = static function ( $existingError ) use ( $newError ) {
+				if ( $existingError['message'] instanceof MessageSpecifier ) {
+					return $newError['message'] === $existingError['message']->getKey() &&
+						$newError['params'] === $existingError['message']->getParams();
+				} else {
+					return $newError['message'] === $existingError['message'] &&
+						$newError['params'] === $existingError['params'];
+				}
+			};
+		}
+		foreach ( $this->errors as $index => $existingError ) {
+			if ( $isEqual( $existingError ) ) {
+				if ( $newError[ 'type' ] === 'error' && $existingError[ 'type' ] === 'warning' ) {
+					$this->errors[ $index ][ 'type' ] = 'error';
+				}
+				return $this;
+			}
+		}
+		$this->errors[] = $newError;
+		return $this;
 	}
 
 	/**
@@ -175,13 +229,14 @@ class StatusValue {
 	 *
 	 * @param string|MessageSpecifier $message Message key or object
 	 * @param mixed ...$parameters
+	 * @return $this
 	 */
 	public function warning( $message, ...$parameters ) {
-		$this->errors[] = [
+		return $this->addError( [
 			'type' => 'warning',
 			'message' => $message,
 			'params' => $parameters
-		];
+		] );
 	}
 
 	/**
@@ -190,13 +245,14 @@ class StatusValue {
 	 *
 	 * @param string|MessageSpecifier $message Message key or object
 	 * @param mixed ...$parameters
+	 * @return $this
 	 */
 	public function error( $message, ...$parameters ) {
-		$this->errors[] = [
+		return $this->addError( [
 			'type' => 'error',
 			'message' => $message,
 			'params' => $parameters
-		];
+		] );
 	}
 
 	/**
@@ -205,14 +261,11 @@ class StatusValue {
 	 *
 	 * @param string|MessageSpecifier $message Message key or object
 	 * @param mixed ...$parameters
+	 * @return $this
 	 */
 	public function fatal( $message, ...$parameters ) {
-		$this->errors[] = [
-			'type' => 'error',
-			'message' => $message,
-			'params' => $parameters
-		];
 		$this->ok = false;
+		return $this->error( $message, ...$parameters );
 	}
 
 	/**
@@ -220,15 +273,19 @@ class StatusValue {
 	 *
 	 * @param StatusValue $other
 	 * @param bool $overwriteValue Whether to override the "value" member
+	 * @return $this
 	 */
 	public function merge( $other, $overwriteValue = false ) {
-		$this->errors = array_merge( $this->errors, $other->errors );
+		foreach ( $other->errors as $error ) {
+			$this->addError( $error );
+		}
 		$this->ok = $this->ok && $other->ok;
 		if ( $overwriteValue ) {
 			$this->value = $other->value;
 		}
 		$this->successCount += $other->successCount;
 		$this->failCount += $other->failCount;
+		return $this;
 	}
 
 	/**
@@ -340,12 +397,20 @@ class StatusValue {
 					$params = [];
 				}
 
-				$out .= sprintf( "| %4d | %-25.25s | %-40.40s |\n",
-					$i,
-					$key,
-					self::flattenParams( $params )
-				);
-				$i += 1;
+				$keyChunks = str_split( $key, 25 );
+				$paramsChunks = str_split( substr( $this->flattenParams( $params ), 0, 100 ), 25 );
+				// array_map(null,...) is like Python's zip()
+				foreach ( array_map( null, [ $i ], $keyChunks, $paramsChunks )
+					as [ $iChunk, $keyChunk, $paramsChunk ]
+				) {
+					$out .= sprintf( "| %4s | %-25.25s | %-40.40s |\n",
+						$iChunk,
+						$keyChunk,
+						$paramsChunk
+					);
+				}
+
+				$i++;
 			}
 			$out .= $hdr;
 		}
@@ -357,7 +422,7 @@ class StatusValue {
 	 * @param array $params Message parameters
 	 * @return string String representation
 	 */
-	private function flattenParams( array $params ) : string {
+	private function flattenParams( array $params ): string {
 		$ret = [];
 		foreach ( $params as $p ) {
 			if ( is_array( $p ) ) {
@@ -369,5 +434,34 @@ class StatusValue {
 			}
 		}
 		return implode( ' ', $ret );
+	}
+
+	/**
+	 * Returns a list of status messages of the given type (or all if false)
+	 *
+	 * @note this handles RawMessage poorly
+	 *
+	 * @param string|bool $type
+	 * @return array[]
+	 */
+	protected function getStatusArray( $type = false ) {
+		$result = [];
+
+		foreach ( $this->getErrors() as $error ) {
+			if ( $type === false || $error['type'] === $type ) {
+				if ( $error['message'] instanceof MessageSpecifier ) {
+					$result[] = array_merge(
+						[ $error['message']->getKey() ],
+						$error['message']->getParams()
+					);
+				} elseif ( $error['params'] ) {
+					$result[] = array_merge( [ $error['message'] ], $error['params'] );
+				} else {
+					$result[] = [ $error['message'] ];
+				}
+			}
+		}
+
+		return $result;
 	}
 }

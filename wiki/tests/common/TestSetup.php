@@ -26,11 +26,11 @@ class TestSetup {
 	 * of a Maintenance subclass
 	 */
 	public static function applyInitialConfig() {
-		global $wgMainCacheType, $wgMessageCacheType, $wgParserCacheType, $wgMainWANCache;
-		global $wgMainStash;
+		global $wgMainCacheType, $wgMessageCacheType, $wgParserCacheType, $wgMainWANCache, $wgSessionCacheType;
+		global $wgMainStash, $wgChronologyProtectorStash;
 		global $wgObjectCaches;
 		global $wgLanguageConverterCacheType, $wgUseDatabaseMessages;
-		global $wgLocaltimezone, $wgLocalisationCacheConf;
+		global $wgLocaltimezone, $wgLocalTZOffset, $wgLocalisationCacheConf;
 		global $wgSearchType;
 		global $wgDevelopmentWarnings;
 		global $wgSessionProviders, $wgSessionPbkdf2Iterations;
@@ -59,6 +59,7 @@ class TestSetup {
 		$wgLanguageConverterCacheType = 'hash';
 		// Uses db-replicated in DefaultSettings
 		$wgMainStash = 'hash';
+		$wgChronologyProtectorStash = 'hash';
 		// Use hash instead of db
 		$wgObjectCaches['db-replicated'] = $wgObjectCaches['hash'];
 		// Use memory job queue
@@ -77,6 +78,7 @@ class TestSetup {
 
 		// Assume UTC for testing purposes
 		$wgLocaltimezone = 'UTC';
+		$wgLocalTZOffset = 0;
 
 		$wgLocalisationCacheConf['class'] = TestLocalisationCache::class;
 		$wgLocalisationCacheConf['storeClass'] = LCStoreNull::class;
@@ -106,12 +108,18 @@ class TestSetup {
 			'primaryauth' => [
 				[
 					'class' => MediaWiki\Auth\TemporaryPasswordPrimaryAuthenticationProvider::class,
+					'services' => [
+						'DBLoadBalancer',
+					],
 					'args' => [ [
 						'authoritative' => false,
 					] ],
 				],
 				[
 					'class' => MediaWiki\Auth\LocalPasswordPrimaryAuthenticationProvider::class,
+					'services' => [
+						'DBLoadBalancer',
+					],
 					'args' => [ [
 						'authoritative' => true,
 					] ],

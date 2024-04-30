@@ -5,12 +5,14 @@ namespace MediaWiki\Rest;
 use AppendIterator;
 use BagOStuff;
 use MediaWiki\HookContainer\HookContainer;
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Permissions\Authority;
 use MediaWiki\Rest\BasicAccess\BasicAuthorizerInterface;
 use MediaWiki\Rest\PathTemplateMatcher\PathMatcher;
+use MediaWiki\Rest\Reporter\ErrorReporter;
 use MediaWiki\Rest\Validator\Validator;
+use Throwable;
 use Wikimedia\Message\MessageValue;
-use Wikimedia\ObjectFactory;
+use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
  * The REST router is responsible for gathering handler configuration, matching
@@ -51,32 +53,52 @@ class Router {
 	/** @var BasicAuthorizerInterface */
 	private $basicAuth;
 
+	/** @var Authority */
+	private $authority;
+
 	/** @var ObjectFactory */
 	private $objectFactory;
 
 	/** @var Validator */
 	private $restValidator;
 
+	/** @var CorsUtils|null */
+	private $cors;
+
+	/** @var ErrorReporter */
+	private $errorReporter;
+
 	/** @var HookContainer */
 	private $hookContainer;
 
 	/**
-	 * @internal
 	 * @param string[] $routeFiles List of names of JSON files containing routes
 	 * @param array $extraRoutes Extension route array
-	 * @param string $baseUrl The base URL
+	 * @param string $baseUrl
 	 * @param string $rootPath The base path for routes, relative to the base URL
 	 * @param BagOStuff $cacheBag A cache in which to store the matcher trees
 	 * @param ResponseFactory $responseFactory
 	 * @param BasicAuthorizerInterface $basicAuth
+	 * @param Authority $authority
 	 * @param ObjectFactory $objectFactory
 	 * @param Validator $restValidator
-	 * @param HookContainer|null $hookContainer
+	 * @param ErrorReporter $errorReporter
+	 * @param HookContainer $hookContainer
+	 * @internal
 	 */
-	public function __construct( $routeFiles, $extraRoutes, $baseUrl, $rootPath,
-		BagOStuff $cacheBag, ResponseFactory $responseFactory,
-		BasicAuthorizerInterface $basicAuth, ObjectFactory $objectFactory,
-		Validator $restValidator, HookContainer $hookContainer = null
+	public function __construct(
+		$routeFiles,
+		$extraRoutes,
+		$baseUrl,
+		$rootPath,
+		BagOStuff $cacheBag,
+		ResponseFactory $responseFactory,
+		BasicAuthorizerInterface $basicAuth,
+		Authority $authority,
+		ObjectFactory $objectFactory,
+		Validator $restValidator,
+		ErrorReporter $errorReporter,
+		HookContainer $hookContainer
 	) {
 		$this->routeFiles = $routeFiles;
 		$this->extraRoutes = $extraRoutes;
@@ -85,13 +107,10 @@ class Router {
 		$this->cacheBag = $cacheBag;
 		$this->responseFactory = $responseFactory;
 		$this->basicAuth = $basicAuth;
+		$this->authority = $authority;
 		$this->objectFactory = $objectFactory;
 		$this->restValidator = $restValidator;
-
-		if ( !$hookContainer ) {
-			// b/c for OAuth extension
-			$hookContainer = MediaWikiServices::getInstance()->getHookContainer();
-		}
+		$this->errorReporter = $errorReporter;
 		$this->hookContainer = $hookContainer;
 	}
 
@@ -285,15 +304,14 @@ class Router {
 
 		if ( !$match ) {
 			// Check for 405 wrong method
-			$allowed = [];
-			foreach ( $matchers as $allowedMethod => $allowedMatcher ) {
-				if ( $allowedMethod === $requestMethod ) {
-					continue;
-				}
-				if ( $allowedMatcher->match( $relPath ) ) {
-					$allowed[] = $allowedMethod;
-				}
+			$allowed = $this->getAllowedMethods( $relPath );
+
+			// Check for CORS Preflight. This response will *not* allow the request unless
+			// an Access-Control-Allow-Origin header is added to this response.
+			if ( $this->cors && $requestMethod === 'OPTIONS' ) {
+				return $this->cors->createPreflightResponse( $allowed );
 			}
+
 			if ( $allowed ) {
 				$response = $this->responseFactory->createLocalizedHttpError( 405,
 					( new MessageValue( 'rest-wrong-method' ) )
@@ -320,7 +338,30 @@ class Router {
 			return $this->executeHandler( $handler );
 		} catch ( HttpException $e ) {
 			return $this->responseFactory->createFromException( $e );
+		} catch ( Throwable $e ) {
+			$this->errorReporter->reportError( $e, $handler, $request );
+			return $this->responseFactory->createFromException( $e );
 		}
+	}
+
+	/**
+	 * Get the allow methods for a path.
+	 *
+	 * @param string $relPath
+	 * @return array
+	 */
+	private function getAllowedMethods( string $relPath ): array {
+		// Check for 405 wrong method
+		$allowed = [];
+		foreach ( $this->getMatchers() as $allowedMethod => $allowedMatcher ) {
+			if ( $allowedMatcher->match( $relPath ) ) {
+				$allowed[] = $allowedMethod;
+			}
+		}
+
+		return array_unique(
+			in_array( 'GET', $allowed ) ? array_merge( [ 'HEAD' ], $allowed ) : $allowed
+		);
 	}
 
 	/**
@@ -330,11 +371,19 @@ class Router {
 	 * @return Handler
 	 */
 	private function createHandler( RequestInterface $request, array $spec ): Handler {
-		$objectFactorySpec = array_intersect_key( $spec,
-			[ 'factory' => true, 'class' => true, 'args' => true, 'services' => true ] );
+		$objectFactorySpec = array_intersect_key(
+			$spec,
+			[
+				'factory' => true,
+				'class' => true,
+				'args' => true,
+				'services' => true,
+				'optional_services' => true
+			]
+		);
 		/** @var $handler Handler (annotation for PHPStorm) */
 		$handler = $this->objectFactory->createObject( $objectFactorySpec );
-		$handler->init( $this, $request, $spec, $this->responseFactory, $this->hookContainer );
+		$handler->init( $this, $request, $spec, $this->authority, $this->responseFactory, $this->hookContainer );
 
 		return $handler;
 	}
@@ -371,5 +420,15 @@ class Router {
 		$handler->applyConditionalResponseHeaders( $response );
 
 		return $response;
+	}
+
+	/**
+	 * @param CorsUtils $cors
+	 * @return self
+	 */
+	public function setCors( CorsUtils $cors ): self {
+		$this->cors = $cors;
+
+		return $this;
 	}
 }

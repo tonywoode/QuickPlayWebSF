@@ -25,8 +25,6 @@
  * @author Daniel Kinzler
  */
 
-use MediaWiki\MediaWikiServices;
-
 /**
  * Content object for CSS pages.
  *
@@ -47,38 +45,6 @@ class CssContent extends TextContent {
 	 */
 	public function __construct( $text, $modelId = CONTENT_MODEL_CSS ) {
 		parent::__construct( $text, $modelId );
-	}
-
-	/**
-	 * Returns a Content object with pre-save transformations applied using
-	 * Parser::preSaveTransform().
-	 *
-	 * @param Title $title
-	 * @param User $user
-	 * @param ParserOptions $popts
-	 *
-	 * @return CssContent
-	 *
-	 * @see TextContent::preSaveTransform
-	 */
-	public function preSaveTransform( Title $title, User $user, ParserOptions $popts ) {
-		// @todo Make pre-save transformation optional for script pages
-
-		$text = $this->getText();
-		$pst = MediaWikiServices::getInstance()->getParser()
-			->preSaveTransform( $text, $title, $user, $popts );
-
-		return new static( $pst );
-	}
-
-	/**
-	 * @return string CSS wrapped in a <pre> tag.
-	 */
-	protected function getHtml() {
-		return Html::element( 'pre',
-			[ 'class' => 'mw-code mw-css', 'dir' => 'ltr' ],
-			"\n" . $this->getText() . "\n"
-		) . "\n";
 	}
 
 	/**
@@ -104,8 +70,7 @@ class CssContent extends TextContent {
 		$text = $this->getText();
 		if ( strpos( $text, '/* #REDIRECT */' ) === 0 ) {
 			// Extract the title from the url
-			preg_match( '/title=(.*?)&action=raw/', $text, $matches );
-			if ( isset( $matches[1] ) ) {
+			if ( preg_match( '/title=(.*?)&action=raw/', $text, $matches ) ) {
 				$title = Title::newFromText( urldecode( $matches[1] ) );
 				if ( $title ) {
 					// Have a title, check that the current content equals what

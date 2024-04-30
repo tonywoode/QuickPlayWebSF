@@ -7,7 +7,6 @@
 	"exif-imagewidth": "چوڑائی",
 	"exif-imagelength": "اُچائی",
 	"exif-orientation": "اورینٹیشن",
-	"exif-samplesperpixel": "اجزا دی تعداد",
 	"exif-xresolution": "افقی ریزولوشن",
 	"exif-yresolution": "عمودی ریزولیشن",
 	"exif-datetime": "فائل بدلݨ دی تریخ تے ویلا",
@@ -115,5 +114,11 @@
 	"exif-iimcategory-wea": "موسم",
 	"exif-urgency-normal": "عام ($1)",
 	"exif-urgency-low": "گھٹ ($1)",
-	"exif-urgency-high": "ودھ ($1)"
+	"exif-urgency-high": "ودھ ($1)",
+	"exif-firstphotodate": "پہلا فوٹو تریخ",
+	"exif-lastphotodate": "چھیکڑی فوٹو تریخ",
+	"exif-usepanoramaviewer-true": "جیا",
+	"exif-usepanoramaviewer-false": "کو",
+	"exif-exposurelockused-true": "جیا",
+	"exif-exposurelockused-false": "کو"
 }

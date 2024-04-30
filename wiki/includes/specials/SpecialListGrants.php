@@ -47,8 +47,8 @@ class SpecialListGrants extends SpecialPage {
 			\Html::openElement( 'table',
 				[ 'class' => 'wikitable mw-listgrouprights-table' ] ) .
 				'<tr>' .
-				\Html::element( 'th', null, $this->msg( 'listgrants-grant' )->text() ) .
-				\Html::element( 'th', null, $this->msg( 'listgrants-rights' )->text() ) .
+				\Html::element( 'th', [], $this->msg( 'listgrants-grant' )->text() ) .
+				\Html::element( 'th', [], $this->msg( 'listgrants-rights' )->text() ) .
 				'</tr>'
 		);
 
@@ -74,7 +74,7 @@ class SpecialListGrants extends SpecialPage {
 				"<td>" .
 				$this->msg(
 					"listgrants-grant-display",
-					\User::getGrantName( $grant ),
+					MWGrants::grantName( $grant ),
 					"<span class='mw-listgrants-grant-name'>" . $id . "</span>"
 				)->parse() .
 				"</td>" .

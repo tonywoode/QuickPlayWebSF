@@ -31,8 +31,28 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 	/** @var array list of api allowed params */
 	private $allowedParams;
 
-	public function __construct( ApiQuery $query, $moduleName ) {
+	/** @var SearchEngineConfig */
+	private $searchEngineConfig;
+
+	/** @var SearchEngineFactory */
+	private $searchEngineFactory;
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param SearchEngineConfig $searchEngineConfig
+	 * @param SearchEngineFactory $searchEngineFactory
+	 */
+	public function __construct(
+		ApiQuery $query,
+		$moduleName,
+		SearchEngineConfig $searchEngineConfig,
+		SearchEngineFactory $searchEngineFactory
+	) {
 		parent::__construct( $query, $moduleName, 'sr' );
+		// Services also needed in SearchApi trait
+		$this->searchEngineConfig = $searchEngineConfig;
+		$this->searchEngineFactory = $searchEngineFactory;
 	}
 
 	public function execute() {
@@ -54,8 +74,8 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 		$query = $params['search'];
 		$what = $params['what'];
 		$interwiki = $params['interwiki'];
-		$searchInfo = array_flip( $params['info'] );
-		$prop = array_flip( $params['prop'] );
+		$searchInfo = array_fill_keys( $params['info'], true );
+		$prop = array_fill_keys( $params['prop'], true );
 
 		// Create search engine instance and set options
 		$search = $this->buildSearchEngine( $params );
@@ -120,31 +140,30 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 			$this->dieWithError( [ 'apierror-searchdisabled', $what ], "search-{$what}-disabled" );
 		}
 
-		if ( $resultPageSet === null ) {
-			$apiResult = $this->getResult();
-			// Add search meta data to result
-			if ( isset( $searchInfo['totalhits'] ) ) {
-				$totalhits = $matches->getTotalHits();
-				if ( $totalhits !== null ) {
-					$apiResult->addValue( [ 'query', 'searchinfo' ],
-						'totalhits', $totalhits );
-				}
+		$apiResult = $this->getResult();
+		// Add search meta data to result
+		if ( isset( $searchInfo['totalhits'] ) ) {
+			$totalhits = $matches->getTotalHits();
+			if ( $totalhits !== null ) {
+				$apiResult->addValue( [ 'query', 'searchinfo' ],
+					'totalhits', $totalhits );
 			}
-			if ( isset( $searchInfo['suggestion'] ) && $matches->hasSuggestion() ) {
-				$apiResult->addValue( [ 'query', 'searchinfo' ],
-					'suggestion', $matches->getSuggestionQuery() );
-				$apiResult->addValue( [ 'query', 'searchinfo' ],
-					'suggestionsnippet', HtmlArmor::getHtml( $matches->getSuggestionSnippet() ) );
-			}
-			if ( isset( $searchInfo['rewrittenquery'] ) && $matches->hasRewrittenQuery() ) {
-				$apiResult->addValue( [ 'query', 'searchinfo' ],
-					'rewrittenquery', $matches->getQueryAfterRewrite() );
-				$apiResult->addValue( [ 'query', 'searchinfo' ],
-					'rewrittenquerysnippet', HtmlArmor::getHtml( $matches->getQueryAfterRewriteSnippet() ) );
-			}
+		}
+		if ( isset( $searchInfo['suggestion'] ) && $matches->hasSuggestion() ) {
+			$apiResult->addValue( [ 'query', 'searchinfo' ],
+				'suggestion', $matches->getSuggestionQuery() );
+			$apiResult->addValue( [ 'query', 'searchinfo' ],
+				'suggestionsnippet', HtmlArmor::getHtml( $matches->getSuggestionSnippet() ) );
+		}
+		if ( isset( $searchInfo['rewrittenquery'] ) && $matches->hasRewrittenQuery() ) {
+			$apiResult->addValue( [ 'query', 'searchinfo' ],
+				'rewrittenquery', $matches->getQueryAfterRewrite() );
+			$apiResult->addValue( [ 'query', 'searchinfo' ],
+				'rewrittenquerysnippet', HtmlArmor::getHtml( $matches->getQueryAfterRewriteSnippet() ) );
 		}
 
 		$titles = [];
+		$data = [];
 		$count = 0;
 
 		if ( $matches->hasMoreResults() ) {
@@ -158,8 +177,9 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 				continue;
 			}
 
+			$vals = $this->getSearchResultData( $result, $prop );
+
 			if ( $resultPageSet === null ) {
-				$vals = $this->getSearchResultData( $result, $prop );
 				if ( $vals ) {
 					// Add item to results and see whether it fits
 					$fit = $apiResult->addValue( [ 'query', $this->getModuleName() ], null, $vals );
@@ -170,6 +190,7 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 				}
 			} else {
 				$titles[] = $result->getTitle();
+				$data[] = $vals ?: [];
 			}
 		}
 
@@ -195,7 +216,7 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 				'query', $this->getModuleName()
 			], 'p' );
 		} else {
-			$resultPageSet->setRedirectMergePolicy( function ( $current, $new ) {
+			$resultPageSet->setRedirectMergePolicy( static function ( $current, $new ) {
 				if ( !isset( $current['index'] ) || $new['index'] < $current['index'] ) {
 					$current['index'] = $new['index'];
 				}
@@ -204,7 +225,10 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 			$resultPageSet->populateFromTitles( $titles );
 			$offset = $params['offset'] + 1;
 			foreach ( $titles as $index => $title ) {
-				$resultPageSet->setGeneratorData( $title, [ 'index' => $index + $offset ] );
+				$resultPageSet->setGeneratorData(
+					$title,
+					$data[ $index ] + [ 'index' => $index + $offset ]
+				);
 			}
 		}
 	}
@@ -383,18 +407,19 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 			'enablerewrites' => false,
 		];
 
+		// Generators only add info/properties if explicitly requested. T263841
+		if ( $this->isInGeneratorMode() ) {
+			$this->allowedParams['prop'][ApiBase::PARAM_DFLT] = '';
+			$this->allowedParams['info'][ApiBase::PARAM_DFLT] = '';
+		}
+
 		// If we have more than one engine the list of available sorts is
 		// difficult to represent. For now don't expose it.
-		$services = MediaWiki\MediaWikiServices::getInstance();
-		$alternatives = $services
-			->getSearchEngineConfig()
-			->getSearchTypes();
+		$alternatives = $this->searchEngineConfig->getSearchTypes();
 		if ( count( $alternatives ) == 1 ) {
 			$this->allowedParams['sort'] = [
-				ApiBase::PARAM_DFLT => 'relevance',
-				ApiBase::PARAM_TYPE => $services
-					->newSearchEngine()
-					->getValidSorts(),
+				ApiBase::PARAM_DFLT => SearchEngine::DEFAULT_SORT,
+				ApiBase::PARAM_TYPE => $this->searchEngineFactory->create()->getValidSorts(),
 			];
 		}
 

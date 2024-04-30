@@ -1,9 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
+			"JSantos",
 			"Joao Xavier",
-			"Malafaya",
-			"JSantos"
+			"Malafaya"
 		]
 	},
 	"exif-imagewidth": "Larjeso",
@@ -75,5 +75,6 @@
 	"exif-gpsspeed-m": "Milii per horo",
 	"exif-dc-publisher": "Publikigero",
 	"exif-dc-rights": "Uzo-permisi",
-	"exif-rating-rejected": "Rejektita"
+	"exif-rating-rejected": "Rejektita",
+	"exif-usepanoramaviewer-true": "Yes"
 }

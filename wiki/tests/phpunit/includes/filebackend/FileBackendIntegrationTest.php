@@ -1,5 +1,6 @@
 <?php
 
+use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\TestingAccessWrapper;
 
@@ -54,10 +55,12 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 	public $singleBackend;
 	private static $backendToUse;
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		global $wgFileBackends;
 		parent::setUp();
 		$tmpDir = $this->getNewTempDirectory();
+		$lockManagerGroup = $this->getServiceContainer()
+			->getLockManagerGroupFactory()->getLockManagerGroup();
 		if ( $this->getCliArg( 'use-filebackend' ) ) {
 			if ( self::$backendToUse ) {
 				$this->singleBackend = self::$backendToUse;
@@ -74,13 +77,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 				$useConfig['shardViaHashLevels'] = [ // test sharding
 					'unittest-cont1' => [ 'levels' => 1, 'base' => 16, 'repeat' => 1 ]
 				];
-				if ( isset( $useConfig['fileJournal'] ) ) {
-					$useConfig['fileJournal'] = ObjectFactory::getObjectFromSpec(
-						[ 'backend' => $name ] + $useConfig['fileJournal'],
-						[ 'specIsArg' => true, 'assertClass' => FileJournal::class ]
-					);
-				}
-				$useConfig['lockManager'] = LockManagerGroup::singleton()->get( $useConfig['lockManager'] );
+				$useConfig['lockManager'] = $lockManagerGroup->get( $useConfig['lockManager'] );
 				$class = $useConfig['class'];
 				self::$backendToUse = new $class( $useConfig );
 				$this->singleBackend = self::$backendToUse;
@@ -88,8 +85,9 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		} else {
 			$this->singleBackend = new FSFileBackend( [
 				'name' => 'localtesting',
-				'lockManager' => LockManagerGroup::singleton()->get( 'fsLockManager' ),
-				'wikiId' => wfWikiID(),
+				'lockManager' => $lockManagerGroup->get( 'fsLockManager' ),
+				'wikiId' => WikiMap::getCurrentWikiId(),
+				'logger' => LoggerFactory::getInstance( 'FileOperation' ),
 				'containerPaths' => [
 					'unittest-cont1' => "{$tmpDir}/localtesting-cont1",
 					'unittest-cont2' => "{$tmpDir}/localtesting-cont2" ]
@@ -97,9 +95,10 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		}
 		$this->multiBackend = new FileBackendMultiWrite( [
 			'name' => 'localtesting',
-			'lockManager' => LockManagerGroup::singleton()->get( 'fsLockManager' ),
+			'lockManager' => $lockManagerGroup->get( 'fsLockManager' ),
 			'parallelize' => 'implicit',
 			'wikiId' => 'testdb',
+			'logger' => LoggerFactory::getInstance( 'FileOperation' ),
 			'backends' => [
 				[
 					'name' => 'localmultitesting1',
@@ -167,7 +166,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 			"Store from $source to $dest succeeded ($backendName)." );
 		$this->assertEquals( [ 0 => true ], $status->success,
 			"Store from $source to $dest has proper 'success' field in Status ($backendName)." );
-		$this->assertTrue( file_exists( $source ),
+		$this->assertTrue( is_file( $source ),
 			"Source file $source still exists ($backendName)." );
 		$this->assertTrue( $this->backend->fileExists( [ 'src' => $dest ] ),
 			"Destination file $dest exists ($backendName)." );
@@ -1030,7 +1029,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		}
 
 		$contents = file_get_contents( $dest );
-		$this->assertNotEquals( false, $contents, "File at $dest exists ($backendName)." );
+		$this->assertIsString( $contents, "File at $dest exists ($backendName)." );
 
 		if ( $okStatus ) {
 			$this->assertEquals( $expContent, $contents,
@@ -1293,7 +1292,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		if ( is_array( $source ) ) {
 			$contents = $this->backend->getFileContentsMulti( [ 'srcs' => $source ] );
 			foreach ( $contents as $path => $data ) {
-				$this->assertNotEquals( false, $data, "Contents of $path exists ($backendName)." );
+				$this->assertIsString( $data, "Contents of $path exists ($backendName)." );
 				$this->assertEquals(
 					current( $content ),
 					$data,
@@ -1306,14 +1305,14 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 				array_keys( $contents ),
 				"Contents in right order ($backendName)."
 			);
-			$this->assertEquals(
+			$this->assertSame(
 				count( $source ),
 				count( $contents ),
 				"Contents array size correct ($backendName)."
 			);
 		} else {
 			$data = $this->backend->getFileContents( [ 'src' => $source ] );
-			$this->assertNotEquals( false, $data, "Contents of $source exists ($backendName)." );
+			$this->assertIsString( $data, "Contents of $source exists ($backendName)." );
 			$this->assertEquals( $content[0], $data, "Contents of $source is correct ($backendName)." );
 		}
 	}
@@ -1367,7 +1366,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 				$this->assertNotNull( $tmpFile,
 					"Creation of local copy of $path succeeded ($backendName)." );
 				$contents = file_get_contents( $tmpFile->getPath() );
-				$this->assertNotEquals( false, $contents, "Local copy of $path exists ($backendName)." );
+				$this->assertIsString( $contents, "Local copy of $path exists ($backendName)." );
 				$this->assertEquals(
 					current( $content ),
 					$contents,
@@ -1380,7 +1379,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 				array_keys( $tmpFiles ),
 				"Local copies in right order ($backendName)."
 			);
-			$this->assertEquals(
+			$this->assertSame(
 				count( $source ),
 				count( $tmpFiles ),
 				"Local copies array size correct ($backendName)."
@@ -1390,7 +1389,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 			$this->assertNotNull( $tmpFile,
 				"Creation of local copy of $source succeeded ($backendName)." );
 			$contents = file_get_contents( $tmpFile->getPath() );
-			$this->assertNotEquals( false, $contents, "Local copy of $source exists ($backendName)." );
+			$this->assertIsString( $contents, "Local copy of $source exists ($backendName)." );
 			$this->assertEquals(
 				$content[0],
 				$contents,
@@ -1452,7 +1451,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 				$this->assertNotNull( $tmpFile,
 					"Creation of local copy of $path succeeded ($backendName)." );
 				$contents = file_get_contents( $tmpFile->getPath() );
-				$this->assertNotEquals( false, $contents, "Local ref of $path exists ($backendName)." );
+				$this->assertIsString( $contents, "Local ref of $path exists ($backendName)." );
 				$this->assertEquals(
 					current( $content ),
 					$contents,
@@ -1465,7 +1464,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 				array_keys( $tmpFiles ),
 				"Local refs in right order ($backendName)."
 			);
-			$this->assertEquals(
+			$this->assertSame(
 				count( $source ),
 				count( $tmpFiles ),
 				"Local refs array size correct ($backendName)."
@@ -1475,7 +1474,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 			$this->assertNotNull( $tmpFile,
 				"Creation of local copy of $source succeeded ($backendName)." );
 			$contents = file_get_contents( $tmpFile->getPath() );
-			$this->assertNotEquals( false, $contents, "Local ref of $source exists ($backendName)." );
+			$this->assertIsString( $contents, "Local ref of $source exists ($backendName)." );
 			$this->assertEquals( $content[0], $contents, "Local ref of $source is correct ($backendName)." );
 		}
 	}
@@ -1549,7 +1548,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		$url = $this->backend->getFileHttpUrl( [ 'src' => $source ] );
 
 		if ( $url !== null ) { // supported
-			$data = MediaWikiServices::getInstance()->getHttpRequestFactory()->
+			$data = $this->getServiceContainer()->getHttpRequestFactory()->
 				get( $url, [], __METHOD__ );
 			$this->assertEquals( $content, $data,
 				"HTTP GET of URL has right contents ($backendName)." );
@@ -1966,8 +1965,9 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		$backendName = $this->backendClass();
 		$base = self::baseStorePath();
 
-		// Should have no errors
+		// Should return null, because it is not a valid container
 		$iter = $this->backend->getFileList( [ 'dir' => "$base/unittest-cont-notexists" ] );
+		$this->assertNull( $iter );
 
 		$files = [
 			"$base/unittest-cont1/e/test1.txt",
@@ -2019,6 +2019,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 
 		// Actual listing (no trailing slash) at root
 		$iter = $this->backend->getFileList( [ 'dir' => "$base/unittest-cont1" ] );
+		$this->assertNotNull( $iter );
 		$list = $this->listToArray( $iter );
 		sort( $list );
 		$this->assertEquals( $expected, $list, "Correct file listing ($backendName)." );
@@ -2028,6 +2029,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 			'dir' => "$base/unittest-cont1",
 			'adviseStat' => 1
 		] );
+		$this->assertNotNull( $iter );
 		$list = $this->listToArray( $iter );
 		sort( $list );
 		$this->assertEquals( $expected, $list, "Correct file listing ($backendName)." );
@@ -2035,6 +2037,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		// Actual listing (with trailing slash) at root
 		$list = [];
 		$iter = $this->backend->getFileList( [ 'dir' => "$base/unittest-cont1/" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			$list[] = $file;
 		}
@@ -2055,6 +2058,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 
 		// Actual listing (no trailing slash) at subdir
 		$iter = $this->backend->getFileList( [ 'dir' => "$base/unittest-cont1/e/subdir2/subdir" ] );
+		$this->assertNotNull( $iter );
 		$list = $this->listToArray( $iter );
 		sort( $list );
 		$this->assertEquals( $expected, $list, "Correct file listing ($backendName)." );
@@ -2064,6 +2068,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 			'dir' => "$base/unittest-cont1/e/subdir2/subdir",
 			'adviseStat' => 1
 		] );
+		$this->assertNotNull( $iter );
 		$list = $this->listToArray( $iter );
 		sort( $list );
 		$this->assertEquals( $expected, $list, "Correct file listing ($backendName)." );
@@ -2071,6 +2076,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		// Actual listing (with trailing slash) at subdir
 		$list = [];
 		$iter = $this->backend->getFileList( [ 'dir' => "$base/unittest-cont1/e/subdir2/subdir/" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			$list[] = $file;
 		}
@@ -2084,6 +2090,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 
 		// Actual listing (top files only) at root
 		$iter = $this->backend->getTopFileList( [ 'dir' => "$base/unittest-cont1" ] );
+		$this->assertNotNull( $iter );
 		$list = $this->listToArray( $iter );
 		sort( $list );
 		$this->assertEquals( [], $list, "Correct top file listing ($backendName)." );
@@ -2102,6 +2109,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		$iter = $this->backend->getTopFileList(
 			[ 'dir' => "$base/unittest-cont1/e/subdir2/subdir" ]
 		);
+		$this->assertNotNull( $iter );
 		$list = $this->listToArray( $iter );
 		sort( $list );
 		$this->assertEquals( $expected, $list, "Correct top file listing ($backendName)." );
@@ -2111,6 +2119,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 			'dir' => "$base/unittest-cont1/e/subdir2/subdir",
 			'adviseStat' => 1
 		] );
+		$this->assertNotNull( $iter );
 		$list = $this->listToArray( $iter );
 		sort( $list );
 		$this->assertEquals( $expected, $list, "Correct top file listing ($backendName)." );
@@ -2120,6 +2129,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		}
 
 		$iter = $this->backend->getFileList( [ 'dir' => "$base/unittest-cont1/not/exists" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $iter ) {
 			// no errors
 		}
@@ -2192,6 +2202,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		// Actual listing (no trailing slash)
 		$list = [];
 		$iter = $this->backend->getTopDirectoryList( [ 'dir' => "$base/unittest-cont1" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			$list[] = $file;
 		}
@@ -2211,6 +2222,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		// Actual listing (no trailing slash)
 		$list = [];
 		$iter = $this->backend->getTopDirectoryList( [ 'dir' => "$base/unittest-cont1/e" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			$list[] = $file;
 		}
@@ -2221,6 +2233,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		// Actual listing (with trailing slash)
 		$list = [];
 		$iter = $this->backend->getTopDirectoryList( [ 'dir' => "$base/unittest-cont1/e/" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			$list[] = $file;
 		}
@@ -2237,6 +2250,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		// Actual listing (no trailing slash)
 		$list = [];
 		$iter = $this->backend->getTopDirectoryList( [ 'dir' => "$base/unittest-cont1/e/subdir2" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			$list[] = $file;
 		}
@@ -2249,6 +2263,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		$iter = $this->backend->getTopDirectoryList(
 			[ 'dir' => "$base/unittest-cont1/e/subdir2/" ]
 		);
+		$this->assertNotNull( $iter );
 
 		foreach ( $iter as $file ) {
 			$list[] = $file;
@@ -2287,6 +2302,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		// Actual listing (recursive)
 		$list = [];
 		$iter = $this->backend->getDirectoryList( [ 'dir' => "$base/unittest-cont1/" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			$list[] = $file;
 		}
@@ -2304,6 +2320,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		// Actual listing (recursive)
 		$list = [];
 		$iter = $this->backend->getDirectoryList( [ 'dir' => "$base/unittest-cont1/e/subdir4" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			$list[] = $file;
 		}
@@ -2321,6 +2338,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $expected, $list, "Correct dir listing ($backendName)." );
 
 		$iter = $this->backend->getDirectoryList( [ 'dir' => "$base/unittest-cont1/e/subdir1" ] );
+		$this->assertNotNull( $iter );
 		$items = $this->listToArray( $iter );
 		$this->assertEquals( [], $items, "Directory listing is empty." );
 
@@ -2329,6 +2347,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		}
 
 		$iter = $this->backend->getDirectoryList( [ 'dir' => "$base/unittest-cont1/not/exists" ] );
+		$this->assertNotNull( $iter );
 		foreach ( $iter as $file ) {
 			// no errors
 		}
@@ -2337,6 +2356,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( [], $items, "Directory listing is empty." );
 
 		$iter = $this->backend->getDirectoryList( [ 'dir' => "$base/unittest-cont1/e/not/exists" ] );
+		$this->assertNotNull( $iter );
 		$items = $this->listToArray( $iter );
 		$this->assertEquals( [], $items, "Directory listing is empty." );
 	}
@@ -2486,7 +2506,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		$be = TestingAccessWrapper::newFromObject(
 			new FileBackendMultiWrite( [
 				'name' => 'localtesting',
-				'wikiId' => wfWikiID() . mt_rand(),
+				'wikiId' => WikiMap::getCurrentWikiId() . mt_rand(),
 				'backends' => [
 					[ // backend 0
 						'name' => 'multitesting0',
@@ -2536,7 +2556,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 		$be = TestingAccessWrapper::newFromObject(
 			new FileBackendMultiWrite( [
 				'name' => 'localtesting',
-				'wikiId' => wfWikiID() . mt_rand(),
+				'wikiId' => WikiMap::getCurrentWikiId() . mt_rand(),
 				'backends' => [
 					[ // backend 0
 						'name' => 'multitesting0',
@@ -2581,7 +2601,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 	public function testSanitizeOpHeaders() {
 		$be = TestingAccessWrapper::newFromObject( new MemoryFileBackend( [
 			'name' => 'localtesting',
-			'wikiId' => wfWikiID()
+			'wikiId' => WikiMap::getCurrentWikiId()
 		] ) );
 
 		$input = [
@@ -2600,10 +2620,7 @@ class FileBackendIntegrationTest extends MediaWikiIntegrationTestCase {
 			]
 		];
 
-		Wikimedia\suppressWarnings();
-		$actual = $be->sanitizeOpHeaders( $input );
-		Wikimedia\restoreWarnings();
-
+		$actual = @$be->sanitizeOpHeaders( $input );
 		$this->assertEquals( $expected, $actual, "Header sanitized properly" );
 	}
 

@@ -24,7 +24,7 @@ use InvalidArgumentException;
 use LogEntryBase;
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Permissions\SimpleAuthority;
 use MediaWiki\Session\PHPSessionHandler;
 use MediaWiki\Session\SessionManager;
 use MediaWiki\User\UserEditTracker;
@@ -53,19 +53,23 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @param array $configOverrides
 	 * @param UserEditTracker|null $userEditTrackerOverride
+	 * @param callable|null $callback
 	 * @return UserGroupManager
 	 */
 	private function getManager(
 		array $configOverrides = [],
 		UserEditTracker $userEditTrackerOverride = null,
 		callable $callback = null
-	) : UserGroupManager {
-		$services = MediaWikiServices::getInstance();
+	): UserGroupManager {
+		$services = $this->getServiceContainer();
 		return new UserGroupManager(
 			new ServiceOptions(
 				UserGroupManager::CONSTRUCTOR_OPTIONS,
 				$configOverrides,
 				[
+					'AddGroups' => [],
+					'AutoConfirmAge' => 0,
+					'AutoConfirmCount' => 0,
 					'Autopromote' => [
 						'autoconfirmed' => [ APCOND_EDITCOUNT, 0 ]
 					],
@@ -75,7 +79,10 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 							'runtest' => true,
 						]
 					],
+					'GroupsAddToSelf' => [],
+					'GroupsRemoveFromSelf' => [],
 					'ImplicitGroups' => [ '*', 'user', 'autoconfirmed' ],
+					'RemoveGroups' => [],
 					'RevokePermissions' => [],
 				],
 				$services->getMainConfig()
@@ -84,12 +91,14 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 			$services->getDBLoadBalancerFactory(),
 			$services->getHookContainer(),
 			$userEditTrackerOverride ?? $services->getUserEditTracker(),
+			$services->getGroupPermissionsLookup(),
+			$services->getJobQueueGroup(),
 			new TestLogger(),
 			$callback ? [ $callback ] : []
 		);
 	}
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 		$this->tablesUsed[] = 'user';
 		$this->tablesUsed[] = 'user_groups';
@@ -166,7 +175,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 
 		$this->assertTrue(
 			$manager->addUserToGroup( $user, self::GROUP ),
-			'Sanity: added user to group'
+			'added user to group'
 		);
 		$this->assertArrayEquals(
 			[ '*', 'user', 'autoconfirmed' ],
@@ -270,7 +279,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testAddUserToGroupReadonly() {
 		$user = $this->getTestUser()->getUser();
-		MediaWikiServices::getInstance()->getConfiguredReadOnlyMode()->setReason( 'TEST' );
+		$this->getServiceContainer()->getConfiguredReadOnlyMode()->setReason( 'TEST' );
 		$manager = $this->getManager();
 		$this->assertFalse( $manager->addUserToGroup( $user, 'test' ) );
 		$this->assertNotContains( 'test', $manager->getUserGroups( $user ) );
@@ -281,7 +290,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testAddUserToGroupAnon() {
 		$manager = $this->getManager();
-		$anon = new UserIdentityValue( 0, 'Anon', 0 );
+		$anon = new UserIdentityValue( 0, 'Anon' );
 		$this->expectException( InvalidArgumentException::class );
 		$manager->addUserToGroup( $anon, 'test' );
 	}
@@ -328,11 +337,27 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * @covers \MediaWiki\User\UserGroupManager::addUserToMultipleGroups
+	 */
+	public function testAddUserToMultipleGroups() {
+		$manager = $this->getManager();
+		$user = $this->getMutableTestUser()->getUser();
+
+		$manager->addUserToMultipleGroups( $user, [ self::GROUP, self::GROUP . '1' ] );
+		$this->assertMembership( $manager, $user, self::GROUP );
+		$this->assertMembership( $manager, $user, self::GROUP . '1' );
+
+		$anon = new UserIdentityValue( 0, 'Anon' );
+		$this->expectException( InvalidArgumentException::class );
+		$manager->addUserToMultipleGroups( $anon, [ self::GROUP, self::GROUP . '1' ] );
+	}
+
+	/**
 	 * @covers \MediaWiki\User\UserGroupManager::getUserGroupMemberships
 	 */
 	public function testGetUserGroupMembershipsForAnon() {
 		$manager = $this->getManager();
-		$anon = new UserIdentityValue( 0, 'Anon', 0 );
+		$anon = new UserIdentityValue( 0, 'Anon' );
 
 		$this->assertEmpty( $manager->getUserGroupMemberships( $anon ) );
 	}
@@ -342,7 +367,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testGetUserFormerGroupsForAnon() {
 		$manager = $this->getManager();
-		$anon = new UserIdentityValue( 0, 'Anon', 0 );
+		$anon = new UserIdentityValue( 0, 'Anon' );
 
 		$this->assertEmpty( $manager->getUserFormerGroups( $anon ) );
 	}
@@ -420,7 +445,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testRemoveUserFromGroupReadOnly() {
 		$user = $this->getTestUser( [ 'test' ] )->getUser();
-		MediaWikiServices::getInstance()->getConfiguredReadOnlyMode()->setReason( 'TEST' );
+		$this->getServiceContainer()->getConfiguredReadOnlyMode()->setReason( 'TEST' );
 		$manager = $this->getManager();
 		$this->assertFalse( $manager->removeUserFromGroup( $user, 'test' ) );
 		$this->assertContains( 'test', $manager->getUserGroups( $user ) );
@@ -431,7 +456,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testRemoveUserFromGroupAnon() {
 		$manager = $this->getManager();
-		$anon = new UserIdentityValue( 0, 'Anon', 0 );
+		$anon = new UserIdentityValue( 0, 'Anon' );
 		$this->expectException( InvalidArgumentException::class );
 		$manager->removeUserFromGroup( $anon, 'test' );
 	}
@@ -463,7 +488,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 		$expiryInPast = wfTimestamp( TS_MW, time() - 100500 );
 		$this->assertTrue(
 			$manager->addUserToGroup( $user, 'expired', $expiryInPast ),
-			'Sanity: can add expired group'
+			'can add expired group'
 		);
 		$manager->purgeExpired();
 		$this->assertNotContains( 'expired', $manager->getUserGroups( $user ) );
@@ -475,7 +500,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 * @covers \MediaWiki\User\UserGroupManager::purgeExpired
 	 */
 	public function testPurgeExpiredReadOnly() {
-		MediaWikiServices::getInstance()->getConfiguredReadOnlyMode()->setReason( 'TEST' );
+		$this->getServiceContainer()->getConfiguredReadOnlyMode()->setReason( 'TEST' );
 		$manager = $this->getManager();
 		$this->assertFalse( $manager->purgeExpired() );
 	}
@@ -584,17 +609,23 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function provideGetUserAutopromoteEditCount() {
-		yield 'Successfull promote'	=> [
-			5, true, 10, [ 'test_autoconfirmed' ]
+		yield 'Successfull promote' => [
+			[ APCOND_EDITCOUNT, 5 ], true, 10, [ 'test_autoconfirmed' ]
 		];
 		yield 'Required edit count negative' => [
-			-1, false, 10, [ 'test_autoconfirmed' ]
+			[ APCOND_EDITCOUNT, -1 ], true, 10, [ 'test_autoconfirmed' ]
+		];
+		yield 'No edit count, use AutoConfirmCount = 11' => [
+			[ APCOND_EDITCOUNT ], true, 10, []
+		];
+		yield 'Null edit count, use AutoConfirmCount = 11' => [
+			[ APCOND_EDITCOUNT, null ], true, 13, [ 'test_autoconfirmed' ]
 		];
 		yield 'Anon' => [
-			5, false, 100, []
+			[ APCOND_EDITCOUNT, 5 ], false, 100, []
 		];
 		yield 'Not enough edits' => [
-			100, true, 10, []
+			[ APCOND_EDITCOUNT, 100 ], true, 10, []
 		];
 	}
 
@@ -602,12 +633,9 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider provideGetUserAutopromoteEditCount
 	 * @covers \MediaWiki\User\UserGroupManager::getUserAutopromoteGroups
 	 * @covers \MediaWiki\User\UserGroupManager::checkCondition
-	 * @param int $requiredCount
-	 * @param bool $userRegistered
-	 * @param int $userEditCount
 	 */
 	public function testGetUserAutopromoteEditCount(
-		int $requiredCount,
+		array $requiredCond,
 		bool $userRegistered,
 		int $userEditCount,
 		array $expected
@@ -618,8 +646,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 		);
 		if ( $userRegistered ) {
 			$user = $this->getTestUser()->getUser();
-			$userEditTrackerMock->expects( $this->once() )
-				->method( 'getUserEditCount' )
+			$userEditTrackerMock->method( 'getUserEditCount' )
 				->with( $user )
 				->willReturn( $userEditCount );
 		} else {
@@ -629,7 +656,8 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 		}
 		$manager = $this->getManager(
 			[
-				'Autopromote' => [ 'test_autoconfirmed' => [ APCOND_EDITCOUNT, $requiredCount ] ]
+				'AutoConfirmCount' => 11,
+				'Autopromote' => [ 'test_autoconfirmed' => $requiredCond ]
 			],
 			$userEditTrackerMock
 		);
@@ -638,10 +666,18 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 
 	public function provideGetUserAutopromoteAge() {
 		yield 'Successfull promote' => [
-			1000, MWTimestamp::convert( TS_MW, time() - 1000000 ), [ 'test_autoconfirmed' ]
+			[ APCOND_AGE, 1000 ],
+			MWTimestamp::convert( TS_MW, time() - 1000000 ),
+			[ 'test_autoconfirmed' ]
 		];
 		yield 'Not old enough' => [
-			10000000, MWTimestamp::now(), []
+			[ APCOND_AGE, 10000000 ], MWTimestamp::now(), []
+		];
+		yield 'Not old enough, using AutoConfirmAge via unset' => [
+			[ APCOND_AGE ], MWTimestamp::now(), []
+		];
+		yield 'Not old enough, using AutoConfirmAge via null' => [
+			[ APCOND_AGE, null ], MWTimestamp::now(), []
 		];
 	}
 
@@ -649,35 +685,46 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider provideGetUserAutopromoteAge
 	 * @covers \MediaWiki\User\UserGroupManager::getUserAutopromoteGroups
 	 * @covers \MediaWiki\User\UserGroupManager::checkCondition
-	 * @param int $requiredAge
+	 * @param array $requiredCondition
 	 * @param string $registrationTs
 	 * @param array $expected
 	 */
 	public function testGetUserAutopromoteAge(
-		int $requiredAge,
+		array $requiredCondition,
 		string $registrationTs,
 		array $expected
 	) {
 		$manager = $this->getManager( [
-			'Autopromote' => [ 'test_autoconfirmed' => [ APCOND_AGE, $requiredAge ] ]
+			'AutoConfirmAge' => 10000000,
+			'Autopromote' => [ 'test_autoconfirmed' => $requiredCondition ]
 		] );
 		$user = $this->createNoOpMock( User::class, [ 'getRegistration' ] );
-		$user->expects( $this->once() )
-			->method( 'getRegistration' )
+		$user->method( 'getRegistration' )
 			->willReturn( $registrationTs );
 		$this->assertArrayEquals( $expected, $manager->getUserAutopromoteGroups( $user ) );
 	}
 
+	public function provideGetUserAutopromoteEditAge() {
+		yield 'Successfull promote' => [
+			[ APCOND_AGE_FROM_EDIT, 1000 ],
+			MWTimestamp::convert( TS_MW, time() - 1000000 ),
+			[ 'test_autoconfirmed' ]
+		];
+		yield 'Not old enough' => [
+			[ APCOND_AGE_FROM_EDIT, 10000000 ], MWTimestamp::now(), []
+		];
+	}
+
 	/**
-	 * @dataProvider provideGetUserAutopromoteAge
+	 * @dataProvider provideGetUserAutopromoteEditAge
 	 * @covers \MediaWiki\User\UserGroupManager::getUserAutopromoteGroups
 	 * @covers \MediaWiki\User\UserGroupManager::checkCondition
-	 * @param int $requiredAge
+	 * @param array $requiredCondition
 	 * @param string $firstEditTs
 	 * @param array $expected
 	 */
 	public function testGetUserAutopromoteEditAge(
-		int $requiredAge,
+		array $requiredCondition,
 		string $firstEditTs,
 		array $expected
 	) {
@@ -688,7 +735,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 			->with( $user )
 			->willReturn( $firstEditTs );
 		$manager = $this->getManager( [
-			'Autopromote' => [ 'test_autoconfirmed' => [ APCOND_AGE_FROM_EDIT, $requiredAge ] ]
+			'Autopromote' => [ 'test_autoconfirmed' => $requiredCondition ]
 		], $mockUserEditTracker );
 		$this->assertArrayEquals( $expected, $manager->getUserAutopromoteGroups( $user ) );
 	}
@@ -843,7 +890,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 		$block->setTarget( $blockedUser );
 		$block->setBlocker( $this->getTestSysop()->getUser() );
 		$block->isSitewide( true );
-		$block->insert();
+		$this->getServiceContainer()->getDatabaseBlockStore()->insertBlock( $block );
 		$this->assertArrayEquals( [ 'test_autoconfirmed' ],
 			$manager->getUserAutopromoteGroups( $blockedUser ) );
 	}
@@ -955,17 +1002,15 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 			'AutopromoteOnce' => $config
 		] );
 		$user = $this->getTestUser()->getUser();
-		foreach ( $userGroups as $group ) {
-			$manager->addUserToGroup( $user, $group );
-		}
+		$manager->addUserToMultipleGroups( $user, $userGroups );
 		foreach ( $formerGroups as $formerGroup ) {
 			$manager->addUserToGroup( $user, $formerGroup );
 			$manager->removeUserFromGroup( $user, $formerGroup );
 		}
 		$this->assertArrayEquals( $userGroups, $manager->getUserGroups( $user ),
-			false, 'Sanity: user groups are correct ' );
+			false, 'user groups are correct ' );
 		$this->assertArrayEquals( $formerGroups, $manager->getUserFormerGroups( $user ),
-			false, 'Sanity: user former groups are correct ' );
+			false, 'user former groups are correct ' );
 		$this->assertArrayEquals(
 			$expected,
 			$manager->getUserAutopromoteOnceGroups( $user, 'EVENT' )
@@ -976,7 +1021,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 * @covers \MediaWiki\User\UserGroupManager::addUserToAutopromoteOnceGroups
 	 */
 	public function testAddUserToAutopromoteOnceGroupsForeignDomain() {
-		$manager = MediaWikiServices::getInstance()
+		$manager = $this->getServiceContainer()
 			->getUserGroupManagerFactory()
 			->getUserGroupManager( 'TEST_DOMAIN' );
 		$user = $this->getTestUser()->getUser();
@@ -989,7 +1034,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testAddUserToAutopromoteOnceGroupsAnon() {
 		$manager = $this->getManager();
-		$anon = new UserIdentityValue( 0, 'TEST', 0 );
+		$anon = new UserIdentityValue( 0, 'TEST' );
 		$this->assertEmpty( $manager->addUserToAutopromoteOnceGroups( $anon, 'TEST' ) );
 	}
 
@@ -999,7 +1044,7 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 	public function testAddUserToAutopromoteOnceGroupsReadOnly() {
 		$manager = $this->getManager();
 		$user = $this->getTestUser()->getUser();
-		MediaWikiServices::getInstance()->getConfiguredReadOnlyMode()->setReason( 'TEST' );
+		$this->getServiceContainer()->getConfiguredReadOnlyMode()->setReason( 'TEST' );
 		$this->assertEmpty( $manager->addUserToAutopromoteOnceGroups( $user, 'TEST' ) );
 	}
 
@@ -1046,5 +1091,103 @@ class UserGroupManagerTest extends MediaWikiIntegrationTestCase {
 				] )
 			] ]
 		);
+	}
+
+	private const CHANGEABLE_GROUPS_TEST_CONFIG = [
+		'GroupPermissions' => [],
+		'AddGroups' => [
+			'sysop' => [ 'rollback' ],
+			'bureaucrat' => [ 'sysop', 'bureaucrat' ],
+		],
+		'RemoveGroups' => [
+			'sysop' => [ 'rollback' ],
+			'bureaucrat' => [ 'sysop' ],
+		],
+		'GroupsAddToSelf' => [
+			'sysop' => [ 'flood' ],
+		],
+		'GroupsRemoveFromSelf' => [
+			'flood' => [ 'flood' ],
+		],
+	];
+
+	private function assertGroupsEquals( array $expected, array $actual ) {
+		// assertArrayEquals can compare without requiring the same order,
+		// but the elements of an array are still required to be in the same order,
+		// so just compare each element
+		$this->assertArrayEquals( $expected['add'], $actual['add'], 'Add must match' );
+		$this->assertArrayEquals( $expected['remove'], $actual['remove'], 'Remove must match' );
+		$this->assertArrayEquals( $expected['add-self'], $actual['add-self'], 'Add-self must match' );
+		$this->assertArrayEquals( $expected['remove-self'], $actual['remove-self'], 'Remove-self must match' );
+	}
+
+	/**
+	 * @covers \MediaWiki\User\UserGroupManager::getGroupsChangeableBy
+	 */
+	public function testChangeableGroups() {
+		$manager = $this->getManager( self::CHANGEABLE_GROUPS_TEST_CONFIG );
+		$allGroups = $manager->listAllGroups();
+
+		$user = $this->getTestUser()->getUser();
+		$changeableGroups = $manager->getGroupsChangeableBy( new SimpleAuthority( $user, [ 'userrights' ] ) );
+		$this->assertGroupsEquals(
+			[
+				'add' => $allGroups,
+				'remove' => $allGroups,
+				'add-self' => [],
+				'remove-self' => [],
+			],
+			$changeableGroups
+		);
+
+		$user = $this->getTestUser( [ 'bureaucrat', 'sysop' ] )->getUser();
+		$changeableGroups = $manager->getGroupsChangeableBy( new SimpleAuthority( $user, [] ) );
+		$this->assertGroupsEquals(
+			[
+				'add' => [ 'sysop', 'bureaucrat', 'rollback' ],
+				'remove' => [ 'sysop', 'rollback' ],
+				'add-self' => [ 'flood' ],
+				'remove-self' => [],
+			],
+			$changeableGroups
+		);
+
+		$user = $this->getTestUser( [ 'flood' ] )->getUser();
+		$changeableGroups = $manager->getGroupsChangeableBy( new SimpleAuthority( $user, [] ) );
+		$this->assertGroupsEquals(
+			[
+				'add' => [],
+				'remove' => [],
+				'add-self' => [],
+				'remove-self' => [ 'flood' ],
+			],
+			$changeableGroups
+		);
+	}
+
+	public function provideChangeableByGroup() {
+		yield 'sysop' => [ 'sysop', [
+			'add' => [ 'rollback' ],
+			'remove' => [ 'rollback' ],
+			'add-self' => [ 'flood' ],
+			'remove-self' => [],
+		] ];
+		yield 'flood' => [ 'flood', [
+			'add' => [],
+			'remove' => [],
+			'add-self' => [],
+			'remove-self' => [ 'flood' ],
+		] ];
+	}
+
+	/**
+	 * @dataProvider provideChangeableByGroup
+	 * @covers \MediaWiki\User\UserGroupManager::getGroupsChangeableByGroup
+	 * @param string $group
+	 * @param array $expected
+	 */
+	public function testChangeableByGroup( string $group, array $expected ) {
+		$manager = $this->getManager( self::CHANGEABLE_GROUPS_TEST_CONFIG );
+		$this->assertGroupsEquals( $expected, $manager->getGroupsChangeableByGroup( $group ) );
 	}
 }

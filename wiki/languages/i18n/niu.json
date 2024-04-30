@@ -2,9 +2,9 @@
 	"@metadata": {
 		"authors": [
 			"Jose77",
+			"MinecraftAustralia",
 			"Rotemliss",
 			"Sioneholof",
-			"MinecraftAustralia",
 			"Amire80"
 		]
 	},
@@ -144,7 +144,7 @@
 	"restriction-move": "Une",
 	"undelete-search-submit": "Kumi",
 	"blanknamespace": "(Matapatu)",
-	"contributions": "Tau lagomatai tagata",
+	"tool-link-contributions": "Tau lagomatai tagata",
 	"mycontris": "Haaku a tau lagomatai",
 	"sp-contributions-talk": "Tutala",
 	"sp-contributions-submit": "Kumi",

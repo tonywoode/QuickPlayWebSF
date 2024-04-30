@@ -4,7 +4,7 @@ use MediaWiki\Session\SessionManager;
 
 class FauxRequestTest extends MediaWikiIntegrationTestCase {
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 		$this->setMwGlobals( 'wgServer', '//wiki.test' );
 	}
@@ -262,6 +262,19 @@ class FauxRequestTest extends MediaWikiIntegrationTestCase {
 
 		$req = new FauxRequest();
 		$this->assertSame( null, $req->getSessionArray() );
+	}
+
+	/**
+	 * @covers FauxRequest::getPostValues
+	 */
+	public function testGetPostValues() {
+		$values = [ 'x' => 'Value', 'y' => '' ];
+
+		$req = new FauxRequest( $values, true );
+		$this->assertSame( $values, $req->getPostValues() );
+
+		$req = new FauxRequest( $values );
+		$this->assertSame( [], $req->getPostValues() );
 	}
 
 	/**

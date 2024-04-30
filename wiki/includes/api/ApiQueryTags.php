@@ -34,7 +34,7 @@ class ApiQueryTags extends ApiQueryBase {
 	public function execute() {
 		$params = $this->extractRequestParams();
 
-		$prop = array_flip( $params['prop'] );
+		$prop = array_fill_keys( $params['prop'], true );
 
 		$fld_displayname = isset( $prop['displayname'] );
 		$fld_description = isset( $prop['description'] );
@@ -57,7 +57,7 @@ class ApiQueryTags extends ApiQueryBase {
 		# Fetch defined tags that aren't past the continuation
 		if ( $params['continue'] !== null ) {
 			$cont = $params['continue'];
-			$tags = array_filter( $tags, function ( $v ) use ( $cont ) {
+			$tags = array_filter( $tags, static function ( $v ) use ( $cont ) {
 				return $v >= $cont;
 			} );
 		}

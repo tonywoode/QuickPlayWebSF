@@ -1,10 +1,11 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
+use Wikimedia\Minify\CSSMin;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * Sanity checks for making sure registered resources are sane.
+ * Checks for making sure registered resources are sensible.
  *
  * @author Antoine Musso
  * @author Niklas Laxström
@@ -36,8 +37,17 @@ class ResourcesTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testValidDependencies() {
 		$data = self::getAllModules();
-		$knownDeps = array_keys( $data['modules'] );
 		$illegalDeps = [ 'startup' ];
+		// Can't depend on modules in the `noscript` group, find all such module names
+		// to add to $ilegalDeps. See T291735
+		/** @var ResourceLoaderModule $module */
+		foreach ( $data['modules'] as $moduleName => $module ) {
+			if ( $module->getGroup() === 'noscript' ) {
+				$illegalDeps[] = $moduleName;
+			}
+		}
+
+		$knownDeps = array_keys( $data['modules'] );
 
 		// Avoid an assert for each module to keep the test fast.
 		// Instead, perform a single assertion against everything at once.
@@ -169,21 +179,16 @@ class ResourcesTest extends MediaWikiIntegrationTestCase {
 	 */
 	public static function provideMediaStylesheets() {
 		$data = self::getAllModules();
+		$context = $data['context'];
 
 		foreach ( $data['modules'] as $moduleName => $module ) {
 			if ( !$module instanceof ResourceLoaderFileModule ) {
 				continue;
 			}
 
-			$reflectedModule = new ReflectionObject( $module );
+			$moduleProxy = TestingAccessWrapper::newFromObject( $module );
 
-			$getStyleFiles = $reflectedModule->getMethod( 'getStyleFiles' );
-			$getStyleFiles->setAccessible( true );
-
-			$readStyleFile = $reflectedModule->getMethod( 'readStyleFile' );
-			$readStyleFile->setAccessible( true );
-
-			$styleFiles = $getStyleFiles->invoke( $module, $data['context'] );
+			$styleFiles = $moduleProxy->getStyleFiles( $context );
 
 			foreach ( $styleFiles as $media => $files ) {
 				if ( $media && $media !== 'all' ) {
@@ -194,11 +199,7 @@ class ResourcesTest extends MediaWikiIntegrationTestCase {
 							$file,
 							// XXX: Wrapped in an object to keep it out of PHPUnit output
 							(object)[
-								'cssText' => $readStyleFile->invoke(
-									$module,
-									$file,
-									$data['context']
-								)
+								'cssText' => $moduleProxy->readStyleFile( $file, $context )
 							],
 						];
 					}
@@ -277,7 +278,7 @@ class ResourcesTest extends MediaWikiIntegrationTestCase {
 				);
 			}
 
-			// To populate missingLocalFileRefs. Not sure how sane this is inside this test...
+			// To populate missingLocalFileRefs. Not sure how sensible this is inside this test...
 			$moduleProxy->readStyleFiles(
 				$module->getStyleFiles( $data['context'] ),
 				$data['context']

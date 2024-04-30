@@ -24,6 +24,8 @@
  * @file
  */
 
+use MediaWiki\CommentFormatter\CommentFormatter;
+use MediaWiki\CommentFormatter\CommentItem;
 use MediaWiki\Revision\RevisionRecord;
 
 /**
@@ -33,38 +35,53 @@ use MediaWiki\Revision\RevisionRecord;
  */
 class ApiQueryFilearchive extends ApiQueryBase {
 
-	public function __construct( ApiQuery $query, $moduleName ) {
+	/** @var CommentStore */
+	private $commentStore;
+
+	/** @var CommentFormatter */
+	private $commentFormatter;
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param CommentStore $commentStore
+	 * @param CommentFormatter $commentFormatter
+	 */
+	public function __construct(
+		ApiQuery $query,
+		$moduleName,
+		CommentStore $commentStore,
+		CommentFormatter $commentFormatter
+	) {
 		parent::__construct( $query, $moduleName, 'fa' );
+		$this->commentStore = $commentStore;
+		$this->commentFormatter = $commentFormatter;
 	}
 
 	public function execute() {
 		$user = $this->getUser();
 		$db = $this->getDB();
-		$commentStore = CommentStore::getStore();
 
 		$params = $this->extractRequestParams();
 
-		$prop = array_flip( $params['prop'] );
+		$prop = array_fill_keys( $params['prop'], true );
 		$fld_sha1 = isset( $prop['sha1'] );
 		$fld_timestamp = isset( $prop['timestamp'] );
 		$fld_user = isset( $prop['user'] );
 		$fld_size = isset( $prop['size'] );
 		$fld_dimensions = isset( $prop['dimensions'] );
 		$fld_description = isset( $prop['description'] ) || isset( $prop['parseddescription'] );
+		$fld_parseddescription = isset( $prop['parseddescription'] );
 		$fld_mime = isset( $prop['mime'] );
 		$fld_mediatype = isset( $prop['mediatype'] );
 		$fld_metadata = isset( $prop['metadata'] );
 		$fld_bitdepth = isset( $prop['bitdepth'] );
 		$fld_archivename = isset( $prop['archivename'] );
 
-		if ( $fld_description &&
-			!$this->getPermissionManager()->userHasRight( $user, 'deletedhistory' )
-		) {
+		if ( $fld_description && !$this->getAuthority()->isAllowed( 'deletedhistory' ) ) {
 			$this->dieWithError( 'apierror-cantview-deleted-description', 'permissiondenied' );
 		}
-		if ( $fld_metadata &&
-			!$this->getPermissionManager()->userHasAnyRight( $user, 'deletedtext', 'undelete' )
-		) {
+		if ( $fld_metadata && !$this->getAuthority()->isAllowedAny( 'deletedtext', 'undelete' ) ) {
 			$this->dieWithError( 'apierror-cantview-deleted-metadata', 'permissiondenied' );
 		}
 
@@ -119,11 +136,9 @@ class ApiQueryFilearchive extends ApiQueryBase {
 			if ( $sha1 ) {
 				$this->addWhereFld( 'fa_sha1', $sha1 );
 				// Paranoia: avoid brute force searches (T19342)
-				if ( !$this->getPermissionManager()->userHasRight( $user, 'deletedtext' ) ) {
+				if ( !$this->getAuthority()->isAllowed( 'deletedtext' ) ) {
 					$bitmask = File::DELETED_FILE;
-				} elseif ( !$this->getPermissionManager()
-					->userHasAnyRight( $user, 'suppressrevision', 'viewsuppressed' )
-				) {
+				} elseif ( !$this->getAuthority()->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
 					$bitmask = File::DELETED_FILE | File::DELETED_RESTRICTED;
 				} else {
 					$bitmask = 0;
@@ -144,6 +159,22 @@ class ApiQueryFilearchive extends ApiQueryBase {
 		] );
 
 		$res = $this->select( __METHOD__ );
+
+		// Format descriptions in a batch
+		$formattedDescriptions = [];
+		$descriptions = [];
+		if ( $fld_parseddescription ) {
+			$commentItems = [];
+			foreach ( $res as $row ) {
+				$desc = $this->commentStore->getComment( 'fa_description', $row )->text;
+				$descriptions[$row->fa_id] = $desc;
+				$commentItems[$row->fa_id] = ( new CommentItem( $desc ) )
+					->selfLinkTarget( new TitleValue( NS_FILE, $row->fa_name ) );
+			}
+			$formattedDescriptions = $this->commentFormatter->createBatch()
+				->comments( $commentItems )
+				->execute();
+		}
 
 		$count = 0;
 		$result = $this->getResult();
@@ -168,10 +199,11 @@ class ApiQueryFilearchive extends ApiQueryBase {
 			if ( $fld_description &&
 				RevisionRecord::userCanBitfield( $row->fa_deleted, File::DELETED_COMMENT, $user )
 			) {
-				$file['description'] = $commentStore->getComment( 'fa_description', $row )->text;
 				if ( isset( $prop['parseddescription'] ) ) {
-					$file['parseddescription'] = Linker::formatComment(
-						$file['description'], $title );
+					$file['parseddescription'] = $formattedDescriptions[$row->fa_id];
+					$file['description'] = $descriptions[$row->fa_id];
+				} else {
+					$file['description'] = $this->commentStore->getComment( 'fa_description', $row )->text;
 				}
 			}
 			if ( $fld_user &&

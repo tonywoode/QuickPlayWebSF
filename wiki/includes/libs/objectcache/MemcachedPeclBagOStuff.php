@@ -71,6 +71,7 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 		$params += [
 			'compress_threshold' => 1500,
 			'connect_timeout' => 0.5,
+			'timeout' => 500000,
 			'serializer' => 'php',
 			'use_binary_protocol' => false,
 			'allow_tcp_nagle_delay' => true
@@ -178,22 +179,27 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	}
 
 	protected function doGet( $key, $flags = 0, &$casToken = null ) {
+		$getToken = ( $casToken === self::PASS_BY_REF );
+		$casToken = null;
+
 		$this->debug( "get($key)" );
 
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
+
 		$client = $this->acquireSyncClient();
-		if ( defined( Memcached::class . '::GET_EXTENDED' ) ) { // v3.0.0
+		// T257003: only require "gets" (instead of "get") when a CAS token is needed
+		if ( $getToken ) {
 			/** @noinspection PhpUndefinedClassConstantInspection */
 			$flags = Memcached::GET_EXTENDED;
-			$res = $client->get( $this->validateKeyEncoding( $key ), null, $flags );
+			$res = $client->get( $routeKey, null, $flags );
 			if ( is_array( $res ) ) {
 				$result = $res['value'];
 				$casToken = $res['cas'];
 			} else {
 				$result = false;
-				$casToken = null;
 			}
 		} else {
-			$result = $client->get( $this->validateKeyEncoding( $key ), null, $casToken );
+			$result = $client->get( $routeKey );
 		}
 
 		return $this->checkResult( $key, $result );
@@ -202,12 +208,9 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	protected function doSet( $key, $value, $exptime = 0, $flags = 0 ) {
 		$this->debug( "set($key)" );
 
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
 		$client = $this->acquireSyncClient();
-		$result = $client->set(
-			$this->validateKeyEncoding( $key ),
-			$value,
-			$this->fixExpiry( $exptime )
-		);
+		$result = $client->set( $routeKey, $value, $this->fixExpiry( $exptime ) );
 
 		return ( $result === false && $client->getResultCode() === Memcached::RES_NOTSTORED )
 			// "Not stored" is always used as the mcrouter response with AllAsyncRoute
@@ -218,9 +221,10 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	protected function doCas( $casToken, $key, $value, $exptime = 0, $flags = 0 ) {
 		$this->debug( "cas($key)" );
 
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
 		$result = $this->acquireSyncClient()->cas(
 			$casToken,
-			$this->validateKeyEncoding( $key ),
+			$routeKey,
 			$value, $this->fixExpiry( $exptime )
 		);
 
@@ -230,8 +234,9 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	protected function doDelete( $key, $flags = 0 ) {
 		$this->debug( "delete($key)" );
 
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
 		$client = $this->acquireSyncClient();
-		$result = $client->delete( $this->validateKeyEncoding( $key ) );
+		$result = $client->delete( $routeKey );
 
 		return ( $result === false && $client->getResultCode() === Memcached::RES_NOTFOUND )
 			// "Not found" is counted as success in our interface
@@ -242,8 +247,9 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	protected function doAdd( $key, $value, $exptime = 0, $flags = 0 ) {
 		$this->debug( "add($key)" );
 
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
 		$result = $this->acquireSyncClient()->add(
-			$this->validateKeyEncoding( $key ),
+			$routeKey,
 			$value,
 			$this->fixExpiry( $exptime )
 		);
@@ -254,7 +260,8 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	public function incr( $key, $value = 1, $flags = 0 ) {
 		$this->debug( "incr($key)" );
 
-		$result = $this->acquireSyncClient()->increment( $key, $value );
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
+		$result = $this->acquireSyncClient()->increment( $routeKey, $value );
 
 		return $this->checkResult( $key, $result );
 	}
@@ -262,9 +269,33 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	public function decr( $key, $value = 1, $flags = 0 ) {
 		$this->debug( "decr($key)" );
 
-		$result = $this->acquireSyncClient()->decrement( $key, $value );
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
+		$result = $this->acquireSyncClient()->decrement( $routeKey, $value );
 
 		return $this->checkResult( $key, $result );
+	}
+
+	protected function doIncrWithInit( $key, $exptime, $step, $init, $flags ) {
+		$this->debug( "incrWithInit($key)" );
+
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
+
+		$client = $this->acquireSyncClient();
+		$watchPoint = $this->watchErrors();
+		$result = $client->increment( $routeKey, $step );
+		$newValue = $this->checkResult( $key, $result );
+		if ( $newValue === false && !$this->getLastError( $watchPoint ) ) {
+			// No key set; initialize
+			$result = $client->add( $routeKey, $init, $this->fixExpiry( $exptime ) );
+			$newValue = $this->checkResult( $key, $result ) ? $init : false;
+			if ( $newValue === false && !$this->getLastError( $watchPoint ) ) {
+				// Raced out initializing; increment
+				$result = $client->increment( $routeKey, $step );
+				$newValue = $this->checkResult( $key, $result );
+			}
+		}
+
+		return $newValue;
 	}
 
 	public function setNewPreparedValues( array $valueByKey ) {
@@ -284,17 +315,32 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	 * the client, but some day we might find a case where it should be
 	 * different.
 	 *
-	 * @param string $key The key used by the caller, or false if there wasn't one.
+	 * @param string|false $key The key used by the caller, or false if there wasn't one.
 	 * @param mixed $result The return value
 	 * @return mixed
 	 */
 	protected function checkResult( $key, $result ) {
+		static $statusByCode = [
+			Memcached::RES_HOST_LOOKUP_FAILURE => self::ERR_UNREACHABLE,
+			Memcached::RES_SERVER_MARKED_DEAD => self::ERR_UNREACHABLE,
+			Memcached::RES_SERVER_TEMPORARILY_DISABLED => self::ERR_UNREACHABLE,
+			Memcached::RES_UNKNOWN_READ_FAILURE => self::ERR_NO_RESPONSE,
+			Memcached::RES_WRITE_FAILURE => self::ERR_NO_RESPONSE,
+			Memcached::RES_PARTIAL_READ => self::ERR_NO_RESPONSE,
+			// Hard-code values that only exist in recent versions of the PECL extension.
+			// https://github.com/JetBrains/phpstorm-stubs/blob/master/memcached/memcached.php
+			3 /* Memcached::RES_CONNECTION_FAILURE */ => self::ERR_UNREACHABLE,
+			27 /* Memcached::RES_FAIL_UNIX_SOCKET */ => self::ERR_UNREACHABLE,
+			6 /* Memcached::RES_READ_FAILURE */ => self::ERR_NO_RESPONSE
+		];
+
 		if ( $result !== false ) {
 			return $result;
 		}
 
 		$client = $this->syncClient;
-		switch ( $client->getResultCode() ) {
+		$code = $client->getResultCode();
+		switch ( $code ) {
 			case Memcached::RES_SUCCESS:
 				break;
 			case Memcached::RES_DATA_EXISTS:
@@ -315,7 +361,7 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 					$msg = "Memcached error: $msg";
 				}
 				$this->logger->error( $msg, $logCtx );
-				$this->setLastError( BagOStuff::ERR_UNEXPECTED );
+				$this->setLastError( $statusByCode[$code] ?? self::ERR_UNEXPECTED );
 		}
 		return $result;
 	}
@@ -323,32 +369,50 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	protected function doGetMulti( array $keys, $flags = 0 ) {
 		$this->debug( 'getMulti(' . implode( ', ', $keys ) . ')' );
 
+		$routeKeys = [];
 		foreach ( $keys as $key ) {
-			$this->validateKeyEncoding( $key );
+			$routeKeys[] = $this->validateKeyAndPrependRoute( $key );
 		}
 
-		// The PECL implementation uses "gets" which works as well as a pipeline
-		$result = $this->acquireSyncClient()->getMulti( $keys ) ?: [];
+		// The PECL implementation uses multi-key "get"/"gets"; no need to pipeline.
+		// T257003: avoid Memcached::GET_EXTENDED; no tokens are needed and that requires "gets"
+		// https://github.com/libmemcached/libmemcached/blob/eda2becbec24363f56115fa5d16d38a2d1f54775/libmemcached/get.cc#L272
+		$resByRouteKey = $this->acquireSyncClient()->getMulti( $routeKeys ) ?: [];
 
-		return $this->checkResult( false, $result );
+		if ( is_array( $resByRouteKey ) ) {
+			$res = [];
+			foreach ( $resByRouteKey as $routeKey => $value ) {
+				$res[$this->stripRouteFromKey( $routeKey )] = $value;
+			}
+		} else {
+			$res = false;
+		}
+
+		return $this->checkResult( false, $res );
 	}
 
 	protected function doSetMulti( array $data, $exptime = 0, $flags = 0 ) {
 		$this->debug( 'setMulti(' . implode( ', ', array_keys( $data ) ) . ')' );
 
 		$exptime = $this->fixExpiry( $exptime );
-		foreach ( array_keys( $data ) as $key ) {
-			$this->validateKeyEncoding( $key );
+		$dataByRouteKey = [];
+		foreach ( $data as $key => $value ) {
+			$dataByRouteKey[$this->validateKeyAndPrependRoute( $key )] = $value;
 		}
 
 		// The PECL implementation is a naïve for-loop so use async I/O to pipeline;
 		// https://github.com/php-memcached-dev/php-memcached/blob/master/php_memcached.c#L1852
 		if ( $this->fieldHasFlags( $flags, self::WRITE_BACKGROUND ) ) {
 			$client = $this->acquireAsyncClient();
-			$result = $client->setMulti( $data, $exptime );
+			// Ignore "failed to set" warning from php-memcached 3.x (T251450)
+			// phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged
+			$result = @$client->setMulti( $dataByRouteKey, $exptime );
 			$this->releaseAsyncClient( $client );
 		} else {
-			$result = $this->acquireSyncClient()->setMulti( $data, $exptime );
+			$client = $this->acquireSyncClient();
+			// Ignore "failed to set" warning from php-memcached 3.x (T251450)
+			// phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged
+			$result = @$client->setMulti( $dataByRouteKey, $exptime );
 		}
 
 		return $this->checkResult( false, $result );
@@ -357,18 +421,19 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	protected function doDeleteMulti( array $keys, $flags = 0 ) {
 		$this->debug( 'deleteMulti(' . implode( ', ', $keys ) . ')' );
 
+		$routeKeys = [];
 		foreach ( $keys as $key ) {
-			$this->validateKeyEncoding( $key );
+			$routeKeys[] = $this->validateKeyAndPrependRoute( $key );
 		}
 
 		// The PECL implementation is a naïve for-loop so use async I/O to pipeline;
 		// https://github.com/php-memcached-dev/php-memcached/blob/7443d16d02fb73cdba2e90ae282446f80969229c/php_memcached.c#L1852
 		if ( $this->fieldHasFlags( $flags, self::WRITE_BACKGROUND ) ) {
 			$client = $this->acquireAsyncClient();
-			$resultArray = $client->deleteMulti( $keys ) ?: [];
+			$resultArray = $client->deleteMulti( $routeKeys ) ?: [];
 			$this->releaseAsyncClient( $client );
 		} else {
-			$resultArray = $this->acquireSyncClient()->deleteMulti( $keys ) ?: [];
+			$resultArray = $this->acquireSyncClient()->deleteMulti( $routeKeys ) ?: [];
 		}
 
 		$result = true;
@@ -385,7 +450,8 @@ class MemcachedPeclBagOStuff extends MemcachedBagOStuff {
 	protected function doChangeTTL( $key, $exptime, $flags ) {
 		$this->debug( "touch($key)" );
 
-		$result = $this->acquireSyncClient()->touch( $key, $this->fixExpiry( $exptime ) );
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
+		$result = $this->acquireSyncClient()->touch( $routeKey, $this->fixExpiry( $exptime ) );
 
 		return $this->checkResult( $key, $result );
 	}

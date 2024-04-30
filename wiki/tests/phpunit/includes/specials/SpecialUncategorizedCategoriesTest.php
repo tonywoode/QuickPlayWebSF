@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Tests for Special:UncategorizedCategories
  */
@@ -11,7 +12,13 @@ class SpecialUncategorizedCategoriesTest extends MediaWikiIntegrationTestCase {
 		$msg = new RawMessage( $msgContent );
 		$mockContext = $this->getMockBuilder( RequestContext::class )->getMock();
 		$mockContext->method( 'msg' )->willReturn( $msg );
-		$special = new SpecialUncategorizedCategories();
+		$services = $this->getServiceContainer();
+		$special = new SpecialUncategorizedCategories(
+			$services->getNamespaceInfo(),
+			$services->getDBLoadBalancer(),
+			$services->getLinkBatchFactory(),
+			$services->getLanguageConverterFactory()
+		);
 		$special->setContext( $mockContext );
 		$this->assertEquals( [
 			'tables' => [

@@ -21,11 +21,16 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\Content\IContentHandlerFactory;
+use MediaWiki\Permissions\GroupPermissionsLookup;
 use MediaWiki\Revision\MutableRevisionRecord;
+use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\User\UserIdentityValue;
+use MediaWiki\User\UserOptionsLookup;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * A special page that list newly created pages
@@ -42,8 +47,59 @@ class SpecialNewpages extends IncludableSpecialPage {
 
 	protected $showNavigation = false;
 
-	public function __construct() {
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var CommentStore */
+	private $commentStore;
+
+	/** @var IContentHandlerFactory */
+	private $contentHandlerFactory;
+
+	/** @var GroupPermissionsLookup */
+	private $groupPermissionsLookup;
+
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var RevisionLookup */
+	private $revisionLookup;
+
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/** @var UserOptionsLookup */
+	private $userOptionsLookup;
+
+	/**
+	 * @param LinkBatchFactory $linkBatchFactory
+	 * @param CommentStore $commentStore
+	 * @param IContentHandlerFactory $contentHandlerFactory
+	 * @param GroupPermissionsLookup $groupPermissionsLookup
+	 * @param ILoadBalancer $loadBalancer
+	 * @param RevisionLookup $revisionLookup
+	 * @param NamespaceInfo $namespaceInfo
+	 * @param UserOptionsLookup $userOptionsLookup
+	 */
+	public function __construct(
+		LinkBatchFactory $linkBatchFactory,
+		CommentStore $commentStore,
+		IContentHandlerFactory $contentHandlerFactory,
+		GroupPermissionsLookup $groupPermissionsLookup,
+		ILoadBalancer $loadBalancer,
+		RevisionLookup $revisionLookup,
+		NamespaceInfo $namespaceInfo,
+		UserOptionsLookup $userOptionsLookup
+	) {
 		parent::__construct( 'Newpages' );
+		$this->linkBatchFactory = $linkBatchFactory;
+		$this->commentStore = $commentStore;
+		$this->contentHandlerFactory = $contentHandlerFactory;
+		$this->groupPermissionsLookup = $groupPermissionsLookup;
+		$this->loadBalancer = $loadBalancer;
+		$this->revisionLookup = $revisionLookup;
+		$this->namespaceInfo = $namespaceInfo;
+		$this->userOptionsLookup = $userOptionsLookup;
 	}
 
 	/**
@@ -53,10 +109,16 @@ class SpecialNewpages extends IncludableSpecialPage {
 		$opts = new FormOptions();
 		$this->opts = $opts; // bind
 		$opts->add( 'hideliu', false );
-		$opts->add( 'hidepatrolled', $this->getUser()->getBoolOption( 'newpageshidepatrolled' ) );
+		$opts->add(
+			'hidepatrolled',
+			$this->userOptionsLookup->getBoolOption( $this->getUser(), 'newpageshidepatrolled' )
+		);
 		$opts->add( 'hidebots', false );
 		$opts->add( 'hideredirs', true );
-		$opts->add( 'limit', $this->getUser()->getIntOption( 'rclimit' ) );
+		$opts->add(
+			'limit',
+			$this->userOptionsLookup->getIntOption( $this->getUser(), 'rclimit' )
+		);
 		$opts->add( 'offset', '' );
 		$opts->add( 'namespace', '0' );
 		$opts->add( 'username', '' );
@@ -159,7 +221,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 			$out->setFeedAppendQuery( wfArrayToCgi( $allValues ) );
 		}
 
-		$pager = new NewPagesPager( $this, $this->opts );
+		$pager = $this->getNewPagesPager();
 		$pager->mLimit = $this->opts->getValue( 'limit' );
 		$pager->mOffset = $this->opts->getValue( 'offset' );
 
@@ -271,7 +333,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 			'tagFilter' => [
 				'type' => 'tagfilter',
 				'name' => 'tagfilter',
-				'label-raw' => $this->msg( 'tag-filter' )->parse(),
+				'label-message' => 'tag-filter',
 				'default' => $tagFilterVal,
 			],
 			'username' => [
@@ -285,7 +347,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 			'size' => [
 				'type' => 'sizefilter',
 				'name' => 'size',
-				'default' => -$max * $size,
+				'default' => ( $max ? -1 : 1 ) * $size,
 			],
 		];
 
@@ -302,15 +364,15 @@ class SpecialNewpages extends IncludableSpecialPage {
 			// The form should be visible on each request (inclusive requests with submitted forms), so
 			// return always false here.
 			->setSubmitCallback(
-				function () {
+				static function () {
 					return false;
 				}
 			)
-			->setSubmitText( $this->msg( 'newpages-submit' )->text() )
-			->setWrapperLegend( $this->msg( 'newpages' )->text() )
+			->setSubmitTextMsg( 'newpages-submit' )
+			->setWrapperLegendMsg( 'newpages' )
 			->addFooterText( Html::rawElement(
 				'div',
-				null,
+				[],
 				$this->filterLinks()
 			) )
 			->show();
@@ -322,17 +384,16 @@ class SpecialNewpages extends IncludableSpecialPage {
 	 * @param Title $title
 	 * @return RevisionRecord
 	 */
-	private function revisionFromRcResult( stdClass $result, Title $title ) : RevisionRecord {
+	protected function revisionFromRcResult( stdClass $result, Title $title ): RevisionRecord {
 		$revRecord = new MutableRevisionRecord( $title );
 		$revRecord->setComment(
-			CommentStore::getStore()->getComment( 'rc_comment', $result )
+			$this->commentStore->getComment( 'rc_comment', $result )
 		);
 		$revRecord->setVisibility( (int)$result->rc_deleted );
 
 		$user = new UserIdentityValue(
 			(int)$result->rc_user,
-			$result->rc_user_text,
-			(int)$result->rc_actor
+			$result->rc_user_text
 		);
 		$revRecord->setUser( $user );
 
@@ -343,7 +404,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 	 * Format a row, providing the timestamp, links to the page/history,
 	 * size, user links, and a comment
 	 *
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return string
 	 */
 	public function formatRow( $result ) {
@@ -385,9 +446,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 			[ 'class' => 'mw-newpages-history' ],
 			[ 'action' => 'history' ]
 		);
-		if ( MediaWikiServices::getInstance()
-			->getContentHandlerFactory()
-			->getContentHandler( $title->getContentModel() )
+		if ( $this->contentHandlerFactory->getContentHandler( $title->getContentModel() )
 			->supportsDirectEditing()
 		) {
 			$linkArr[] = $linkRenderer->makeKnownLink(
@@ -456,17 +515,29 @@ class SpecialNewpages extends IncludableSpecialPage {
 			ARRAY_FILTER_USE_KEY
 		);
 
-		if ( count( $classes ) ) {
-			$attribs['class'] = implode( ' ', $classes );
+		if ( $classes ) {
+			$attribs['class'] = $classes;
 		}
 
 		return Html::rawElement( 'li', $attribs, $ret ) . "\n";
 	}
 
+	private function getNewPagesPager() {
+		return new NewPagesPager(
+			$this,
+			$this->groupPermissionsLookup,
+			$this->getHookContainer(),
+			$this->linkBatchFactory,
+			$this->loadBalancer,
+			$this->namespaceInfo,
+			$this->opts
+		);
+	}
+
 	/**
 	 * Should a specific result row provide "patrollable" links?
 	 *
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return bool
 	 */
 	protected function patrollable( $result ) {
@@ -498,7 +569,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 			$this->getPageTitle()->getFullURL()
 		);
 
-		$pager = new NewPagesPager( $this, $this->opts );
+		$pager = $this->getNewPagesPager();
 		$limit = $this->opts->getValue( 'limit' );
 		$pager->mLimit = min( $limit, $this->getConfig()->get( 'FeedLimit' ) );
 
@@ -543,9 +614,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 	}
 
 	protected function feedItemDesc( $row ) {
-		$revisionRecord = MediaWikiServices::getInstance()
-			->getRevisionLookup()
-			->getRevisionById( $row->rev_id );
+		$revisionRecord = $this->revisionLookup->getRevisionById( $row->rev_id );
 		if ( !$revisionRecord ) {
 			return '';
 		}
@@ -568,10 +637,8 @@ class SpecialNewpages extends IncludableSpecialPage {
 	}
 
 	private function canAnonymousUsersCreatePages() {
-		$pm = MediaWikiServices::getInstance()->getPermissionManager();
-		return ( $pm->groupHasPermission( '*', 'createpage' ) ||
-			$pm->groupHasPermission( '*', 'createtalk' )
-		);
+		return $this->groupPermissionsLookup->groupHasPermission( '*', 'createpage' ) ||
+			$this->groupPermissionsLookup->groupHasPermission( '*', 'createtalk' );
 	}
 
 	protected function getGroupName() {

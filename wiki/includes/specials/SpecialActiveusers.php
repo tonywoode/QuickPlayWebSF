@@ -21,6 +21,10 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\User\UserGroupManager;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 /**
  * Implements Special:Activeusers
  *
@@ -28,8 +32,29 @@
  */
 class SpecialActiveUsers extends SpecialPage {
 
-	public function __construct() {
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var UserGroupManager */
+	private $userGroupManager;
+
+	/**
+	 * @param LinkBatchFactory $linkBatchFactory
+	 * @param ILoadBalancer $loadBalancer
+	 * @param UserGroupManager $userGroupManager
+	 */
+	public function __construct(
+		LinkBatchFactory $linkBatchFactory,
+		ILoadBalancer $loadBalancer,
+		UserGroupManager $userGroupManager
+	) {
 		parent::__construct( 'Activeusers' );
+		$this->linkBatchFactory = $linkBatchFactory;
+		$this->loadBalancer = $loadBalancer;
+		$this->userGroupManager = $userGroupManager;
 	}
 
 	/**
@@ -56,7 +81,14 @@ class SpecialActiveUsers extends SpecialPage {
 			$opts->setValue( 'username', $par );
 		}
 
-		$pager = new ActiveUsersPager( $this->getContext(), $opts );
+		$pager = new ActiveUsersPager(
+			$this->getContext(),
+			$this->getHookContainer(),
+			$this->linkBatchFactory,
+			$this->loadBalancer,
+			$this->userGroupManager,
+			$opts
+		);
 		$usersBody = $pager->getBody();
 
 		$this->buildForm();
@@ -77,11 +109,12 @@ class SpecialActiveUsers extends SpecialPage {
 	 * Generate and output the form
 	 */
 	protected function buildForm() {
-		$groups = User::getAllGroups();
+		$groups = $this->userGroupManager->listAllGroups();
 
 		$options = [];
+		$lang = $this->getLanguage();
 		foreach ( $groups as $group ) {
-			$msg = htmlspecialchars( UserGroupMembership::getGroupName( $group ) );
+			$msg = htmlspecialchars( $lang->getGroupName( $group ) );
 			$options[$msg] = $group;
 		}
 		ksort( $options );
@@ -144,7 +177,7 @@ class SpecialActiveUsers extends SpecialPage {
 		$intro = $this->msg( 'activeusers-intro' )->numParams( $days )->parse();
 
 		// Mention the level of cache staleness...
-		$dbr = wfGetDB( DB_REPLICA, 'recentchanges' );
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA, 'recentchanges' );
 		$rcMax = $dbr->selectField( 'recentchanges', 'MAX(rc_timestamp)', '', __METHOD__ );
 		if ( $rcMax ) {
 			$cTime = $dbr->selectField( 'querycache_info',
@@ -153,10 +186,10 @@ class SpecialActiveUsers extends SpecialPage {
 				__METHOD__
 			);
 			if ( $cTime ) {
-				$secondsOld = wfTimestamp( TS_UNIX, $rcMax ) - wfTimestamp( TS_UNIX, $cTime );
+				$secondsOld = (int)wfTimestamp( TS_UNIX, $rcMax ) - (int)wfTimestamp( TS_UNIX, $cTime );
 			} else {
 				$rcMin = $dbr->selectField( 'recentchanges', 'MIN(rc_timestamp)', '', __METHOD__ );
-				$secondsOld = time() - wfTimestamp( TS_UNIX, $rcMin );
+				$secondsOld = time() - (int)wfTimestamp( TS_UNIX, $rcMin );
 			}
 			if ( $secondsOld > 0 ) {
 				$intro .= $this->msg( 'cachedspecial-viewing-cached-ttl' )

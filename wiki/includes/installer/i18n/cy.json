@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Lloffiwr",
-			"Xxglennxx",
 			"Robin Owain",
+			"Xxglennxx",
 			"Afalau"
 		]
 	},
@@ -33,6 +33,7 @@
 	"config-admin-password": "Cyfrinair:",
 	"config-admin-password-confirm": "Cyfrinair eto:",
 	"config-profile-wiki": "Agor wici",
+	"config-logo-sidebar": "Logo bar ochr (dewisol):",
 	"config-extensions": "Ychwanegynnau",
 	"config-skins": "Gweddau",
 	"config-download-localsettings": "Lawrlwythwch <code>LocalSettings.php</code>",

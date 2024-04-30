@@ -1,19 +1,19 @@
 <?php
 
 use Psr\Container\ContainerInterface;
-use Wikimedia\ObjectFactory;
+use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
  * @group ResourceLoader
  */
 class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 
-		$skinFactory = new SkinFactory( new ObjectFactory(
-			$this->createMock( ContainerInterface::class )
-		) );
+		$skinFactory = new SkinFactory(
+			new ObjectFactory( $this->createMock( ContainerInterface::class ) ), []
+		);
 		// The empty spec shouldn't matter since this test should never call it
 		$skinFactory->register(
 			'fakeskin',
@@ -114,7 +114,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 	public function testTemplateDependencies( $module, $expected ) {
 		$rl = new ResourceLoaderFileModule( $module );
 		$rl->setName( 'testing' );
-		$this->assertEquals( $rl->getDependencies(), $expected );
+		$this->assertEquals( $expected, $rl->getDependencies() );
 	}
 
 	public static function providerDeprecatedModules() {
@@ -142,7 +142,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 		$module = new ResourceLoaderFileModule( $modules[$name] );
 		$module->setName( $name );
 		$ctx = $this->getResourceLoaderContext();
-		$this->assertEquals( $module->getScript( $ctx ), $expected );
+		$this->assertEquals( $expected, $module->getScript( $ctx ) );
 	}
 
 	/**
@@ -159,11 +159,57 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 		$ctx = $this->getResourceLoaderContext();
 		$this->assertEquals(
 			"/* eslint-disable */\nmw.foo()\n" .
+			"/* eslint-disable */\nmw.foo()\n// mw.bar();\n",
+			$module->getScript( $ctx ),
+			'scripts with newline at the end are concatenated without a newline'
+		);
+
+		$module = new ResourceLoaderFileModule( [
+			'localBasePath' => __DIR__ . '/../../data/resourceloader',
+			'scripts' => [ 'script-nosemi-nonl.js', 'script-comment-nonl.js' ],
+		] );
+		$module->setName( 'testing' );
+		$ctx = $this->getResourceLoaderContext();
+		$this->assertEquals(
+			"/* eslint-disable */\nmw.foo()" .
 			"\n" .
-			"/* eslint-disable */\nmw.foo()\n// mw.bar();\n" .
+			"/* eslint-disable */\nmw.foo()\n// mw.bar();" .
 			"\n",
 			$module->getScript( $ctx ),
-			'scripts are concatenated with a new-line'
+			'scripts without newline at the end are concatenated with a newline'
+		);
+	}
+
+	/**
+	 * @covers ResourceLoaderFileModule
+	 * @covers ResourceLoaderModule
+	 * @covers ResourceLoader::createLoaderURL
+	 * @covers ResourceLoader::expandUrl
+	 */
+	public function testGetURLsForDebug() {
+		$ctx = $this->getResourceLoaderContext();
+		$module = new ResourceLoaderFileModule( [
+			'localBasePath' => __DIR__ . '/../../data/resourceloader',
+			'remoteBasePath' => '/w/something',
+			'styles' => [ 'simple.css' ],
+			'scripts' => [ 'script-comment.js' ],
+		] );
+		$module->setName( 'testing' );
+		$module->setConfig( $ctx->getResourceLoader()->getConfig() );
+
+		$this->assertEquals(
+			[
+				'https://example.org/w/something/script-comment.js'
+			],
+			$module->getScriptURLsForDebug( $ctx ),
+			'script urls'
+		);
+		$this->assertEquals(
+			[ 'all' => [
+				'/w/something/simple.css'
+			] ],
+			$module->getStyleURLsForDebug( $ctx ),
+			'style urls'
 		);
 	}
 
@@ -219,6 +265,40 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 	 */
 	private static function stripNoflip( $css ) {
 		return str_replace( '/*@noflip*/ ', '', $css );
+	}
+
+	/**
+	 * Confirm that 'ResourceModuleSkinStyles' skin attributes get injected
+	 * into the module, and have their file contents read correctly from their
+	 * own (out-of-module) directories.
+	 *
+	 * @covers ResourceLoader
+	 * @covers ResourceLoaderFileModule
+	 */
+	public function testInjectSkinStyles() {
+		$moduleDir = __DIR__ . '/../../data/resourceloader';
+		$skinDir = __DIR__ . '/../../data/resourceloader/myskin';
+		$rl = new ResourceLoader( new HashConfig( self::getSettings() ) );
+		$rl->setModuleSkinStyles( [
+			'fakeskin' => [
+				'localBasePath' => $skinDir,
+				'testing' => [
+					'override.css',
+				],
+			],
+		] );
+		$rl->register( 'testing', [
+			'localBasePath' => $moduleDir,
+			'styles' => [ 'simple.css' ],
+		] );
+		$ctx = $this->getResourceLoaderContext( [ 'skin' => 'fakeskin' ], $rl );
+
+		$module = $rl->getModule( 'testing' );
+		$this->assertInstanceOf( ResourceLoaderFileModule::class, $module );
+		$this->assertEquals(
+			[ 'all' => ".example { color: blue; }\n\n.override { line-height: 2; }\n" ],
+			$module->getStyles( $ctx )
+		);
 	}
 
 	/**
@@ -278,14 +358,14 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 
 		$context = $this->getResourceLoaderContext( [ 'lang' => 'en', 'dir' => 'ltr' ] );
 		$this->assertEquals(
-			$plain->getStyles( $context ),
 			[ 'all' => ".example { text-align: left; }\n" ],
+			$plain->getStyles( $context ),
 			'Unchanged styles in LTR mode'
 		);
 		$context = $this->getResourceLoaderContext( [ 'lang' => 'he', 'dir' => 'rtl' ] );
 		$this->assertEquals(
-			$plain->getStyles( $context ),
 			[ 'all' => ".example { text-align: right; }\n" ],
+			$plain->getStyles( $context ),
 			'Flipped styles in RTL mode'
 		);
 
@@ -296,8 +376,8 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 		] );
 		$noflip->setName( 'test' );
 		$this->assertEquals(
-			$plain->getStyles( $context ),
 			[ 'all' => ".example { text-align: right; }\n" ],
+			$plain->getStyles( $context ),
 			'Unchanged styles in RTL mode with noflip at module level'
 		);
 	}
@@ -305,8 +385,9 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 	/**
 	 * Test reading files from elsewhere than localBasePath using ResourceLoaderFilePath.
 	 *
-	 * This mimics modules modified by skins using 'ResourceModuleSkinStyles' and 'OOUIThemePaths'
-	 * skin attributes.
+	 * The use of ResourceLoaderFilePath objects resembles the way that ResourceLoader::getModule()
+	 * injects additional files when 'ResourceModuleSkinStyles' or 'OOUIThemePaths' skin attributes
+	 * apply to a given module.
 	 *
 	 * @covers ResourceLoaderFilePath::getLocalBasePath
 	 * @covers ResourceLoaderFilePath::getRemoteBasePath
@@ -324,6 +405,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 			'scripts' => new ResourceLoaderFilePath( 'script.js', $filePath, 'rlfilepath' ),
 			'templates' => new ResourceLoaderFilePath( 'template.html', $filePath, 'rlfilepath' ),
 		] );
+		$testModule->setName( 'testModule' );
 		$expectedModule = new ResourceLoaderFileModule( [
 			'localBasePath' => $filePath,
 			'remoteBasePath' => 'rlfilepath',
@@ -334,6 +416,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 			'scripts' => 'script.js',
 			'templates' => 'template.html',
 		] );
+		$expectedModule->setName( 'expectedModule' );
 
 		$context = $this->getResourceLoaderContext();
 		$this->assertEquals(
@@ -390,7 +473,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 			$this->expectException( RuntimeException::class );
 			$rl->getTemplates();
 		} else {
-			$this->assertEquals( $rl->getTemplates(), $expected );
+			$this->assertEquals( $expected, $rl->getTemplates() );
 		}
 	}
 
@@ -405,15 +488,15 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 		] );
 		$testModule->setName( 'testing' );
 		$this->assertEquals(
-			substr( file_get_contents( "$basePath/bom.css" ), 0, 10 ),
 			"\xef\xbb\xbf.efbbbf",
+			substr( file_get_contents( "$basePath/bom.css" ), 0, 10 ),
 			'File has leading BOM'
 		);
 
 		$context = $this->getResourceLoaderContext();
 		$this->assertEquals(
-			$testModule->getStyles( $context ),
 			[ 'all' => ".efbbbf_bom_char_at_start_of_file {}\n" ],
+			$testModule->getStyles( $context ),
 			'Leading BOM removed when concatenating files'
 		);
 	}
@@ -455,40 +538,40 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 		yield 'identical Less variables' => [ $x, $x, true ];
 
 		$a = [
-			'packageFiles' => [ [ 'name' => 'data.json', 'callback' => function () {
+			'packageFiles' => [ [ 'name' => 'data.json', 'callback' => static function () {
 				return [ 'aaa' ];
 			} ] ]
 		];
 		$b = [
-			'packageFiles' => [ [ 'name' => 'data.json', 'callback' => function () {
+			'packageFiles' => [ [ 'name' => 'data.json', 'callback' => static function () {
 				return [ 'bbb' ];
 			} ] ]
 		];
 		yield 'packageFiles with different callback' => [ $a, $b, false ];
 
 		$a = [
-			'packageFiles' => [ [ 'name' => 'aaa.json', 'callback' => function () {
+			'packageFiles' => [ [ 'name' => 'aaa.json', 'callback' => static function () {
 				return [ 'x' ];
 			} ] ]
 		];
 		$b = [
-			'packageFiles' => [ [ 'name' => 'bbb.json', 'callback' => function () {
+			'packageFiles' => [ [ 'name' => 'bbb.json', 'callback' => static function () {
 				return [ 'x' ];
 			} ] ]
 		];
 		yield 'packageFiles with different file name and a callback' => [ $a, $b, false ];
 
 		$a = [
-			'packageFiles' => [ [ 'name' => 'data.json', 'versionCallback' => function () {
+			'packageFiles' => [ [ 'name' => 'data.json', 'versionCallback' => static function () {
 				return [ 'A-version' ];
-			}, 'callback' => function () {
+			}, 'callback' => static function () {
 				throw new Exception( 'Unexpected computation' );
 			} ] ]
 		];
 		$b = [
-			'packageFiles' => [ [ 'name' => 'data.json', 'versionCallback' => function () {
+			'packageFiles' => [ [ 'name' => 'data.json', 'versionCallback' => static function () {
 				return [ 'B-version' ];
-			}, 'callback' => function () {
+			}, 'callback' => static function () {
 				throw new Exception( 'Unexpected computation' );
 			} ] ]
 		];
@@ -496,20 +579,20 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 
 		$a = [
 			'packageFiles' => [ [ 'name' => 'aaa.json',
-				'versionCallback' => function () {
+				'versionCallback' => static function () {
 					return [ 'X-version' ];
 				},
-				'callback' => function () {
+				'callback' => static function () {
 					throw new Exception( 'Unexpected computation' );
 				}
 			] ]
 		];
 		$b = [
 			'packageFiles' => [ [ 'name' => 'bbb.json',
-				'versionCallback' => function () {
+				'versionCallback' => static function () {
 					return [ 'X-version' ];
 				},
-				'callback' => function () {
+				'callback' => static function () {
 					throw new Exception( 'Unexpected computation' );
 				}
 			] ]
@@ -523,11 +606,13 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 	 * @covers ResourceLoaderFileModule::getFileHashes
 	 */
 	public function testGetVersionHash( $a, $b, $isEqual ) {
-		$context = $this->getResourceLoaderContext();
+		$context = $this->getResourceLoaderContext( [ 'debug' => 'false' ] );
 
 		$moduleA = new ResourceLoaderFileTestModule( $a );
+		$moduleA->setConfig( $context->getResourceLoader()->getConfig() );
 		$versionA = $moduleA->getVersionHash( $context );
 		$moduleB = new ResourceLoaderFileTestModule( $b );
+		$moduleB->setConfig( $context->getResourceLoader()->getConfig() );
 		$versionB = $moduleB->getVersionHash( $context );
 
 		$this->assertSame(
@@ -623,7 +708,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 						[ 'name' => 'bar.js', 'content' => "console.log('Hello');" ],
 						[
 							'name' => 'data.json',
-							'callback' => function ( $context, $config, $extra ) {
+							'callback' => static function ( $context, $config, $extra ) {
 								return [ 'langCode' => $context->getLanguage(), 'extra' => $extra ];
 							},
 							'callbackParam' => [ 'a' => 'b' ],
@@ -672,10 +757,10 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 						[ 'name' => 'bar.js', 'content' => "console.log('Hello');" ],
 						[
 							'name' => 'data.json',
-							'versionCallback' => function ( $context ) {
+							'versionCallback' => static function ( $context ) {
 								return 'x';
 							},
-							'callback' => function ( $context, $config, $extra ) {
+							'callback' => static function ( $context, $config, $extra ) {
 								return [ 'langCode' => $context->getLanguage(), 'extra' => $extra ];
 							},
 							'callbackParam' => [ 'A', 'B' ]
@@ -702,7 +787,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 			'package file with callback that returns a file (1)' => [
 				$base + [
 					'packageFiles' => [
-						[ 'name' => 'dynamic.js', 'callback' => function ( $context ) {
+						[ 'name' => 'dynamic.js', 'callback' => static function ( $context ) {
 							$file = $context->getLanguage() === 'fy' ? 'script-comment.js' : 'script-nosemi.js';
 							return new ResourceLoaderFilePath( $file );
 						} ]
@@ -724,7 +809,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 			'package file with callback that returns a file (2)' => [
 				$base + [
 					'packageFiles' => [
-						[ 'name' => 'dynamic.js', 'callback' => function ( $context ) {
+						[ 'name' => 'dynamic.js', 'callback' => static function ( $context ) {
 							$file = $context->getLanguage() === 'fy' ? 'script-comment.js' : 'script-nosemi.js';
 							return new ResourceLoaderFilePath( $file );
 						} ]
@@ -855,6 +940,7 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 	public function testGetScriptPackageFiles( $moduleDefinition, $expected, $contextOptions = [] ) {
 		$module = new ResourceLoaderFileModule( $moduleDefinition );
 		$context = $this->getResourceLoaderContext( $contextOptions );
+		$module->setConfig( $context->getResourceLoader()->getConfig() );
 		if ( isset( $moduleDefinition['name'] ) ) {
 			$module->setName( $moduleDefinition['name'] );
 		}
@@ -866,5 +952,17 @@ class ResourceLoaderFileModuleTest extends ResourceLoaderTestCase {
 			// Array of expected return value
 			$this->assertEquals( $expected, $module->getScript( $context ) );
 		}
+	}
+
+	/**
+	 * @covers ResourceLoaderFileModule::requiresES6
+	 */
+	public function testRequiresES6() {
+		$module = new ResourceLoaderFileModule();
+		$this->assertFalse( $module->requiresES6(), 'requiresES6 defaults to false' );
+		$module = new ResourceLoaderFileModule( [ 'es6' => false ] );
+		$this->assertFalse( $module->requiresES6(), 'requiresES6 is false when set to false' );
+		$module = new ResourceLoaderFileModule( [ 'es6' => true ] );
+		$this->assertTrue( $module->requiresES6(), 'requiresES6 is true when set to true' );
 	}
 }

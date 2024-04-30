@@ -1,6 +1,9 @@
 <?php
 
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Linker\LinkTarget;
+use MediaWiki\Page\PageIdentity;
+use MediaWiki\Page\PageReference;
+use MediaWiki\Tests\Unit\DummyServicesTrait;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -10,6 +13,8 @@ use Wikimedia\TestingAccessWrapper;
  * @covers ApiPageSet
  */
 class ApiPageSetTest extends ApiTestCase {
+	use DummyServicesTrait;
+
 	public static function provideRedirectMergePolicy() {
 		return [
 			'By default nothing is merged' => [
@@ -18,7 +23,7 @@ class ApiPageSetTest extends ApiTestCase {
 			],
 
 			'A simple merge policy adds the redirect data in' => [
-				function ( $current, $new ) {
+				static function ( $current, $new ) {
 					if ( !isset( $current['index'] ) || $new['index'] < $current['index'] ) {
 						$current['index'] = $new['index'];
 					}
@@ -59,19 +64,26 @@ class ApiPageSetTest extends ApiTestCase {
 		);
 	}
 
+	private function newApiPageSet( $reqParams = [] ) {
+		$request = new FauxRequest( $reqParams );
+		$context = new RequestContext();
+		$context->setRequest( $request );
+
+		$main = new ApiMain( $context );
+		$pageSet = new ApiPageSet( $main );
+
+		return $pageSet;
+	}
+
 	protected function createPageSetWithRedirect( $targetContent = 'api page set test' ) {
 		$target = Title::makeTitle( NS_MAIN, 'UTRedirectTarget' );
 		$sourceA = Title::makeTitle( NS_MAIN, 'UTRedirectSourceA' );
 		$sourceB = Title::makeTitle( NS_MAIN, 'UTRedirectSourceB' );
-		self::editPage( 'UTRedirectTarget', $targetContent );
-		self::editPage( 'UTRedirectSourceA', '#REDIRECT [[UTRedirectTarget]]' );
-		self::editPage( 'UTRedirectSourceB', '#REDIRECT [[UTRedirectTarget]]' );
+		$this->editPage( 'UTRedirectTarget', $targetContent );
+		$this->editPage( 'UTRedirectSourceA', '#REDIRECT [[UTRedirectTarget]]' );
+		$this->editPage( 'UTRedirectSourceB', '#REDIRECT [[UTRedirectTarget]]' );
 
-		$request = new FauxRequest( [ 'redirects' => 1 ] );
-		$context = new RequestContext();
-		$context->setRequest( $request );
-		$main = new ApiMain( $context );
-		$pageSet = new ApiPageSet( $main );
+		$pageSet = $this->newApiPageSet( [ 'redirects' => 1 ] );
 
 		$pageSet->setGeneratorData( $sourceA, [ 'index' => 1 ] );
 		$pageSet->setGeneratorData( $sourceB, [ 'index' => 3 ] );
@@ -83,12 +95,12 @@ class ApiPageSetTest extends ApiTestCase {
 	public function testRedirectMergePolicyRedirectLoop() {
 		$loopA = Title::makeTitle( NS_MAIN, 'UTPageRedirectOne' );
 		$loopB = Title::makeTitle( NS_MAIN, 'UTPageRedirectTwo' );
-		self::editPage( 'UTPageRedirectOne', '#REDIRECT [[UTPageRedirectTwo]]' );
-		self::editPage( 'UTPageRedirectTwo', '#REDIRECT [[UTPageRedirectOne]]' );
+		$this->editPage( 'UTPageRedirectOne', '#REDIRECT [[UTPageRedirectTwo]]' );
+		$this->editPage( 'UTPageRedirectTwo', '#REDIRECT [[UTPageRedirectOne]]' );
 		list( $target, $pageSet ) = $this->createPageSetWithRedirect(
 			'#REDIRECT [[UTPageRedirectOne]]'
 		);
-		$pageSet->setRedirectMergePolicy( function ( $cur, $new ) {
+		$pageSet->setRedirectMergePolicy( static function ( $cur, $new ) {
 			throw new \RuntimeException( 'unreachable, no merge when target is redirect loop' );
 		} );
 		// This could infinite loop in a bugged impl, but php doesn't offer
@@ -102,17 +114,14 @@ class ApiPageSetTest extends ApiTestCase {
 				'UTRedirectSourceA', 'UTRedirectSourceB', 'UTRedirectTarget',
 				'UTPageRedirectOne', 'UTPageRedirectTwo',
 			],
-			array_map( function ( $x ) {
+			array_map( static function ( $x ) {
 				return $x->getPrefixedText();
 			}, $pageSet->getTitles() )
 		);
 	}
 
 	public function testHandleNormalization() {
-		$context = new RequestContext();
-		$context->setRequest( new FauxRequest( [ 'titles' => "a|B|a\xcc\x8a" ] ) );
-		$main = new ApiMain( $context );
-		$pageSet = new ApiPageSet( $main );
+		$pageSet = $this->newApiPageSet( [ 'titles' => "a|B|a\xcc\x8a" ] );
 		$pageSet->execute();
 
 		$this->assertSame(
@@ -129,71 +138,10 @@ class ApiPageSetTest extends ApiTestCase {
 		);
 	}
 
-	public static function provideConversionWithRedirects() {
-		return [
-			'convert, redirect, convert' => [
-				[
-					[ '維基百科1', '#REDIRECT [[维基百科2]]' ],
-					[ '維基百科2', '' ],
-				],
-				[ 'titles' => '维基百科1', 'converttitles' => 1, 'redirects' => 1 ],
-				[ [ 'from' => '维基百科1', 'to' => '維基百科1' ], [ 'from' => '维基百科2', 'to' => '維基百科2' ] ],
-				[ [ 'from' => '維基百科1', 'to' => '维基百科2' ] ],
-			],
-
-			'redirect, convert, redirect' => [
-				[
-					[ '維基百科3', '#REDIRECT [[维基百科4]]' ],
-					[ '維基百科4', '#REDIRECT [[維基百科5]]' ],
-				],
-				[ 'titles' => '維基百科3', 'converttitles' => 1, 'redirects' => 1 ],
-				[ [ 'from' => '维基百科4', 'to' => '維基百科4' ] ],
-				[ [ 'from' => '維基百科3', 'to' => '维基百科4' ], [ 'from' => '維基百科4', 'to' => '維基百科5' ] ],
-			],
-
-			'hans redirects to hant with converttitles' => [
-				[
-					[ '维基百科6', '#REDIRECT [[維基百科6]]' ],
-				],
-				[ 'titles' => '维基百科6', 'converttitles' => 1, 'redirects' => 1 ],
-				[ [ 'from' => '維基百科6', 'to' => '维基百科6' ] ],
-				[ [ 'from' => '维基百科6', 'to' => '維基百科6' ] ],
-			],
-
-			'hans redirects to hant without converttitles' => [
-				[
-					[ '维基百科6', '#REDIRECT [[維基百科6]]' ],
-				],
-				[ 'titles' => '维基百科6', 'redirects' => 1 ],
-				[],
-				[ [ 'from' => '维基百科6', 'to' => '維基百科6' ] ],
-			],
-		];
-	}
-
-	/**
-	 * @dataProvider provideConversionWithRedirects
-	 */
-	public function testHandleConversionWithRedirects( $pages, $params, $expectConversion, $exceptRedirects ) {
-		$this->setMwGlobals( 'wgLanguageCode', 'zh' );
-
-		foreach ( $pages as $page ) {
-			$this->editPage( $page[0], $page[1] );
-		}
-
-		$context = new RequestContext();
-		$context->setRequest( new FauxRequest( $params ) );
-		$pageSet = new ApiPageSet( new ApiMain( $context ) );
-		$pageSet->execute();
-
-		$this->assertSame( $expectConversion, $pageSet->getConvertedTitlesAsResult() );
-		$this->assertSame( $exceptRedirects, $pageSet->getRedirectTitlesAsResult() );
-	}
-
 	public function testSpecialRedirects() {
-		$id1 = self::editPage( 'UTApiPageSet', 'UTApiPageSet in the default language' )
+		$id1 = $this->editPage( 'UTApiPageSet', 'UTApiPageSet in the default language' )
 			->value['revision-record']->getPageId();
-		$id2 = self::editPage( 'UTApiPageSet/de', 'UTApiPageSet in German' )
+		$id2 = $this->editPage( 'UTApiPageSet/de', 'UTApiPageSet in German' )
 			->value['revision-record']->getPageId();
 
 		$user = $this->getTestUser()->getUser();
@@ -293,7 +241,7 @@ class ApiPageSetTest extends ApiTestCase {
 
 		// Prepare the gender cache for testing - this is a fresh instance due to service override
 		$genderCache = TestingAccessWrapper::newFromObject(
-			MediaWikiServices::getInstance()->getGenderCache()
+			$this->getServiceContainer()->getGenderCache()
 		);
 		$genderCache->missLimit = 0;
 
@@ -307,5 +255,132 @@ class ApiPageSetTest extends ApiTestCase {
 			'ApiPageSet does not prefill the gender cache correctly' );
 		$this->assertEquals( $userNames, array_keys( $genderCache->cache ),
 			'ApiPageSet does not prefill all users into the gender cache' );
+	}
+
+	public function testPopulateFromTitles() {
+		$interwikiLookup = $this->getDummyInterwikiLookup( [ 'acme' ] );
+		$this->setService( 'InterwikiLookup', $interwikiLookup );
+
+		$this->getExistingTestPage( 'ApiPageSetTest_existing' )->getTitle();
+		$this->getExistingTestPage( 'ApiPageSetTest_redirect_target' )->getTitle();
+		$this->getNonexistingTestPage( 'ApiPageSetTest_missing' )->getTitle();
+		$redirectTitle = $this->getExistingTestPage( 'ApiPageSetTest_redirect' )->getTitle();
+		$this->editPage( $redirectTitle, '#REDIRECT [[ApiPageSetTest_redirect_target]]' );
+
+		$input = [
+			'existing' => 'ApiPageSetTest_existing',
+			'missing' => 'ApiPageSetTest_missing',
+			'invalid' => 'ApiPageSetTest|invalid',
+			'redirect' => 'ApiPageSetTest_redirect',
+			'special' => 'Special:BlankPage',
+			'interwiki' => 'acme:ApiPageSetTest',
+		];
+
+		$pageSet = $this->newApiPageSet( [ 'redirects' => 1 ] );
+		$pageSet->populateFromTitles( $input );
+
+		$expectedPages = [
+			new TitleValue( NS_MAIN, 'ApiPageSetTest_existing' ),
+			new TitleValue( NS_MAIN, 'ApiPageSetTest_redirect' ),
+			new TitleValue( NS_MAIN, 'ApiPageSetTest_missing' ),
+
+			// the redirect page and the target are included!
+			new TitleValue( NS_MAIN, 'ApiPageSetTest_redirect_target' ),
+		];
+		$this->assertLinkTargets( Title::class, $expectedPages, $pageSet->getTitles() );
+		$this->assertLinkTargets( PageIdentity::class, $expectedPages, $pageSet->getPages() );
+
+		$expectedGood = [
+			new TitleValue( NS_MAIN, 'ApiPageSetTest_existing' ),
+			new TitleValue( NS_MAIN, 'ApiPageSetTest_redirect_target' )
+		];
+		$this->assertLinkTargets( Title::class, $expectedGood, $pageSet->getGoodTitles() );
+		$this->assertLinkTargets( PageIdentity::class, $expectedGood, $pageSet->getGoodPages() );
+
+		$expectedMissing = [ new TitleValue( NS_MAIN, 'ApiPageSetTest_missing' ) ];
+		$this->assertLinkTargets(
+			Title::class,
+			$expectedMissing,
+			$pageSet->getMissingTitles()
+		);
+		$this->assertLinkTargets(
+			PageIdentity::class,
+			$expectedMissing,
+			$pageSet->getMissingPages()
+		);
+		$this->assertSame(
+			[ NS_MAIN => [ 'ApiPageSetTest_missing' => -3 ] ],
+			$pageSet->getMissingTitlesByNamespace()
+		);
+
+		$expectedGoodAndMissing = array_merge( $expectedGood, $expectedMissing );
+		$this->assertLinkTargets(
+			Title::class,
+			$expectedGoodAndMissing,
+			$pageSet->getGoodAndMissingTitles()
+		);
+		$this->assertLinkTargets(
+			PageIdentity::class,
+			$expectedGoodAndMissing,
+			$pageSet->getGoodAndMissingPages()
+		);
+
+		$expectedSpecial = [ new TitleValue( NS_SPECIAL, 'BlankPage' ) ];
+		$this->assertLinkTargets( Title::class, $expectedSpecial, $pageSet->getSpecialTitles() );
+		$this->assertLinkTargets( PageReference::class, $expectedSpecial, $pageSet->getSpecialPages() );
+
+		$expectedRedirects = [
+			'ApiPageSetTest redirect' => new TitleValue(
+				NS_MAIN, 'ApiPageSetTest_redirect_target'
+			)
+		];
+		$this->assertLinkTargets( Title::class, $expectedRedirects, $pageSet->getRedirectTitles() );
+		$this->assertLinkTargets( LinkTarget::class, $expectedRedirects, $pageSet->getRedirectTargets() );
+
+		$this->assertSame( [ 'acme:ApiPageSetTest' => 'acme' ], $pageSet->getInterwikiTitles() );
+		$this->assertSame(
+			[ [ 'title' => 'acme:ApiPageSetTest', 'iw' => 'acme' ] ],
+			$pageSet->getInterwikiTitlesAsResult()
+		);
+
+		$this->assertSame(
+			[ -1 => [
+					'title' => 'ApiPageSetTest|invalid',
+					'invalidreason' => 'The requested page title contains invalid characters: "|".'
+			] ],
+			$pageSet->getInvalidTitlesAndReasons()
+		);
+	}
+
+	/**
+	 * @param string $type
+	 * @param LinkTarget[] $expected
+	 * @param LinkTarget[]|PageReference[] $actual
+	 */
+	private function assertLinkTargets( $type, $expected, $actual ) {
+		reset( $actual );
+		foreach ( $expected as $expKey => $exp ) {
+			$act = current( $actual );
+			$this->assertNotFalse( $act, 'missing entry at key $expKey: ' . $exp );
+
+			$actKey = key( $actual );
+			next( $actual );
+
+			if ( !is_int( $expKey ) ) {
+				$this->assertSame( $expKey, $actKey );
+			}
+			$this->assertSame( $exp->getNamespace(), $act->getNamespace() );
+			$this->assertSame( $exp->getDBkey(), $act->getDBkey() );
+
+			$this->assertInstanceOf( $type, $act );
+
+			if ( $actual instanceof LinkTarget ) {
+				$this->assertSame( $exp->getFragment(), $act->getFragment() );
+				$this->assertSame( $exp->getInterwiki(), $act->getInterwiki() );
+			}
+		}
+
+		$act = current( $actual );
+		$this->assertFalse( $act, 'extra entry: ' . $act );
 	}
 }

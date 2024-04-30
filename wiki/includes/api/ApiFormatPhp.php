@@ -30,9 +30,6 @@ class ApiFormatPhp extends ApiFormatBase {
 		return 'application/vnd.php.serialized';
 	}
 
-	/**
-	 * @suppress SecurityCheck-XSS Output type is not text/html
-	 */
 	public function execute() {
 		$params = $this->extractRequestParams();
 
@@ -74,13 +71,13 @@ class ApiFormatPhp extends ApiFormatBase {
 	}
 
 	public function getAllowedParams() {
-		$ret = parent::getAllowedParams() + [
+		return parent::getAllowedParams() + [
 			'formatversion' => [
 				ApiBase::PARAM_TYPE => [ '1', '2', 'latest' ],
 				ApiBase::PARAM_DFLT => '1',
 				ApiBase::PARAM_HELP_MSG => 'apihelp-php-param-formatversion',
+				ApiBase::PARAM_HELP_MSG_PER_VALUE => [],
 			],
 		];
-		return $ret;
 	}
 }

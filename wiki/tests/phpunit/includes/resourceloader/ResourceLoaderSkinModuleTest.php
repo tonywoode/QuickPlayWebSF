@@ -5,7 +5,109 @@ use Wikimedia\TestingAccessWrapper;
 /**
  * @group ResourceLoader
  */
-class ResourceLoaderSkinModuleTest extends MediaWikiIntegrationTestCase {
+class ResourceLoaderSkinModuleTest extends ResourceLoaderTestCase {
+	public static function provideApplyFeaturesCompatibility() {
+		return [
+			[
+				[
+					'content-thumbnails' => true,
+				],
+				[
+					'content-media' => true,
+				],
+				true,
+				'The `content-thumbnails` feature is mapped to `content-media`.'
+			],
+			[
+				[
+					'content-parser-output' => true,
+				],
+				[
+					'content-body' => true,
+				],
+				true,
+				'The new `content-parser-output` module was renamed to `content-body`.'
+			],
+			[
+				[
+					'content' => true,
+				],
+				[
+					'content-media' => true,
+				],
+				true,
+				'The `content` feature is mapped to `content-media`.'
+			],
+			[
+				[
+					'content-links' => true,
+				],
+				[
+					'content-links-external' => true,
+					'content-links' => true,
+				],
+				true,
+				'The `content-links` feature will also enable `content-links-external` if it not specified.'
+			],
+			[
+				[
+					'element' => true,
+				],
+				[
+					'element' => true,
+					'content-links' => true,
+				],
+				true,
+				'The `element` feature will turn on `content-links` if not specified.'
+			],
+			[
+				[
+					'content-links-external' => false,
+					'content-links' => true,
+				],
+				[
+					'content-links-external' => false,
+					'content-links' => true,
+				],
+				true,
+				'The `content-links` feature has no impact on content-links-external value.'
+			],
+			[
+				[
+					'content-links' => true,
+					'content-thumbnails' => true,
+				],
+				[
+					'content-links' => true,
+					'content-media' => true,
+				],
+				false,
+				'applyFeaturesCompatibility should not opt the skin into things it does not want.' .
+					'It should only rename features.'
+			],
+			[
+				[
+					'element' => true,
+				],
+				[
+					'element' => true,
+				],
+				false,
+				'applyFeaturesCompatibility should not opt the skin into things it does not want.'
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider provideApplyFeaturesCompatibility
+	 * @covers ResourceLoaderSkinModule::applyFeaturesCompatibility
+	 */
+	public function testApplyFeaturesCompatibility( array $features, array $expected, bool $optInPolicy, $msg ) {
+		// Test protected method
+		$class = TestingAccessWrapper::newFromClass( ResourceLoaderSkinModule::class );
+		$actual = $class->applyFeaturesCompatibility( $features, $optInPolicy );
+		$this->assertEquals( $expected, $actual, $msg );
+	}
 
 	public static function provideGetAvailableLogos() {
 		return [
@@ -35,14 +137,23 @@ class ResourceLoaderSkinModuleTest extends MediaWikiIntegrationTestCase {
 			[
 				[
 					'Logos' => [
-						'wordmark' => '/logo-wordmark.png',
+						'wordmark' => [
+							'src' => '/logo-wordmark.png',
+							'width' => 100,
+							'height' => 15,
+						],
 						'1x' => '/logo.png',
 						'svg' => '/logo.svg',
 						'2x' => 'logo-2x.png'
 					],
 				],
 				[
-					'wordmark' => '/logo-wordmark.png',
+					'wordmark' => [
+						'src' => '/logo-wordmark.png',
+						'width' => 100,
+						'height' => 15,
+						'style' => 'width: 6.25em; height: 0.9375em;',
+					],
 					'1x' => '/logo.png',
 					'svg' => '/logo.svg',
 					'2x' => 'logo-2x.png',
@@ -52,7 +163,6 @@ class ResourceLoaderSkinModuleTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public static function provideGetStyles() {
-		// phpcs:disable Generic.Files.LineLength
 		return [
 			[
 				'parent' => [],
@@ -83,11 +193,11 @@ class ResourceLoaderSkinModuleTest extends MediaWikiIntegrationTestCase {
 .mw-wiki-logo { background-image: url(/logo.png); }
 CSS
 					],
-					'(-webkit-min-device-pixel-ratio: 1.5), (min--moz-device-pixel-ratio: 1.5), (min-resolution: 1.5dppx), (min-resolution: 144dpi)' => [ <<<CSS
+					'(-webkit-min-device-pixel-ratio: 1.5), (min-resolution: 1.5dppx), (min-resolution: 144dpi)' => [ <<<CSS
 .mw-wiki-logo { background-image: url(/logo@1.5x.png);background-size: 135px auto; }
 CSS
 					],
-					'(-webkit-min-device-pixel-ratio: 2), (min--moz-device-pixel-ratio: 2), (min-resolution: 2dppx), (min-resolution: 192dpi)' => [ <<<CSS
+					'(-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx), (min-resolution: 192dpi)' => [ <<<CSS
 .mw-wiki-logo { background-image: url(/logo@2x.png);background-size: 135px auto; }
 CSS
 					],
@@ -119,14 +229,15 @@ CSS
 	 */
 	public function testGetStyles( $parent, $logo, $expected ) {
 		$module = $this->getMockBuilder( ResourceLoaderSkinModule::class )
-			->setMethods( [ 'readStyleFiles', 'getConfig', 'getLogoData' ] )
+			->onlyMethods( [ 'readStyleFiles', 'getLogoData' ] )
 			->getMock();
 		$module->expects( $this->once() )->method( 'readStyleFiles' )
 			->willReturn( $parent );
-		$module->expects( $this->once() )->method( 'getConfig' )
-			->willReturn( new HashConfig() );
 		$module->expects( $this->once() )->method( 'getLogoData' )
 			->willReturn( $logo );
+		$module->setConfig( new HashConfig( [
+			'ParserEnableLegacyMediaDOM' => false,
+		] + self::getSettings() ) );
 
 		$ctx = $this->getMockBuilder( ResourceLoaderContext::class )
 			->disableOriginalConstructor()->getMock();
@@ -143,19 +254,19 @@ CSS
 	 */
 	public function testGetAvailableLogos( $config, $expected ) {
 		$logos = ResourceLoaderSkinModule::getAvailableLogos( new HashConfig( $config ) );
-		$this->assertSame( $logos, $expected );
+		$this->assertSame( $expected, $logos );
 	}
 
 	/**
 	 * @covers ResourceLoaderSkinModule::getAvailableLogos
 	 */
 	public function testGetAvailableLogosRuntimeException() {
-		$this->expectException( \RuntimeException::class );
-		ResourceLoaderSkinModule::getAvailableLogos( new HashConfig( [
+		$logos = ResourceLoaderSkinModule::getAvailableLogos( new HashConfig( [
 			'Logo' => false,
 			'Logos' => false,
 			'LogoHD' => false,
 		] ) );
+		$this->assertSame( [], $logos );
 	}
 
 	/**
@@ -163,7 +274,7 @@ CSS
 	 */
 	public function testIsKnownEmpty() {
 		$module = $this->getMockBuilder( ResourceLoaderSkinModule::class )
-			->disableOriginalConstructor()->setMethods( null )->getMock();
+			->disableOriginalConstructor()->onlyMethods( [] )->getMock();
 		$ctx = $this->getMockBuilder( ResourceLoaderContext::class )
 			->disableOriginalConstructor()->getMock();
 
@@ -174,10 +285,7 @@ CSS
 	 * @dataProvider provideGetLogoData
 	 * @covers ResourceLoaderSkinModule::getLogoData
 	 */
-	public function testGetLogoData( $config, $expected, $baseDir = null ) {
-		if ( $baseDir ) {
-			$this->setMwGlobals( 'IP', $baseDir );
-		}
+	public function testGetLogoData( $config, $expected ) {
 		// Allow testing of protected method
 		$module = TestingAccessWrapper::newFromObject( new ResourceLoaderSkinModule() );
 
@@ -191,16 +299,22 @@ CSS
 		return [
 			'wordmark' => [
 				'config' => [
+					'BaseDirectory' => MW_INSTALL_PATH,
 					'ResourceBasePath' => '/w',
 					'Logos' => [
 						'1x' => '/img/default.png',
-						'wordmark' => '/img/wordmark.png',
+						'wordmark' => [
+							'src' => '/img/wordmark.png',
+							'width' => 120,
+							'height' => 20,
+						],
 					],
 				],
 				'expected' => '/img/default.png',
 			],
 			'simple' => [
 				'config' => [
+					'BaseDirectory' => MW_INSTALL_PATH,
 					'ResourceBasePath' => '/w',
 					'Logos' => [
 						'1x' => '/img/default.png',
@@ -210,6 +324,7 @@ CSS
 			],
 			'default and 2x' => [
 				'config' => [
+					'BaseDirectory' => MW_INSTALL_PATH,
 					'ResourceBasePath' => '/w',
 					'Logos' => [
 						'1x' => '/img/default.png',
@@ -223,6 +338,7 @@ CSS
 			],
 			'default and all HiDPIs' => [
 				'config' => [
+					'BaseDirectory' => MW_INSTALL_PATH,
 					'ResourceBasePath' => '/w',
 					'Logos' => [
 						'1x' => '/img/default.png',
@@ -238,6 +354,7 @@ CSS
 			],
 			'default and SVG' => [
 				'config' => [
+					'BaseDirectory' => MW_INSTALL_PATH,
 					'ResourceBasePath' => '/w',
 					'Logos' => [
 						'1x' => '/img/default.png',
@@ -251,6 +368,7 @@ CSS
 			],
 			'everything' => [
 				'config' => [
+					'BaseDirectory' => MW_INSTALL_PATH,
 					'ResourceBasePath' => '/w',
 					'Logos' => [
 						'1x' => '/img/default.png',
@@ -266,6 +384,7 @@ CSS
 			],
 			'versioned url' => [
 				'config' => [
+					'BaseDirectory' => dirname( dirname( __DIR__ ) ) . '/data/media',
 					'ResourceBasePath' => '/w',
 					'UploadPath' => '/w/images',
 					'Logos' => [
@@ -273,7 +392,6 @@ CSS
 					],
 				],
 				'expected' => '/w/test.jpg?edcf2',
-				'baseDir' => dirname( dirname( __DIR__ ) ) . '/data/media',
 			],
 		];
 	}
@@ -285,10 +403,10 @@ CSS
 	 * @covers ResourceLoaderSkinModule::getLogoData
 	 */
 	public function testPreloadLinkHeaders( $config, $result ) {
-		$this->setMwGlobals( $config );
 		$ctx = $this->getMockBuilder( ResourceLoaderContext::class )
 			->disableOriginalConstructor()->getMock();
 		$module = new ResourceLoaderSkinModule();
+		$module->setConfig( new HashConfig( $config + self::getSettings() ) );
 
 		$this->assertEquals( [ $result ], $module->getHeaders( $ctx ) );
 	}
@@ -297,10 +415,11 @@ CSS
 		return [
 			[
 				[
-					'wgResourceBasePath' => '/w',
-					'wgLogo' => false,
-					'wgLogoHD' => false,
-					'wgLogos' => [
+					'BaseDirectory' => '/dummy',
+					'ResourceBasePath' => '/w',
+					'Logo' => false,
+					'LogoHD' => false,
+					'Logos' => [
 						'1x' => '/img/default.png',
 						'1.5x' => '/img/one-point-five.png',
 						'2x' => '/img/two-x.png',
@@ -314,10 +433,11 @@ CSS
 			],
 			[
 				[
-					'wgResourceBasePath' => '/w',
-					'wgLogo' => false,
-					'wgLogoHD' => false,
-					'wgLogos' => [
+					'BaseDirectory' => '/dummy',
+					'ResourceBasePath' => '/w',
+					'Logo' => false,
+					'LogoHD' => false,
+					'Logos' => [
 						'1x' => '/img/default.png',
 					],
 				],
@@ -325,10 +445,11 @@ CSS
 			],
 			[
 				[
-					'wgResourceBasePath' => '/w',
-					'wgLogo' => false,
-					'wgLogoHD' => false,
-					'wgLogos' => [
+					'BaseDirectory' => '/dummy',
+					'ResourceBasePath' => '/w',
+					'Logo' => false,
+					'LogoHD' => false,
+					'Logos' => [
 						'1x' => '/img/default.png',
 						'2x' => '/img/two-x.png',
 					],
@@ -339,10 +460,11 @@ CSS
 			],
 			[
 				[
-					'wgResourceBasePath' => '/w',
-					'wgLogo' => false,
-					'wgLogoHD' => false,
-					'wgLogos' => [
+					'BaseDirectory' => '/dummy',
+					'ResourceBasePath' => '/w',
+					'Logo' => false,
+					'LogoHD' => false,
+					'Logos' => [
 						'1x' => '/img/default.png',
 						'svg' => '/img/vector.svg',
 					],
@@ -352,18 +474,44 @@ CSS
 			],
 			[
 				[
-					'wgResourceBasePath' => '/w',
-					'wgLogo' => false,
-					'wgLogoHD' => false,
-					'wgLogos' => [
+					'BaseDirectory' => dirname( dirname( __DIR__ ) ) . '/data/media',
+					'ResourceBasePath' => '/w',
+					'Logo' => false,
+					'LogoHD' => false,
+					'Logos' => [
 						'1x' => '/w/test.jpg',
 					],
-					'wgUploadPath' => '/w/images',
-					'IP' => dirname( dirname( __DIR__ ) ) . '/data/media',
+					'UploadPath' => '/w/images',
 				],
 				'Link: </w/test.jpg?edcf2>;rel=preload;as=image',
 			],
 		];
+	}
+
+	/**
+	 * @covers ResourceLoaderSkinModule::getPreloadLinks
+	 */
+	public function testNoPreloadLogos() {
+		$module = new ResourceLoaderSkinModule( [ 'features' => [ 'logo' => false ] ] );
+		$context =
+			$this->getMockBuilder( ResourceLoaderContext::class )
+				->disableOriginalConstructor()
+				->getMock();
+		$preloadLinks = $module->getPreloadLinks( $context );
+		$this->assertArrayEquals( [], $preloadLinks );
+	}
+
+	/**
+	 * @covers ResourceLoaderSkinModule::getPreloadLinks
+	 */
+	public function testPreloadLogos() {
+		$module = new ResourceLoaderSkinModule();
+		$module->setConfig( self::getMinimalConfig() );
+		$context = $this->getMockBuilder( ResourceLoaderContext::class )
+			->disableOriginalConstructor()->getMock();
+
+		$preloadLinks = $module->getPreloadLinks( $context );
+		$this->assertNotSameSize( [], $preloadLinks );
 	}
 
 	/**
@@ -374,11 +522,11 @@ CSS
 	 *
 	 * @param string $file
 	 */
-	public function testFeatureFilesExist( string $file ) : void {
+	public function testFeatureFilesExist( string $file ): void {
 		$this->assertFileExists( $file );
 	}
 
-	public function provideFeatureFiles() : Generator {
+	public function provideFeatureFiles(): Generator {
 		global $IP;
 
 		$featureFiles = ( new ReflectionClass( ResourceLoaderSkinModule::class ) )
@@ -391,5 +539,147 @@ CSS
 				}
 			}
 		}
+	}
+
+	public static function provideGetStyleFilesFeatureStylesOrder() {
+		global $IP;
+		$featureFiles = ( new ReflectionClass( ResourceLoaderSkinModule::class ) )
+			->getConstant( 'FEATURE_FILES' );
+
+		$normalizePath = new ResourceLoaderFilePath(
+			$featureFiles['normalize']['all'][0],
+			$IP,
+			'/w'
+		);
+		$elementsPath = new ResourceLoaderFilePath(
+			$featureFiles['elements']['screen'][0],
+			$IP,
+			'/w'
+		);
+		$cbPath = new ResourceLoaderFilePath(
+			$featureFiles['content-body']['screen'][0],
+			$IP,
+			'/w'
+		);
+
+		return [
+			[
+				[ 'elements', 'normalize' ],
+				[
+					'test.styles/styles.css' => [
+						'media' => 'screen'
+					]
+				],
+				[ $normalizePath ],
+				[ $elementsPath, 'test.styles/styles.css' ],
+				'opt-out by default policy results in correct order'
+			],
+			[
+				[
+					'content-body' => false,
+					'elements' => true,
+					'normalize' => true,
+					'toc' => false,
+				],
+				[
+					'test.styles/styles.css' => [
+						'media' => 'screen'
+					]
+				],
+				[ $normalizePath ],
+				[ $elementsPath, 'test.styles/styles.css' ],
+				'opt-in by default policy results in correct order'
+			],
+
+			[
+				[ 'content-parser-output' ],
+				[ 'test.styles/all.css' ],
+				[
+					$cbPath
+				],
+				[
+					'test.styles/all.css'
+				],
+				'content-parser-output mapped to content-body styles'
+			],
+
+			[
+				[ 'normalize' ],
+				[ 'test.styles/styles.css' => [ 'media' => 'screen' ] ],
+				[ $normalizePath ],
+				[ 'test.styles/styles.css' ],
+				'module provided styles come after skin defined'
+			],
+		];
+	}
+
+	/**
+	 * @covers ResourceLoaderSkinModule::getStyleFiles
+	 * @dataProvider provideGetStyleFilesFeatureStylesOrder
+	 * @param array $features
+	 * @param array $styles
+	 * @param array $expectedAllStyles array of styles
+	 * @param array $expectedScreenStyles array of styles
+	 * @param string $msg to show for debugging
+	 */
+	public function testGetStyleFilesFeatureStylesOrder(
+		$features, $styles, $expectedAllStyles, $expectedScreenStyles, $msg
+	): void {
+		$ctx = $this->createMock( ResourceLoaderContext::class );
+		$module = new ResourceLoaderSkinModule(
+			[
+				// The ordering should be controlled by ResourceLoaderSkinModule
+				// `normalize` will be outputted before `elements` despite the ordering
+				'features' => $features,
+				'styles' => $styles,
+			]
+		);
+		$module->setConfig( self::getMinimalConfig() );
+
+		$expected = [
+			'all' => $expectedAllStyles,
+			'screen' => $expectedScreenStyles,
+		];
+
+		$actual = $module->getStyleFiles( $ctx );
+		unset( $actual['print'] ); // not testing print for now
+		$this->assertEquals(
+			array_values( $expected ),
+			array_values( $actual )
+		);
+	}
+
+	public static function provideInvalidFeatures() {
+		yield 'listed unknown' => [
+			[ 'logo', 'unknown' ],
+		];
+
+		yield 'enabled unknown' => [
+			[
+				'logo' => true,
+				'toc' => false,
+				'unknown' => true,
+			],
+		];
+
+		yield 'disbled unknown' => [
+			[
+				'logo' => true,
+				'toc' => false,
+				'unknown' => false,
+			],
+		];
+	}
+
+	/**
+	 * @covers ResourceLoaderSkinModule
+	 * @dataProvider provideInvalidFeatures
+	 */
+	public function testConstructInvalidFeatures( array $features ) {
+		$this->expectException( InvalidArgumentException::class );
+		$this->expectExceptionMessage( "Feature 'unknown' is not recognised" );
+		$module = new ResourceLoaderSkinModule( [
+			'features' => $features,
+		] );
 	}
 }

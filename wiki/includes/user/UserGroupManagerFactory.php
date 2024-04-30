@@ -23,6 +23,8 @@ namespace MediaWiki\User;
 use ConfiguredReadOnlyMode;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
+use MediaWiki\JobQueue\JobQueueGroupFactory;
+use MediaWiki\Permissions\GroupPermissionsLookup;
 use Psr\Log\LoggerInterface;
 use Wikimedia\Rdbms\ILBFactory;
 
@@ -45,6 +47,12 @@ class UserGroupManagerFactory {
 	/** @var UserEditTracker */
 	private $userEditTracker;
 
+	/** @var GroupPermissionsLookup */
+	private $groupPermissionLookup;
+
+	/** @var JobQueueGroupFactory */
+	private $jobQueueGroupFactory;
+
 	/** @var LoggerInterface */
 	private $logger;
 
@@ -60,6 +68,8 @@ class UserGroupManagerFactory {
 	 * @param ILBFactory $dbLoadBalancerFactory
 	 * @param HookContainer $hookContainer
 	 * @param UserEditTracker $userEditTracker
+	 * @param GroupPermissionsLookup $groupPermissionsLookup
+	 * @param JobQueueGroupFactory $jobQueueGroupFactory
 	 * @param LoggerInterface $logger
 	 * @param callable[] $clearCacheCallbacks
 	 */
@@ -69,6 +79,8 @@ class UserGroupManagerFactory {
 		ILBFactory $dbLoadBalancerFactory,
 		HookContainer $hookContainer,
 		UserEditTracker $userEditTracker,
+		GroupPermissionsLookup $groupPermissionsLookup,
+		JobQueueGroupFactory $jobQueueGroupFactory,
 		LoggerInterface $logger,
 		array $clearCacheCallbacks = []
 	) {
@@ -77,6 +89,8 @@ class UserGroupManagerFactory {
 		$this->dbLoadBalancerFactory = $dbLoadBalancerFactory;
 		$this->hookContainer = $hookContainer;
 		$this->userEditTracker = $userEditTracker;
+		$this->groupPermissionLookup = $groupPermissionsLookup;
+		$this->jobQueueGroupFactory = $jobQueueGroupFactory;
 		$this->logger = $logger;
 		$this->clearCacheCallbacks = $clearCacheCallbacks;
 	}
@@ -85,7 +99,7 @@ class UserGroupManagerFactory {
 	 * @param string|bool $dbDomain
 	 * @return UserGroupManager
 	 */
-	public function getUserGroupManager( $dbDomain = false ) : UserGroupManager {
+	public function getUserGroupManager( $dbDomain = false ): UserGroupManager {
 		// TODO: Once UserRightsProxy is removed, cache the instance per domain.
 		return new UserGroupManager(
 			$this->options,
@@ -93,6 +107,8 @@ class UserGroupManagerFactory {
 			$this->dbLoadBalancerFactory,
 			$this->hookContainer,
 			$this->userEditTracker,
+			$this->groupPermissionLookup,
+			$this->jobQueueGroupFactory->makeJobQueueGroup( $dbDomain ),
 			$this->logger,
 			$this->clearCacheCallbacks,
 			$dbDomain

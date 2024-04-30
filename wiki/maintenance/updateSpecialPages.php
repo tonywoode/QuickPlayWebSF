@@ -44,7 +44,7 @@ class UpdateSpecialPages extends Maintenance {
 	public function execute() {
 		global $wgQueryCacheLimit;
 
-		$dbw = $this->getDB( DB_MASTER );
+		$dbw = $this->getDB( DB_PRIMARY );
 
 		$this->doSpecialPageCacheUpdates( $dbw );
 
@@ -70,14 +70,13 @@ class UpdateSpecialPages extends Maintenance {
 				getPage( $special );
 			if ( !$specialObj ) {
 				$this->output( "No such special page: $special\n" );
-				exit;
+				return;
 			}
 			if ( $specialObj instanceof QueryPage ) {
 				$queryPage = $specialObj;
 			} else {
 				$class = get_class( $specialObj );
 				$this->fatalError( "$class is not an instance of QueryPage.\n" );
-				die;
 			}
 
 			if ( !$this->hasOption( 'only' ) || $this->getOption( 'only' ) == $queryPage->getName() ) {
@@ -107,7 +106,15 @@ class UpdateSpecialPages extends Maintenance {
 					# Reopen any connections that have closed
 					$this->reopenAndWaitForReplicas();
 				} else {
-					$this->output( "cheap, skipped\n" );
+					// Check if this page was expensive before and now cheap
+					$cached = $queryPage->getCachedTimestamp();
+					if ( $cached ) {
+						$queryPage->deleteAllCachedData();
+						$this->reopenAndWaitForReplicas();
+						$this->output( "cheap, but deleted cached data\n" );
+					} else {
+						$this->output( "cheap, skipped\n" );
+					}
 				}
 				if ( $this->hasOption( 'only' ) ) {
 					break;

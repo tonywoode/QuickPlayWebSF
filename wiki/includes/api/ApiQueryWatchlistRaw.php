@@ -20,7 +20,6 @@
  * @file
  */
 
-use MediaWiki\MediaWikiServices;
 use MediaWiki\ParamValidator\TypeDef\UserDef;
 
 /**
@@ -31,8 +30,39 @@ use MediaWiki\ParamValidator\TypeDef\UserDef;
  */
 class ApiQueryWatchlistRaw extends ApiQueryGeneratorBase {
 
-	public function __construct( ApiQuery $query, $moduleName ) {
+	/** @var WatchedItemQueryService */
+	private $watchedItemQueryService;
+
+	/** @var Language */
+	private $contentLanguage;
+
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/** @var GenderCache */
+	private $genderCache;
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param WatchedItemQueryService $watchedItemQueryService
+	 * @param Language $contentLanguage
+	 * @param NamespaceInfo $namespaceInfo
+	 * @param GenderCache $genderCache
+	 */
+	public function __construct(
+		ApiQuery $query,
+		$moduleName,
+		WatchedItemQueryService $watchedItemQueryService,
+		Language $contentLanguage,
+		NamespaceInfo $namespaceInfo,
+		GenderCache $genderCache
+	) {
 		parent::__construct( $query, $moduleName, 'wr' );
+		$this->watchedItemQueryService = $watchedItemQueryService;
+		$this->contentLanguage = $contentLanguage;
+		$this->namespaceInfo = $namespaceInfo;
+		$this->genderCache = $genderCache;
 	}
 
 	public function execute() {
@@ -52,8 +82,8 @@ class ApiQueryWatchlistRaw extends ApiQueryGeneratorBase {
 
 		$user = $this->getWatchlistUser( $params );
 
-		$prop = array_flip( (array)$params['prop'] );
-		$show = array_flip( (array)$params['show'] );
+		$prop = array_fill_keys( (array)$params['prop'], true );
+		$show = array_fill_keys( (array)$params['show'], true );
 		if ( isset( $show[WatchedItemQueryService::FILTER_CHANGED] )
 			&& isset( $show[WatchedItemQueryService::FILTER_NOT_CHANGED] )
 		) {
@@ -97,30 +127,27 @@ class ApiQueryWatchlistRaw extends ApiQueryGeneratorBase {
 
 		$titles = [];
 		$count = 0;
-		$services = MediaWikiServices::getInstance();
-		$items = $services->getWatchedItemQueryService()
-			->getWatchedItemsForUser( $user, $options );
+		$items = $this->watchedItemQueryService->getWatchedItemsForUser( $user, $options );
 
 		// Get gender information
 		if ( $items !== [] && $resultPageSet === null &&
-			$services->getContentLanguage()->needsGenderDistinction()
+			$this->contentLanguage->needsGenderDistinction()
 		) {
-			$nsInfo = $services->getNamespaceInfo();
 			$usernames = [];
 			foreach ( $items as $item ) {
-				$linkTarget = $item->getLinkTarget();
-				if ( $nsInfo->hasGenderDistinction( $linkTarget->getNamespace() ) ) {
+				$linkTarget = $item->getTarget();
+				if ( $this->namespaceInfo->hasGenderDistinction( $linkTarget->getNamespace() ) ) {
 					$usernames[] = $linkTarget->getText();
 				}
 			}
 			if ( $usernames !== [] ) {
-				$services->getGenderCache()->doQuery( $usernames, __METHOD__ );
+				$this->genderCache->doQuery( $usernames, __METHOD__ );
 			}
 		}
 
 		foreach ( $items as $item ) {
-			$ns = $item->getLinkTarget()->getNamespace();
-			$dbKey = $item->getLinkTarget()->getDBkey();
+			$ns = $item->getTarget()->getNamespace();
+			$dbKey = $item->getTarget()->getDBkey();
 			if ( ++$count > $params['limit'] ) {
 				// We've reached the one extra which shows that there are
 				// additional pages to be had. Stop here...

@@ -4,12 +4,10 @@
  * @group ContentHandler
  * @group Database
  *        ^--- needed, because we do need the database to test link updates
- *
- * @FIXME this should not extend JavaScriptContentTest.
  */
-class CssContentTest extends JavaScriptContentTest {
+class CssContentTest extends TextContentTest {
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 
 		$this->setMwGlobals( [
@@ -44,6 +42,21 @@ class CssContentTest extends JavaScriptContentTest {
 			],
 
 			// TODO: more...?
+		];
+	}
+
+	// XXX: currently, preSaveTransform is applied to styles. this may change or become optional.
+	public static function dataPreSaveTransform() {
+		return [
+			[ 'hello this is ~~~',
+				"hello this is [[Special:Contributions/127.0.0.1|127.0.0.1]]",
+			],
+			[ 'hello \'\'this\'\' is <nowiki>~~~</nowiki>',
+				'hello \'\'this\'\' is <nowiki>~~~</nowiki>',
+			],
+			[ " Foo \n ",
+				" Foo",
+			],
 		];
 	}
 
@@ -96,7 +109,6 @@ class CssContentTest extends JavaScriptContentTest {
 	 * Keep this in sync with CssContentHandlerTest::provideMakeRedirectContent()
 	 */
 	public static function provideGetRedirectTarget() {
-		// phpcs:disable Generic.Files.LineLength
 		return [
 			[ 'MediaWiki:MonoBook.css', "/* #REDIRECT */@import url(//example.org/w/index.php?title=MediaWiki:MonoBook.css&action=raw&ctype=text/css);" ],
 			[ 'User:FooBar/common.css', "/* #REDIRECT */@import url(//example.org/w/index.php?title=User:FooBar/common.css&action=raw&ctype=text/css);" ],

@@ -1,12 +1,12 @@
 /*!
- * OOUI v0.39.3
+ * OOUI v0.43.2-pre (630d30f69c)
  * https://www.mediawiki.org/wiki/OOUI
  *
- * Copyright 2011–2020 OOUI Team and other contributors.
+ * Copyright 2011–2022 OOUI Team and other contributors.
  * Released under the MIT license
  * http://oojs.mit-license.org
  *
- * Date: 2020-07-10T06:32:25Z
+ * Date: 2022-03-11T22:31:38Z
  */
 
 .oo-ui-window {
@@ -14,7 +14,6 @@
   background-image: none;
 }
 .oo-ui-window-frame {
-  -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
   box-sizing: border-box;
 }
@@ -55,7 +54,6 @@
   position: absolute;
   left: 0;
   right: 0;
-  -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
   box-sizing: border-box;
 }
@@ -126,6 +124,9 @@
   color: #666;
   text-align: left;
 }
+.oo-ui-messageDialog-actions {
+  /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
+}
 .oo-ui-messageDialog-actions .oo-ui-actionWidget {
   min-height: 2.5em;
   margin-right: 0;
@@ -174,6 +175,7 @@
 }
 @supports ( width: calc( 100% + 2px ) ) {
   .oo-ui-messageDialog-actions-horizontal {
+    /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
     width: calc(100% + 2px);
     margin-left: -1px;
     margin-right: -1px;
@@ -387,18 +389,15 @@
   background-color: rgba(255, 255, 255, 0.5);
   opacity: 0;
   -webkit-transition: opacity 250ms;
-  -moz-transition: opacity 250ms;
   transition: opacity 250ms;
 }
 .oo-ui-windowManager-modal > .oo-ui-dialog > .oo-ui-window-frame {
   background-color: #fff;
   opacity: 0;
   -webkit-transform: scale(0.5);
-  -moz-transform: scale(0.5);
   -ms-transform: scale(0.5);
   transform: scale(0.5);
   -webkit-transition: all 250ms;
-  -moz-transition: all 250ms;
   transition: all 250ms;
 }
 .oo-ui-windowManager-modal > .oo-ui-dialog.oo-ui-window-setup {
@@ -407,7 +406,6 @@
 .oo-ui-windowManager-modal > .oo-ui-dialog.oo-ui-window-setup > .oo-ui-window-frame {
   opacity: 1;
   -webkit-transform: scale(1);
-  -moz-transform: scale(1);
   -ms-transform: scale(1);
   transform: scale(1);
 }
@@ -415,6 +413,7 @@
   top: 1em;
   bottom: 1em;
   max-height: 100%;
+  /* stylelint-disable-next-line plugin/no-unsupported-browser-features */
   max-height: calc( 100% - 2em );
   border: 1px solid #ccc;
   border-radius: 3px;

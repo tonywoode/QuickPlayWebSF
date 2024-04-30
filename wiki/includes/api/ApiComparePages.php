@@ -18,13 +18,16 @@
  * @file
  */
 
+use MediaWiki\CommentFormatter\CommentFormatter;
 use MediaWiki\Content\IContentHandlerFactory;
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Content\Transform\ContentTransformer;
 use MediaWiki\Revision\MutableRevisionRecord;
 use MediaWiki\Revision\RevisionArchiveRecord;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionStore;
 use MediaWiki\Revision\SlotRecord;
+use MediaWiki\Revision\SlotRoleRegistry;
+use Wikimedia\RequestTimeout\TimeoutException;
 
 /**
  * @ingroup API
@@ -34,21 +37,46 @@ class ApiComparePages extends ApiBase {
 	/** @var RevisionStore */
 	private $revisionStore;
 
-	/** @var \MediaWiki\Revision\SlotRoleRegistry */
+	/** @var SlotRoleRegistry */
 	private $slotRoleRegistry;
 
-	/** @var Title|false */
+	/** @var Title|null|false */
 	private $guessedTitle = false;
 	private $props;
 
 	/** @var IContentHandlerFactory */
 	private $contentHandlerFactory;
 
-	public function __construct( ApiMain $mainModule, $moduleName, $modulePrefix = '' ) {
-		parent::__construct( $mainModule, $moduleName, $modulePrefix );
-		$this->revisionStore = MediaWikiServices::getInstance()->getRevisionStore();
-		$this->slotRoleRegistry = MediaWikiServices::getInstance()->getSlotRoleRegistry();
-		$this->contentHandlerFactory = MediaWikiServices::getInstance()->getContentHandlerFactory();
+	/** @var ContentTransformer */
+	private $contentTransformer;
+
+	/** @var CommentFormatter */
+	private $commentFormatter;
+
+	/**
+	 * @param ApiMain $mainModule
+	 * @param string $moduleName
+	 * @param RevisionStore $revisionStore
+	 * @param SlotRoleRegistry $slotRoleRegistry
+	 * @param IContentHandlerFactory $contentHandlerFactory
+	 * @param ContentTransformer $contentTransformer
+	 * @param CommentFormatter $commentFormatter
+	 */
+	public function __construct(
+		ApiMain $mainModule,
+		$moduleName,
+		RevisionStore $revisionStore,
+		SlotRoleRegistry $slotRoleRegistry,
+		IContentHandlerFactory $contentHandlerFactory,
+		ContentTransformer $contentTransformer,
+		CommentFormatter $commentFormatter
+	) {
+		parent::__construct( $mainModule, $moduleName );
+		$this->revisionStore = $revisionStore;
+		$this->slotRoleRegistry = $slotRoleRegistry;
+		$this->contentHandlerFactory = $contentHandlerFactory;
+		$this->contentTransformer = $contentTransformer;
+		$this->commentFormatter = $commentFormatter;
 	}
 
 	public function execute() {
@@ -62,7 +90,7 @@ class ApiComparePages extends ApiBase {
 			$params, 'totitle', 'toid', 'torev', 'totext', 'torelative', 'toslots'
 		);
 
-		$this->props = array_flip( $params['prop'] );
+		$this->props = array_fill_keys( $params['prop'], true );
 
 		// Cache responses publicly by default. This may be overridden later.
 		$this->getMain()->setCacheMode( 'public' );
@@ -97,9 +125,9 @@ class ApiComparePages extends ApiBase {
 
 						// (T203433) Create an empty dummy revision as the "previous".
 						// The main slot has to exist, the rest will be handled by DifferenceEngine.
-						$fromRev = $this->revisionStore->newMutableRevisionFromArray( [
-							'title' => $title ?: Title::makeTitle( NS_SPECIAL, 'Badtitle/' . __METHOD__ )
-						] );
+						$fromRev = new MutableRevisionRecord(
+							$title ?: $toRev->getPage()
+						);
 						$fromRev->setContent(
 							SlotRecord::MAIN,
 							$toRelRev->getContent( SlotRecord::MAIN, RevisionRecord::RAW )
@@ -153,14 +181,10 @@ class ApiComparePages extends ApiBase {
 		// @codeCoverageIgnoreEnd
 
 		// Handle revdel
-		if ( !$fromRev->audienceCan(
-			RevisionRecord::DELETED_TEXT, RevisionRecord::FOR_THIS_USER, $this->getUser()
-		) ) {
+		if ( !$fromRev->userCan( RevisionRecord::DELETED_TEXT, $this->getAuthority() ) ) {
 			$this->dieWithError( [ 'apierror-missingcontent-revid', $fromRev->getId() ], 'missingcontent' );
 		}
-		if ( !$toRev->audienceCan(
-			RevisionRecord::DELETED_TEXT, RevisionRecord::FOR_THIS_USER, $this->getUser()
-		) ) {
+		if ( !$toRev->userCan( RevisionRecord::DELETED_TEXT, $this->getAuthority() ) ) {
 			$this->dieWithError( [ 'apierror-missingcontent-revid', $toRev->getId() ], 'missingcontent' );
 		}
 
@@ -241,9 +265,7 @@ class ApiComparePages extends ApiBase {
 	 */
 	private function getRevisionById( $id ) {
 		$rev = $this->revisionStore->getRevisionById( $id );
-		if ( !$rev && $this->getPermissionManager()
-				->userHasAnyRight( $this->getUser(), 'deletedtext', 'undelete' )
-		) {
+		if ( !$rev && $this->getAuthority()->isAllowedAny( 'deletedtext', 'undelete' ) ) {
 			// Try the 'archive' table
 			$arQuery = $this->revisionStore->getArchiveQueryInfo();
 			$row = $this->getDB()->selectRow(
@@ -441,7 +463,7 @@ class ApiComparePages extends ApiBase {
 							[ 'apierror-missingcontent-revid-role', $rev->getId(), SlotRecord::MAIN ], 'missingcontent'
 						);
 					}
-					$content = $content ? $content->getSection( $section ) : null;
+					$content = $content->getSection( $section );
 					if ( !$content ) {
 						$this->dieWithError(
 							[ "apierror-compare-nosuch{$prefix}section", wfEscapeWikiText( $section ) ],
@@ -462,9 +484,7 @@ class ApiComparePages extends ApiBase {
 		if ( $rev ) {
 			$newRev = MutableRevisionRecord::newFromParentRevision( $rev );
 		} else {
-			$newRev = $this->revisionStore->newMutableRevisionFromArray( [
-				'title' => $title ?: Title::makeTitle( NS_SPECIAL, 'Badtitle/' . __METHOD__ )
-			] );
+			$newRev = new MutableRevisionRecord( $title ?: Title::newMainPage() );
 		}
 		foreach ( $params["{$prefix}slots"] as $role ) {
 			$text = $params["{$prefix}text-{$role}"];
@@ -521,7 +541,12 @@ class ApiComparePages extends ApiBase {
 					$this->dieWithError( 'apierror-compare-no-title' );
 				}
 				$popts = ParserOptions::newFromContext( $this->getContext() );
-				$content = $content->preSaveTransform( $title, $this->getUser(), $popts );
+				$content = $this->contentTransformer->preSaveTransform(
+					$content,
+					$title,
+					$this->getUser(),
+					$popts
+				);
 			}
 
 			$section = $params["{$prefix}section-{$role}"];
@@ -541,6 +566,8 @@ class ApiComparePages extends ApiBase {
 				}
 				try {
 					$content = $oldContent->replaceSection( $section, $content, '' );
+				} catch ( TimeoutException $e ) {
+					throw $e;
 				} catch ( Exception $ex ) {
 					// Probably a content model mismatch.
 					$content = null;
@@ -622,7 +649,7 @@ class ApiComparePages extends ApiBase {
 					if ( isset( $this->props['comment'] ) ) {
 						$vals["{$prefix}comment"] = $comment->text;
 					}
-					$vals["{$prefix}parsedcomment"] = Linker::formatComment(
+					$vals["{$prefix}parsedcomment"] = $this->commentFormatter->format(
 						$comment->text, $title
 					);
 				}
@@ -671,11 +698,11 @@ class ApiComparePages extends ApiBase {
 			],
 			'contentformat-{slot}' => [
 				ApiBase::PARAM_TEMPLATE_VARS => [ 'slot' => 'slots' ], // fixed below
-				ApiBase::PARAM_TYPE => $this->getContentHandlerFactory()->getAllContentFormats(),
+				ApiBase::PARAM_TYPE => $this->contentHandlerFactory->getAllContentFormats(),
 			],
 			'contentmodel-{slot}' => [
 				ApiBase::PARAM_TEMPLATE_VARS => [ 'slot' => 'slots' ], // fixed below
-				ApiBase::PARAM_TYPE => $this->getContentHandlerFactory()->getContentModels(),
+				ApiBase::PARAM_TYPE => $this->contentHandlerFactory->getContentModels(),
 			],
 			'pst' => false,
 
@@ -684,11 +711,11 @@ class ApiComparePages extends ApiBase {
 				ApiBase::PARAM_DEPRECATED => true,
 			],
 			'contentformat' => [
-				ApiBase::PARAM_TYPE => $this->getContentHandlerFactory()->getAllContentFormats(),
+				ApiBase::PARAM_TYPE => $this->contentHandlerFactory->getAllContentFormats(),
 				ApiBase::PARAM_DEPRECATED => true,
 			],
 			'contentmodel' => [
-				ApiBase::PARAM_TYPE => $this->getContentHandlerFactory()->getContentModels(),
+				ApiBase::PARAM_TYPE => $this->contentHandlerFactory->getContentModels(),
 				ApiBase::PARAM_DEPRECATED => true,
 			],
 			'section' => [
@@ -749,13 +776,5 @@ class ApiComparePages extends ApiBase {
 			'action=compare&fromrev=1&torev=2'
 				=> 'apihelp-compare-example-1',
 		];
-	}
-
-	private function getContentHandlerFactory(): IContentHandlerFactory {
-		return $this->contentHandlerFactory;
-	}
-
-	public function getHelpUrls() {
-		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Compare';
 	}
 }

@@ -21,6 +21,10 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\CommentFormatter\RowCommentFormatter;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 /**
  * A special page that lists protected pages
  *
@@ -30,8 +34,41 @@ class SpecialProtectedpages extends SpecialPage {
 	protected $IdLevel = 'level';
 	protected $IdType = 'type';
 
-	public function __construct() {
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var CommentStore */
+	private $commentStore;
+
+	/** @var UserCache */
+	private $userCache;
+
+	/** @var RowCommentFormatter */
+	private $rowCommentFormatter;
+
+	/**
+	 * @param LinkBatchFactory $linkBatchFactory
+	 * @param ILoadBalancer $loadBalancer
+	 * @param CommentStore $commentStore
+	 * @param UserCache $userCache
+	 * @param RowCommentFormatter $rowCommentFormatter
+	 */
+	public function __construct(
+		LinkBatchFactory $linkBatchFactory,
+		ILoadBalancer $loadBalancer,
+		CommentStore $commentStore,
+		UserCache $userCache,
+		RowCommentFormatter $rowCommentFormatter
+	) {
 		parent::__construct( 'Protectedpages' );
+		$this->linkBatchFactory = $linkBatchFactory;
+		$this->loadBalancer = $loadBalancer;
+		$this->commentStore = $commentStore;
+		$this->userCache = $userCache;
+		$this->rowCommentFormatter = $rowCommentFormatter;
 	}
 
 	public function execute( $par ) {
@@ -53,7 +90,13 @@ class SpecialProtectedpages extends SpecialPage {
 		$noRedirect = in_array( 'noredirect', $filters );
 
 		$pager = new ProtectedPagesPager(
-			$this,
+			$this->getContext(),
+			$this->commentStore,
+			$this->linkBatchFactory,
+			$this->getLinkRenderer(),
+			$this->loadBalancer,
+			$this->rowCommentFormatter,
+			$this->userCache,
 			[],
 			$type,
 			$level,
@@ -62,8 +105,7 @@ class SpecialProtectedpages extends SpecialPage {
 			$size,
 			$indefOnly,
 			$cascadeOnly,
-			$noRedirect,
-			$this->getLinkRenderer()
+			$noRedirect
 		);
 
 		$this->getOutput()->addHTML( $this->showOptions(
@@ -107,7 +149,7 @@ class SpecialProtectedpages extends SpecialPage {
 			'typemenu' => $this->getTypeMenu( $type ),
 			'levelmenu' => $this->getLevelMenu( $level ),
 			'filters' => [
-				'class' => 'HTMLMultiSelectField',
+				'class' => HTMLMultiSelectField::class,
 				'label' => $this->msg( 'protectedpages-filters' )->text(),
 				'flatlist' => true,
 				'options-messages' => [
@@ -122,11 +164,10 @@ class SpecialProtectedpages extends SpecialPage {
 				'name' => 'size',
 			]
 		];
-		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() );
-		$htmlForm
+		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() )
 			->setMethod( 'get' )
 			->setWrapperLegendMsg( 'protectedpages' )
-			->setSubmitText( $this->msg( 'protectedpages-submit' )->text() );
+			->setSubmitTextMsg( 'protectedpages-submit' );
 
 		return $htmlForm->prepareForm()->getHTML( false );
 	}

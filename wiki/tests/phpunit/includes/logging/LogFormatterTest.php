@@ -33,7 +33,7 @@ class LogFormatterTest extends MediaWikiLangTestCase {
 	 */
 	protected $user_comment;
 
-	public static function setUpBeforeClass() : void {
+	public static function setUpBeforeClass(): void {
 		parent::setUpBeforeClass();
 
 		global $wgExtensionMessagesFiles;
@@ -41,21 +41,20 @@ class LogFormatterTest extends MediaWikiLangTestCase {
 		$wgExtensionMessagesFiles['LogTests'] = __DIR__ . '/LogTests.i18n.php';
 	}
 
-	public static function tearDownAfterClass() : void {
+	public static function tearDownAfterClass(): void {
 		global $wgExtensionMessagesFiles;
 		$wgExtensionMessagesFiles = self::$oldExtMsgFiles;
 
 		parent::tearDownAfterClass();
 	}
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 
 		$this->setMwGlobals( [
 			'wgLogTypes' => [ 'phpunit' ],
 			'wgLogActionsHandlers' => [ 'phpunit/test' => LogFormatter::class,
 				'phpunit/param' => LogFormatter::class ],
-			'wgUser' => User::newFromName( 'Testuser' ),
 		] );
 
 		$this->user = User::newFromName( 'Testuser' );
@@ -270,7 +269,7 @@ class LogFormatterTest extends MediaWikiLangTestCase {
 	 */
 	public function testGetPerformerElement() {
 		$entry = $this->newLogEntry( 'param', [] );
-		$entry->setPerformer( new UserIdentityValue( 1328435, 'Test', 0 ) );
+		$entry->setPerformer( new UserIdentityValue( 1328435, 'Test' ) );
 
 		$formatter = LogFormatter::newFromEntry( $entry );
 		$formatter->setContext( $this->context );
@@ -666,8 +665,9 @@ class LogFormatterTest extends MediaWikiLangTestCase {
 	 * @param string $type Log type (move, delete, suppress, patrol ...)
 	 * @param string $action A log type action
 	 * @param array $params
-	 * @param string|null $comment (optional) A comment for the log action
-	 * @param string $msg (optional) A message for PHPUnit :-)
+	 * @param string|null $comment A comment for the log action
+	 * @param string $msg
+	 * @param bool $legacy
 	 */
 	protected function assertIRCComment( $expected, $type, $action, $params,
 		$comment = null, $msg = '', $legacy = false

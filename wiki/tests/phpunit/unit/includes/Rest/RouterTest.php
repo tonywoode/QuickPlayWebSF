@@ -3,24 +3,39 @@
 namespace MediaWiki\Tests\Rest;
 
 use GuzzleHttp\Psr7\Uri;
-use MediaWiki\Permissions\PermissionManager;
 use MediaWiki\Rest\BasicAccess\StaticBasicAuthorizer;
 use MediaWiki\Rest\Handler;
 use MediaWiki\Rest\HttpException;
+use MediaWiki\Rest\RedirectException;
+use MediaWiki\Rest\Reporter\ErrorReporter;
 use MediaWiki\Rest\RequestData;
 use MediaWiki\Rest\RequestInterface;
+use MediaWiki\Rest\ResponseException;
 use MediaWiki\Rest\ResponseFactory;
 use MediaWiki\Rest\Router;
 use MediaWiki\Rest\Validator\Validator;
+use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
+use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Container\ContainerInterface;
-use User;
-use Wikimedia\ObjectFactory;
+use RuntimeException;
+use Throwable;
+use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
  * @covers \MediaWiki\Rest\Router
  */
 class RouterTest extends \MediaWikiUnitTestCase {
-	/** @return Router */
+	use MockAuthorityTrait;
+
+	/** @var Throwable[] */
+	private $reportedErrors = [];
+
+	/**
+	 * @param RequestInterface $request
+	 * @param string|null $authError
+	 * @param string[] $additionalRouteFiles
+	 * @return Router
+	 */
 	private function createRouter(
 		RequestInterface $request,
 		$authError = null,
@@ -29,8 +44,16 @@ class RouterTest extends \MediaWikiUnitTestCase {
 		$objectFactory = new ObjectFactory(
 			$this->getMockForAbstractClass( ContainerInterface::class )
 		);
-		$permissionManager = $this->createMock( PermissionManager::class );
 		$routeFiles = array_merge( [ __DIR__ . '/testRoutes.json' ], $additionalRouteFiles );
+		$authority = $this->mockAnonUltimateAuthority();
+
+		/** @var MockObject|ErrorReporter $mockErrorReporter */
+		$mockErrorReporter = $this->createNoOpMock( ErrorReporter::class, [ 'reportError' ] );
+		$mockErrorReporter->method( 'reportError' )
+			->willReturnCallback( function ( $e ) {
+				$this->reportedErrors[] = $e;
+			} );
+
 		return new Router(
 			$routeFiles,
 			[],
@@ -39,8 +62,10 @@ class RouterTest extends \MediaWikiUnitTestCase {
 			new \EmptyBagOStuff(),
 			new ResponseFactory( [] ),
 			new StaticBasicAuthorizer( $authError ),
+			$authority,
 			$objectFactory,
-			new Validator( $objectFactory, $permissionManager, $request, new User ),
+			new Validator( $objectFactory, $request, $authority ),
+			$mockErrorReporter,
 			$this->createHookContainer()
 		);
 	}
@@ -55,13 +80,13 @@ class RouterTest extends \MediaWikiUnitTestCase {
 	public function testWrongMethod() {
 		$request = new RequestData( [
 			'uri' => new Uri( '/rest/mock/RouterTest/hello' ),
-			'method' => 'OPTIONS'
+			'method' => 'TRACE'
 		] );
 		$router = $this->createRouter( $request );
 		$response = $router->execute( $request );
 		$this->assertSame( 405, $response->getStatusCode() );
 		$this->assertSame( 'Method Not Allowed', $response->getReasonPhrase() );
-		$this->assertSame( 'GET', $response->getHeaderLine( 'Allow' ) );
+		$this->assertSame( 'HEAD, GET', $response->getHeaderLine( 'Allow' ) );
 	}
 
 	public function testHeadToGet() {
@@ -90,7 +115,33 @@ class RouterTest extends \MediaWikiUnitTestCase {
 		};
 	}
 
-	public function testException() {
+	public static function fatalHandlerFactory() {
+		return new class extends Handler {
+			public function execute() {
+				throw new RuntimeException( 'Fatal mock error', 12345 );
+			}
+		};
+	}
+
+	public static function throwRedirectHandlerFactory() {
+		return new class extends Handler {
+			public function execute() {
+				throw new RedirectException( 301, 'http://example.com' );
+			}
+		};
+	}
+
+	public static function throwWrappedHandlerFactory() {
+		return new class extends Handler {
+			public function execute() {
+				$response = $this->getResponseFactory()->create();
+				$response->setStatus( 200 );
+				throw new ResponseException( $response );
+			}
+		};
+	}
+
+	public function testHttpException() {
 		$request = new RequestData( [ 'uri' => new Uri( '/rest/mock/RouterTest/throw' ) ] );
 		$router = $this->createRouter( $request );
 		$response = $router->execute( $request );
@@ -99,6 +150,38 @@ class RouterTest extends \MediaWikiUnitTestCase {
 		$body->rewind();
 		$data = json_decode( $body->getContents(), true );
 		$this->assertSame( 'Mock error', $data['message'] );
+	}
+
+	public function testFatalException() {
+		$request = new RequestData( [ 'uri' => new Uri( '/rest/mock/RouterTest/fatal' ) ] );
+		$router = $this->createRouter( $request );
+		$response = $router->execute( $request );
+		$this->assertSame( 500, $response->getStatusCode() );
+		$body = $response->getBody();
+		$body->rewind();
+		$data = json_decode( $body->getContents(), true );
+		$this->assertStringContainsString( 'RuntimeException', $data['message'] );
+		$this->assertStringContainsString( 'Fatal mock error', $data['message'] );
+		$this->assertSame( RuntimeException::class, $data['exception']['type'] );
+		$this->assertSame( 12345, $data['exception']['code'] );
+		$this->assertSame( 'Fatal mock error', $data['exception']['message'] );
+		$this->assertNotEmpty( $this->reportedErrors );
+		$this->assertInstanceOf( RuntimeException::class, $this->reportedErrors[0] );
+	}
+
+	public function testRedirectException() {
+		$request = new RequestData( [ 'uri' => new Uri( '/rest/mock/RouterTest/throwRedirect' ) ] );
+		$router = $this->createRouter( $request );
+		$response = $router->execute( $request );
+		$this->assertSame( 301, $response->getStatusCode() );
+		$this->assertSame( 'http://example.com', $response->getHeaderLine( 'Location' ) );
+	}
+
+	public function testResponseException() {
+		$request = new RequestData( [ 'uri' => new Uri( '/rest/mock/RouterTest/throwWrapped' ) ] );
+		$router = $this->createRouter( $request );
+		$response = $router->execute( $request );
+		$this->assertSame( 200, $response->getStatusCode() );
 	}
 
 	public function testBasicAccess() {

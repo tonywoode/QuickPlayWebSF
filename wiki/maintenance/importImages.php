@@ -125,9 +125,10 @@ class ImportImages extends Maintenance {
 	}
 
 	public function execute() {
-		global $wgFileExtensions, $wgUser, $wgRestrictionLevels;
+		global $wgFileExtensions, $wgRestrictionLevels;
 
-		$permissionManager = MediaWikiServices::getInstance()->getPermissionManager();
+		$services = MediaWikiServices::getInstance();
+		$permissionManager = $services->getPermissionManager();
 
 		$processed = $added = $ignored = $skipped = $overwritten = $failed = 0;
 
@@ -155,11 +156,11 @@ class ImportImages extends Maintenance {
 		# Initialise the user for this operation
 		$user = $this->hasOption( 'user' )
 			? User::newFromName( $this->getOption( 'user' ) )
-			: User::newSystemUser( 'Maintenance script', [ 'steal' => true ] );
+			: User::newSystemUser( User::MAINTENANCE_SCRIPT_USER, [ 'steal' => true ] );
 		if ( !$user instanceof User ) {
-			$user = User::newSystemUser( 'Maintenance script', [ 'steal' => true ] );
+			$user = User::newSystemUser( User::MAINTENANCE_SCRIPT_USER, [ 'steal' => true ] );
 		}
-		$wgUser = $user;
+		StubGlobalUser::setUser( $user );
 
 		# Get block check. If a value is given, this specified how often the check is performed
 		$checkUserBlock = (int)$this->getOption( 'check-userblock' );
@@ -186,10 +187,14 @@ class ImportImages extends Maintenance {
 
 		$sourceWikiUrl = $this->getOption( 'source-wiki-url' );
 
+		$tags = in_array( ChangeTags::TAG_SERVER_SIDE_UPLOAD, ChangeTags::getSoftwareTags() )
+			? [ ChangeTags::TAG_SERVER_SIDE_UPLOAD ]
+			: [];
+
 		# Batch "upload" operation
 		$count = count( $files );
 		if ( $count > 0 ) {
-			$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+			$lbFactory = $services->getDBLoadBalancerFactory();
 			foreach ( $files as $file ) {
 				if ( $sleep && ( $processed > 0 ) ) {
 					sleep( $sleep );
@@ -227,7 +232,7 @@ class ImportImages extends Maintenance {
 				}
 
 				# Check existence
-				$image = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo()
+				$image = $services->getRepoGroup()->getLocalRepo()
 					->newFile( $title );
 				if ( $image->exists() ) {
 					if ( $this->hasOption( 'overwrite' ) ) {
@@ -271,16 +276,18 @@ class ImportImages extends Maintenance {
 					/* find user directly from source wiki, through MW's API */
 					$real_user = $this->getFileUserFromSourceWiki( $sourceWikiUrl, $base );
 					if ( $real_user === false ) {
-						$wgUser = $user;
+						// don't change $wgUser
 					} else {
-						$wgUser = User::newFromName( $real_user );
-						if ( $wgUser === false ) {
+						$realUser = User::newFromName( $real_user );
+						if ( $realUser === false ) {
 							# user does not exist in target wiki
 							$this->output(
 								"failed: user '$real_user' does not exist in target wiki."
 							);
 							continue;
 						}
+						StubGlobalUser::setUser( $realUser );
+						$user = $realUser;
 					}
 				} else {
 					# Find comment text
@@ -290,12 +297,12 @@ class ImportImages extends Maintenance {
 						$f = $this->findAuxFile( $file, $commentExt );
 						if ( !$f ) {
 							$this->output( " No comment file with extension {$commentExt} found "
-								 . "for {$file}, using default comment. " );
+								. "for {$file}, using default comment." );
 						} else {
 							$commentText = file_get_contents( $f );
 							if ( !$commentText ) {
 								$this->output(
-									" Failed to load comment file {$f}, using default comment. "
+									" Failed to load comment file {$f}, using default comment."
 								);
 							}
 						}
@@ -309,26 +316,24 @@ class ImportImages extends Maintenance {
 				# Import the file
 				if ( $this->hasOption( 'dry' ) ) {
 					$this->output(
-						" publishing {$file} by '{$wgUser->getName()}', comment '$commentText'... "
+						" publishing {$file} by '{$user->getName()}', comment '$commentText'..."
 					);
 				} else {
-					$mwProps = new MWFileProps( MediaWiki\MediaWikiServices::getInstance()->getMimeAnalyzer() );
+					$mwProps = new MWFileProps( $services->getMimeAnalyzer() );
 					$props = $mwProps->getPropsFromPath( $file, true );
 					$flags = 0;
 					$publishOptions = [];
 					$handler = MediaHandler::getHandler( $props['mime'] );
 					if ( $handler ) {
-						$metadata = \Wikimedia\AtEase\AtEase::quietCall( 'unserialize', $props['metadata'] );
-
-						$publishOptions['headers'] = $handler->getContentHeaders( $metadata );
+						$publishOptions['headers'] = $handler->getContentHeaders( $props['metadata'] );
 					} else {
 						$publishOptions['headers'] = [];
 					}
 					$archive = $image->publish( $file, $flags, $publishOptions );
 					if ( !$archive->isGood() ) {
 						$this->output( "failed. (" .
-							 $archive->getMessage( false, false, 'en' )->text() .
-							 ")\n" );
+							$archive->getMessage( false, false, 'en' )->text() .
+							")\n" );
 						$failed++;
 						continue;
 					}
@@ -341,12 +346,14 @@ class ImportImages extends Maintenance {
 
 				if ( $this->hasOption( 'dry' ) ) {
 					$this->output( "done.\n" );
-				} elseif ( $image->recordUpload2(
+				} elseif ( $image->recordUpload3(
 					$archive->value,
 					$summary,
 					$commentText,
+					$user,
 					$props,
-					$timestamp
+					$timestamp,
+					$tags
 				)->isOK() ) {
 					$this->output( "done.\n" );
 
@@ -369,7 +376,7 @@ class ImportImages extends Maintenance {
 						sleep( 2 ); # Why this sleep?
 						$lbFactory->waitForReplication();
 
-						$this->output( "\nSetting image restrictions ... " );
+						$this->output( "\nSetting image restrictions ..." );
 
 						$cascade = false;
 						$restrictions = [];
@@ -377,7 +384,7 @@ class ImportImages extends Maintenance {
 							$restrictions[$type] = $protectLevel;
 						}
 
-						$page = WikiPage::factory( $title );
+						$page = $services->getWikiPageFactory()->newFromTitle( $title );
 						$status = $page->doUpdateRestrictions( $restrictions, [], $cascade, '', $user );
 						$this->output( ( $status->isOK() ? 'done' : 'failed' ) . "\n" );
 					}
@@ -491,7 +498,7 @@ class ImportImages extends Maintenance {
 	}
 
 	/**
-	 * @todo FIXME: Access the api in a saner way and performing just one query
+	 * @todo FIXME: Access the api in a better way and performing just one query
 	 * (preferably batching files too).
 	 *
 	 * @param string $wiki_host
@@ -502,7 +509,7 @@ class ImportImages extends Maintenance {
 	private function getFileCommentFromSourceWiki( $wiki_host, $file ) {
 		$url = $wiki_host . '/api.php?action=query&format=xml&titles=File:'
 			. rawurlencode( $file ) . '&prop=imageinfo&&iiprop=comment';
-		$body = Http::get( $url, [], __METHOD__ );
+		$body = MediaWikiServices::getInstance()->getHttpRequestFactory()->get( $url, [], __METHOD__ );
 		if ( preg_match( '#<ii comment="([^"]*)" />#', $body, $matches ) == 0 ) {
 			return false;
 		}
@@ -513,7 +520,7 @@ class ImportImages extends Maintenance {
 	private function getFileUserFromSourceWiki( $wiki_host, $file ) {
 		$url = $wiki_host . '/api.php?action=query&format=xml&titles=File:'
 			. rawurlencode( $file ) . '&prop=imageinfo&&iiprop=user';
-		$body = Http::get( $url, [], __METHOD__ );
+		$body = MediaWikiServices::getInstance()->getHttpRequestFactory()->get( $url, [], __METHOD__ );
 		if ( preg_match( '#<ii user="([^"]*)" />#', $body, $matches ) == 0 ) {
 			return false;
 		}

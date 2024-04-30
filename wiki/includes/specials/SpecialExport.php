@@ -23,8 +23,9 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Export\WikiExporterFactory;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * A special page that allows users to export pages in a XML file
@@ -34,8 +35,29 @@ use MediaWiki\MediaWikiServices;
 class SpecialExport extends SpecialPage {
 	protected $curonly, $doExport, $pageLinkDepth, $templates;
 
-	public function __construct() {
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var WikiExporterFactory */
+	private $wikiExporterFactory;
+
+	/** @var TitleFormatter */
+	private $titleFormatter;
+
+	/**
+	 * @param ILoadBalancer $loadBalancer
+	 * @param WikiExporterFactory $wikiExporterFactory
+	 * @param TitleFormatter $titleFormatter
+	 */
+	public function __construct(
+		ILoadBalancer $loadBalancer,
+		WikiExporterFactory $wikiExporterFactory,
+		TitleFormatter $titleFormatter
+	) {
 		parent::__construct( 'Export' );
+		$this->loadBalancer = $loadBalancer;
+		$this->wikiExporterFactory = $wikiExporterFactory;
+		$this->titleFormatter = $titleFormatter;
 	}
 
 	public function execute( $par ) {
@@ -83,7 +105,7 @@ class SpecialExport extends SpecialPage {
 				/**
 				 * Same implementation as above, so same @todo
 				 */
-				$nspages = $this->getPagesFromNamespace( $nsindex );
+				$nspages = $this->getPagesFromNamespace( (int)$nsindex );
 				if ( $nspages ) {
 					$page .= "\n" . implode( "\n", $nspages );
 				}
@@ -149,7 +171,7 @@ class SpecialExport extends SpecialPage {
 			}
 		} else {
 			// Default to current-only for GET requests.
-			$page = $request->getText( 'pages', $par );
+			$page = $request->getText( 'pages', $par ?? '' );
 			$historyCheck = $request->getCheck( 'history' );
 
 			if ( $historyCheck ) {
@@ -183,7 +205,7 @@ class SpecialExport extends SpecialPage {
 			$request->response()->header( 'X-Robots-Tag: noindex,nofollow' );
 
 			if ( $request->getCheck( 'wpDownload' ) ) {
-				// Provide a sane filename suggestion
+				// Provide a sensible filename suggestion
 				$filename = urlencode( $config->get( 'Sitename' ) . '-' . wfTimestampNow() . '.xml' );
 				$request->response()->header( "Content-disposition: attachment;filename={$filename}" );
 			}
@@ -201,6 +223,8 @@ class SpecialExport extends SpecialPage {
 		} else {
 			$categoryName = '';
 		}
+		$canExportAll = $config->get( 'ExportAllowAll' );
+		$hideIf = $canExportAll ? [ 'hide-if' => [ '===', 'exportall', '1' ] ] : [];
 
 		$formDescriptor = [
 			'catname' => [
@@ -213,8 +237,7 @@ class SpecialExport extends SpecialPage {
 				'buttontype' => 'submit',
 				'buttonname' => 'addcat',
 				'buttondefault' => $this->msg( 'export-addcat' )->text(),
-				'hide-if' => [ '===', 'exportall', '1' ],
-			],
+			] + $hideIf,
 		];
 		if ( $config->get( 'ExportFromNamespaces' ) ) {
 			$formDescriptor += [
@@ -229,12 +252,11 @@ class SpecialExport extends SpecialPage {
 					'buttontype' => 'submit',
 					'buttonname' => 'addns',
 					'buttondefault' => $this->msg( 'export-addns' )->text(),
-					'hide-if' => [ '===', 'exportall', '1' ],
-				],
+				] + $hideIf,
 			];
 		}
 
-		if ( $config->get( 'ExportAllowAll' ) ) {
+		if ( $canExportAll ) {
 			$formDescriptor += [
 				'exportall' => [
 					'type' => 'check',
@@ -254,8 +276,7 @@ class SpecialExport extends SpecialPage {
 				'nodata' => true,
 				'rows' => 10,
 				'default' => $page,
-				'hide-if' => [ '===', 'exportall', '1' ],
-			],
+			] + $hideIf,
 		];
 
 		if ( $config->get( 'ExportAllowHistory' ) ) {
@@ -327,9 +348,7 @@ class SpecialExport extends SpecialPage {
 	 * @return bool
 	 */
 	protected function userCanOverrideExportDepth() {
-		return MediaWikiServices::getInstance()
-			->getPermissionManager()
-			->userHasRight( $this->getUser(), 'override-export-depth' );
+		return $this->getAuthority()->isAllowed( 'override-export-depth' );
 	}
 
 	/**
@@ -365,6 +384,7 @@ class SpecialExport extends SpecialPage {
 			if ( $this->templates ) {
 				$pageSet = $this->getTemplates( $inputPages, $pageSet );
 			}
+			$pageSet = $this->getExtraPages( $inputPages, $pageSet );
 			$linkDepth = $this->pageLinkDepth;
 			if ( $linkDepth ) {
 				$pageSet = $this->getPageLinks( $inputPages, $pageSet, $linkDepth );
@@ -381,17 +401,15 @@ class SpecialExport extends SpecialPage {
 		}
 
 		/* Ok, let's get to it... */
-		$db = wfGetDB( DB_REPLICA );
+		$db = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
 
-		$exporter = new WikiExporter( $db, $history );
+		$exporter = $this->wikiExporterFactory->getWikiExporter( $db, $history );
 		$exporter->list_authors = $list_authors;
 		$exporter->openStream();
 
 		if ( $exportall ) {
 			$exporter->allPages();
 		} else {
-			$permissionManager = MediaWikiServices::getInstance()->getPermissionManager();
-
 			foreach ( $pages as $page ) {
 				# T10824: Only export pages the user can read
 				$title = Title::newFromText( $page );
@@ -400,7 +418,7 @@ class SpecialExport extends SpecialPage {
 					continue;
 				}
 
-				if ( !$permissionManager->userCan( 'read', $this->getUser(), $title ) ) {
+				if ( !$this->getAuthority()->authorizeRead( 'read', $title ) ) {
 					// @todo Perhaps output an <error> tag or something.
 					continue;
 				}
@@ -421,7 +439,7 @@ class SpecialExport extends SpecialPage {
 
 		$name = $title->getDBkey();
 
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
 		$res = $dbr->select(
 			[ 'page', 'categorylinks' ],
 			[ 'page_namespace', 'page_title' ],
@@ -446,7 +464,7 @@ class SpecialExport extends SpecialPage {
 	protected function getPagesFromNamespace( $nsindex ) {
 		$maxPages = $this->getConfig()->get( 'ExportPagelistLimit' );
 
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
 		$res = $dbr->select(
 			'page',
 			[ 'page_namespace', 'page_title' ],
@@ -476,6 +494,21 @@ class SpecialExport extends SpecialPage {
 			[ 'namespace' => 'tl_namespace', 'title' => 'tl_title' ],
 			[ 'page_id=tl_from' ]
 		);
+	}
+
+	/**
+	 * Add extra pages to the list of pages to export.
+	 * @param string[] $inputPages List of page titles to export
+	 * @param bool[] $pageSet Initial associative array indexed by string page titles
+	 * @return bool[] Associative array indexed by string page titles including extra pages
+	 */
+	private function getExtraPages( $inputPages, $pageSet ) {
+		$extraPages = [];
+		$this->getHookRunner()->onSpecialExportGetExtraPages( $inputPages, $extraPages );
+		foreach ( $extraPages as $extraPage ) {
+			$pageSet[$this->titleFormatter->getPrefixedText( $extraPage )] = true;
+		}
+		return $pageSet;
 	}
 
 	/**
@@ -534,7 +567,7 @@ class SpecialExport extends SpecialPage {
 	 * @return array
 	 */
 	protected function getLinks( $inputPages, $pageSet, $table, $fields, $join ) {
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
 
 		foreach ( $inputPages as $page ) {
 			$title = Title::newFromText( $page );

@@ -28,7 +28,7 @@
  * @method WikiCategoryPage getPage() Set by overwritten newPage() in this class
  */
 class CategoryPage extends Article {
-	# Subclasses can change this to override the viewer class.
+	/** @var string Subclasses can change this to override the viewer class. */
 	protected $mCategoryViewerClass = CategoryViewer::class;
 
 	/**
@@ -104,7 +104,7 @@ class CategoryPage extends Article {
 		unset( $reqArray["to"] );
 
 		$viewer = new $this->mCategoryViewerClass(
-			$this->getContext()->getTitle(),
+			$this->getPage(),
 			$this->getContext(),
 			$from,
 			$until,

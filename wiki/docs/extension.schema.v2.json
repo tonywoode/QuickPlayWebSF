@@ -5,7 +5,10 @@
 	"additionalProperties": false,
 	"patternProperties": {
 		"^@": {
-			"type": "string",
+			"type": [
+				"string",
+				"array"
+			],
 			"description": "Arbitrary notes, ignored by the parser."
 		}
 	},
@@ -310,6 +313,10 @@
 									"items": {
 										"type": ["string", "object"]
 									}
+								},
+								"es6": {
+									"type": "boolean",
+									"description": "Whether this module requires an ES6-capable browser. If set to true, loading this module in a non-ES6 browser will cause an error. Using ES6 syntax in modules is not yet supported, but will be in the near future. Default is false."
 								}
 							}
 						},
@@ -434,6 +441,10 @@
 		"ResourceLoaderSources": {
 			"type": "object",
 			"description": "ResourceLoader sources to register"
+		},
+		"SkinLessImportPaths": {
+			"type": "object",
+			"description": "Path to the skin-specific LESS import directory, keyed by skin name. Can be used to define skin-specific LESS variables."
 		},
 		"QUnitTestModule": {
 			"type": "object",
@@ -614,6 +625,11 @@
 						"type": "boolean",
 						"description": "Whether it is possible to move pages in this namespace",
 						"default": true
+					},
+					"includable": {
+						"type": "boolean",
+						"description": "Whether it is possible to include/transclude pages in this namespace",
+						"default": true
 					}
 				},
 				"required": ["id", "constant", "name"]
@@ -717,10 +733,19 @@
 		},
 		"ContentHandlers": {
 			"type": "object",
-			"description": "Mapping of model ID to class name",
+			"description": "Mapping of model ID to class name or an ObjectFactory specification.",
 			"patternProperties": {
 				"^[A-Za-z]+$": {
-					"type": "string"
+					"oneOf": [
+						{
+							"type": "string",
+							"description": "Class name of the ContentHandler."
+						},
+						{
+							"type": "object",
+							"description": "ObjectFactory specification of the ContentHandler."
+						}
+					]
 				}
 			}
 		},
@@ -866,6 +891,10 @@
 					"services": {
 						"type": "array",
 						"description": "If supplied and non-empty, the named services are requested from the service container and prepended before 'args'."
+					},
+					"optional_services": {
+						"type": "array",
+						"description": "If supplied and non-empty, the named services are requested from the service container and appended after 'services' if the services are available; null is passed if the services are not available."
 					}
 				}
 			}
@@ -975,6 +1004,18 @@
 					"type": "object",
 					"additionalProperties": false,
 					"properties": {
+						"localBasePath": {
+							"type": "string",
+							"description": "Base path to prepend to all local paths, relative to current directory"
+						},
+						"remoteExtPath": {
+							"type": "string",
+							"description": "Base path to prepend to all remote paths, relative to $wgExtensionAssetsPath"
+						},
+						"remoteSkinPath": {
+							"type": "string",
+							"description": "Base path to prepend to all remote paths, relative to $wgStylePath"
+						},
 						"scripts": {
 							"type": "string",
 							"description": "Path to script file."
@@ -1035,6 +1076,7 @@
 			"patternProperties": {
 				"^[a-zA-Z_\u007f-\u00ff][a-zA-Z0-9_\u007f-\u00ff]*$": {
 					"type": "object",
+					"additionalProperties": false,
 					"properties": {
 						"value": {
 							"required": true
@@ -1060,7 +1102,7 @@
 							"type": ["string", "array"],
 							"description": "A description of the config setting, mostly for documentation/developers"
 						},
-						"decriptionmsg": {
+						"descriptionmsg": {
 							"type": "string",
 							"description": "The message key which should be used as a description for this configuration option in a user interface. If empty, description will be used."
 						},

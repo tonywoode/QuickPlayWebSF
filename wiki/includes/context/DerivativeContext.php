@@ -19,6 +19,7 @@
  * @file
  */
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Permissions\Authority;
 
 /**
  * An IContextSource implementation which will inherit context from another source
@@ -45,6 +46,11 @@ class DerivativeContext extends ContextSource implements MutableContext {
 	private $wikipage;
 
 	/**
+	 * @var string
+	 */
+	private $action;
+
+	/**
 	 * @var OutputPage
 	 */
 	private $output;
@@ -53,6 +59,11 @@ class DerivativeContext extends ContextSource implements MutableContext {
 	 * @var User
 	 */
 	private $user;
+
+	/**
+	 * @var Authority
+	 */
+	private $authority;
 
 	/**
 	 * @var Language
@@ -182,6 +193,24 @@ class DerivativeContext extends ContextSource implements MutableContext {
 	}
 
 	/**
+	 * @since 1.38
+	 * @param string $action
+	 */
+	public function setActionName( string $action ): void {
+		$this->action = $action;
+	}
+
+	/**
+	 * Get the action name for the current web request.
+	 *
+	 * @since 1.38
+	 * @return string Action
+	 */
+	public function getActionName(): string {
+		return $this->action ?: $this->getContext()->getActionName();
+	}
+
+	/**
 	 * @param OutputPage $output
 	 */
 	public function setOutput( OutputPage $output ) {
@@ -199,6 +228,7 @@ class DerivativeContext extends ContextSource implements MutableContext {
 	 * @param User $user
 	 */
 	public function setUser( User $user ) {
+		$this->authority = $user;
 		$this->user = $user;
 	}
 
@@ -207,6 +237,21 @@ class DerivativeContext extends ContextSource implements MutableContext {
 	 */
 	public function getUser() {
 		return $this->user ?: $this->getContext()->getUser();
+	}
+
+	public function setAuthority( Authority $authority ) {
+		$this->authority = $authority;
+		$this->user = MediaWikiServices::getInstance()
+			->getUserFactory()
+			->newFromAuthority( $authority );
+	}
+
+	/**
+	 * @since 1.36
+	 * @return Authority
+	 */
+	public function getAuthority(): Authority {
+		return $this->authority ?: $this->getContext()->getAuthority();
 	}
 
 	/**

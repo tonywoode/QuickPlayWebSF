@@ -5,6 +5,9 @@ namespace MediaWiki\ResourceLoader\Hook;
 use ResourceLoader;
 
 /**
+ * This is a hook handler interface, see docs/Hooks.md.
+ * Use the hook name "ResourceLoaderTestModules" to register handlers implementing this interface.
+ *
  * @deprecated since 1.33; use the QUnitTestModule static extension registration attribute instead.
  * @ingroup ResourceLoaderHooks
  */
@@ -27,5 +30,5 @@ interface ResourceLoaderTestModulesHook {
 	 * @param ResourceLoader $rl
 	 * @return void This hook must not abort, it must return no value
 	 */
-	public function onResourceLoaderTestModules( array &$testModules, ResourceLoader $rl ) : void;
+	public function onResourceLoaderTestModules( array &$testModules, ResourceLoader $rl ): void;
 }

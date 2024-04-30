@@ -4,8 +4,6 @@ use MediaWiki\Interwiki\InterwikiLookupAdapter;
 
 /**
  * @covers MediaWiki\Interwiki\InterwikiLookupAdapter
- *
- * @group MediaWiki
  * @group Interwiki
  */
 class InterwikiLookupAdapterTest extends \MediaWikiUnitTestCase {
@@ -15,7 +13,7 @@ class InterwikiLookupAdapterTest extends \MediaWikiUnitTestCase {
 	 */
 	private $interwikiLookup;
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 
 		$this->interwikiLookup = new InterwikiLookupAdapter(
@@ -100,9 +98,8 @@ class InterwikiLookupAdapterTest extends \MediaWikiUnitTestCase {
 			->disableOriginalConstructor()
 			->getMock();
 
-		$siteLookup->expects( $this->any() )
-			->method( 'getSites' )
-			->will( $this->returnValue( $sites ) );
+		$siteLookup->method( 'getSites' )
+			->willReturn( $sites );
 
 		return $siteLookup;
 	}
@@ -119,7 +116,6 @@ class InterwikiLookupAdapterTest extends \MediaWikiUnitTestCase {
 		$site = new MediaWikiSite();
 		$site->setGlobalId( 'enwiktionary' );
 		$site->setGroup( 'wiktionary' );
-		$site->setLanguageCode( 'en' );
 		$site->addNavigationId( 'enwiktionary' );
 		$site->addInterwikiId( 'enwt' );
 		$site->setSource( 'local' );

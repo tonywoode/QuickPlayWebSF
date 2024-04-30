@@ -19,8 +19,11 @@
  */
 
 use MediaWiki\Content\IContentHandlerFactory;
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Page\WikiPageFactory;
+use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\SlotRecord;
+use MediaWiki\Storage\PageEditStash;
+use MediaWiki\User\UserIdentity;
 
 /**
  * Prepare an edit in shared cache so that it can be reused on edit
@@ -29,26 +32,69 @@ use MediaWiki\Revision\SlotRecord;
  * summary box. By the time of submission, the parse may have already
  * finished, and can be immediately used on page save. Certain parser
  * functions like {{REVISIONID}} or {{CURRENTTIME}} may cause the cache
- * to not be used on edit. Template and files used are check for changes
- * since the output was generated. The cache TTL is also kept low for sanity.
+ * to not be used on edit. Template and files used are checked for changes
+ * since the output was generated. The cache TTL is also kept low.
  *
  * @ingroup API
  * @since 1.25
  */
 class ApiStashEdit extends ApiBase {
+
+	/** @var IContentHandlerFactory */
+	private $contentHandlerFactory;
+
+	/** @var PageEditStash */
+	private $pageEditStash;
+
+	/** @var RevisionLookup */
+	private $revisionLookup;
+
+	/** @var IBufferingStatsdDataFactory */
+	private $statsdDataFactory;
+
+	/** @var WikiPageFactory */
+	private $wikiPageFactory;
+
+	/**
+	 * @param ApiMain $main
+	 * @param string $action
+	 * @param IContentHandlerFactory $contentHandlerFactory
+	 * @param PageEditStash $pageEditStash
+	 * @param RevisionLookup $revisionLookup
+	 * @param IBufferingStatsdDataFactory $statsdDataFactory
+	 * @param WikiPageFactory $wikiPageFactory
+	 */
+	public function __construct(
+		ApiMain $main,
+		$action,
+		IContentHandlerFactory $contentHandlerFactory,
+		PageEditStash $pageEditStash,
+		RevisionLookup $revisionLookup,
+		IBufferingStatsdDataFactory $statsdDataFactory,
+		WikiPageFactory $wikiPageFactory
+	) {
+		parent::__construct( $main, $action );
+
+		$this->contentHandlerFactory = $contentHandlerFactory;
+		$this->pageEditStash = $pageEditStash;
+		$this->revisionLookup = $revisionLookup;
+		$this->statsdDataFactory = $statsdDataFactory;
+		$this->wikiPageFactory = $wikiPageFactory;
+	}
+
 	public function execute() {
 		$user = $this->getUser();
 		$params = $this->extractRequestParams();
 
-		if ( $user->isBot() ) { // sanity
+		if ( $user->isBot() ) {
 			$this->dieWithError( 'apierror-botsnotsupported' );
 		}
 
-		$editStash = MediaWikiServices::getInstance()->getPageEditStash();
 		$page = $this->getTitleOrPageId( $params );
 		$title = $page->getTitle();
+		$this->getErrorFormatter()->setContextTitle( $title );
 
-		if ( !$this->getContentHandlerFactory()
+		if ( !$this->contentHandlerFactory
 			->getContentHandler( $params['contentmodel'] )
 			->isSupportedFormat( $params['contentformat'] )
 		) {
@@ -68,7 +114,7 @@ class ApiStashEdit extends ApiBase {
 			if ( !preg_match( '/^[0-9a-f]{40}$/', $textHash ) ) {
 				$this->dieWithError( 'apierror-stashedit-missingtext', 'missingtext' );
 			}
-			$text = $editStash->fetchInputText( $textHash );
+			$text = $this->pageEditStash->fetchInputText( $textHash );
 			if ( !is_string( $text ) ) {
 				$this->dieWithError( 'apierror-stashedit-missingtext', 'missingtext' );
 			}
@@ -82,12 +128,13 @@ class ApiStashEdit extends ApiBase {
 		$textContent = ContentHandler::makeContent(
 			$text, $title, $params['contentmodel'], $params['contentformat'] );
 
-		$page = WikiPage::factory( $title );
+		$page = $this->wikiPageFactory->newFromTitle( $title );
 		if ( $page->exists() ) {
 			// Page exists: get the merged content with the proposed change
-			$baseRev = MediaWikiServices::getInstance()
-				->getRevisionLookup()
-				->getRevisionByPageId( $page->getId(), $params['baserevid'] );
+			$baseRev = $this->revisionLookup->getRevisionByPageId(
+				$page->getId(),
+				$params['baserevid']
+			);
 			if ( !$baseRev ) {
 				$this->dieWithError( [ 'apierror-nosuchrevid', $params['baserevid'] ] );
 			}
@@ -115,9 +162,24 @@ class ApiStashEdit extends ApiBase {
 				if ( !$baseContent || !$currentContent ) {
 					$this->dieWithError( [ 'apierror-missingcontent-pageid', $page->getId() ], 'missingrev' );
 				}
-				$content = $this->getContentHandlerFactory()
-					->getContentHandler( $baseContent->getModel() )
-					->merge3( $baseContent, $editContent, $currentContent );
+
+				$baseModel = $baseContent->getModel();
+				$currentModel = $currentContent->getModel();
+
+				// T255700: Put this in try-block because if the models of these three Contents
+				// happen to not be identical, the ContentHandler may throw exception here.
+				try {
+					$content = $this->contentHandlerFactory
+						->getContentHandler( $baseModel )
+						->merge3( $baseContent, $editContent, $currentContent );
+				} catch ( Exception $e ) {
+					$this->dieWithException( $e, [
+						'wrap' => ApiMessage::create(
+							[ 'apierror-contentmodel-mismatch', $currentModel, $baseModel ]
+						)
+					] );
+				}
+
 			}
 		} else {
 			// New pages: use the user-provided content model
@@ -133,12 +195,12 @@ class ApiStashEdit extends ApiBase {
 		if ( $user->pingLimiter( 'stashedit' ) ) {
 			$status = 'ratelimited';
 		} else {
-			$status = $editStash->parseAndCache( $page, $content, $user, $params['summary'] );
-			$editStash->stashInputText( $text, $textHash );
+			$updater = $page->newPageUpdater( $user );
+			$status = $this->pageEditStash->parseAndCache( $updater, $content, $user, $params['summary'] );
+			$this->pageEditStash->stashInputText( $text, $textHash );
 		}
 
-		$stats = MediaWikiServices::getInstance()->getStatsdDataFactory();
-		$stats->increment( "editstash.cache_stores.$status" );
+		$this->statsdDataFactory->increment( "editstash.cache_stores.$status" );
 
 		$ret = [ 'status' => $status ];
 		// If we were rate-limited, we still return the pre-existing valid hash if one was passed
@@ -152,16 +214,16 @@ class ApiStashEdit extends ApiBase {
 	/**
 	 * @param WikiPage $page
 	 * @param Content $content Edit content
-	 * @param User $user
+	 * @param UserIdentity $user
 	 * @param string $summary Edit summary
 	 * @return string ApiStashEdit::ERROR_* constant
 	 * @since 1.25
-	 * @deprecated Since 1.34
+	 * @deprecated Since 1.34, hard deprecated since 1.38
 	 */
-	public function parseAndStash( WikiPage $page, Content $content, User $user, $summary ) {
-		$editStash = MediaWikiServices::getInstance()->getPageEditStash();
-
-		return $editStash->parseAndCache( $page, $content, $user, $summary ?? '' );
+	public function parseAndStash( WikiPage $page, Content $content, UserIdentity $user, $summary ) {
+		wfDeprecated( __METHOD__, '1.34' );
+		$updater = $page->newPageUpdater( $user );
+		return $this->pageEditStash->parseAndCache( $updater, $content, $user, $summary ?? '' );
 	}
 
 	public function getAllowedParams() {
@@ -189,11 +251,11 @@ class ApiStashEdit extends ApiBase {
 				ApiBase::PARAM_DFLT => ''
 			],
 			'contentmodel' => [
-				ApiBase::PARAM_TYPE => $this->getContentHandlerFactory()->getContentModels(),
+				ApiBase::PARAM_TYPE => $this->contentHandlerFactory->getContentModels(),
 				ApiBase::PARAM_REQUIRED => true
 			],
 			'contentformat' => [
-				ApiBase::PARAM_TYPE => $this->getContentHandlerFactory()->getAllContentFormats(),
+				ApiBase::PARAM_TYPE => $this->contentHandlerFactory->getAllContentFormats(),
 				ApiBase::PARAM_REQUIRED => true
 			],
 			'baserevid' => [
@@ -217,9 +279,5 @@ class ApiStashEdit extends ApiBase {
 
 	public function isInternal() {
 		return true;
-	}
-
-	private function getContentHandlerFactory(): IContentHandlerFactory {
-		return MediaWikiServices::getInstance()->getContentHandlerFactory();
 	}
 }

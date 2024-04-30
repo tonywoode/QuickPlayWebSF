@@ -111,9 +111,11 @@ class ApiAuthManagerHelper {
 
 			case AuthManager::SEC_REAUTH:
 				$this->module->dieWithError( 'apierror-reauthenticate' );
+				// dieWithError prevents continuation
 
 			case AuthManager::SEC_FAIL:
 				$this->module->dieWithError( 'apierror-cannotreauthenticate' );
+				// dieWithError prevents continuation
 
 			default:
 				throw new UnexpectedValueException( "Unknown status \"$status\"" );
@@ -123,14 +125,14 @@ class ApiAuthManagerHelper {
 	/**
 	 * Filter out authentication requests by class name
 	 * @param AuthenticationRequest[] $reqs Requests to filter
-	 * @param string[] $blacklist Class names to remove
+	 * @param string[] $remove Class names to remove
 	 * @return AuthenticationRequest[]
 	 */
-	public static function blacklistAuthenticationRequests( array $reqs, array $blacklist ) {
-		if ( $blacklist ) {
-			$blacklist = array_flip( $blacklist );
-			$reqs = array_filter( $reqs, function ( $req ) use ( $blacklist ) {
-				return !isset( $blacklist[get_class( $req )] );
+	public static function blacklistAuthenticationRequests( array $reqs, array $remove ) {
+		if ( $remove ) {
+			$remove = array_fill_keys( $remove, true );
+			$reqs = array_filter( $reqs, static function ( $req ) use ( $remove ) {
+				return !isset( $remove[get_class( $req )] );
 			} );
 		}
 		return $reqs;
@@ -149,14 +151,14 @@ class ApiAuthManagerHelper {
 		// Filter requests, if requested to do so
 		$wantedRequests = null;
 		if ( isset( $params['requests'] ) ) {
-			$wantedRequests = array_flip( $params['requests'] );
+			$wantedRequests = array_fill_keys( $params['requests'], true );
 		} elseif ( isset( $params['request'] ) ) {
 			$wantedRequests = [ $params['request'] => true ];
 		}
 		if ( $wantedRequests !== null ) {
 			$reqs = array_filter(
 				$reqs,
-				function ( AuthenticationRequest $req ) use ( $wantedRequests ) {
+				static function ( AuthenticationRequest $req ) use ( $wantedRequests ) {
 					return isset( $wantedRequests[$req->getUniqueId()] );
 				}
 			);
@@ -168,7 +170,7 @@ class ApiAuthManagerHelper {
 		foreach ( $reqs as $req ) {
 			$info = (array)$req->getFieldInfo();
 			$fields += $info;
-			$sensitive += array_filter( $info, function ( $opts ) {
+			$sensitive += array_filter( $info, static function ( $opts ) {
 				return !empty( $opts['sensitive'] );
 			} );
 		}
@@ -317,9 +319,8 @@ class ApiAuthManagerHelper {
 	/**
 	 * Clean up a field array for output
 	 * @param array $fields
-	 * @codingStandardsIgnoreStart
+	 * @phpcs:ignore Generic.Files.LineLength
 	 * @phan-param array{type:string,options:array,value:string,label:Message,help:Message,optional:bool,sensitive:bool,skippable:bool} $fields
-	 * @codingStandardsIgnoreEnd
 	 * @return array
 	 */
 	private function formatFields( array $fields ) {
@@ -335,7 +336,7 @@ class ApiAuthManagerHelper {
 			$ret = array_intersect_key( $field, $copy );
 
 			if ( isset( $field['options'] ) ) {
-				$ret['options'] = array_map( function ( $msg ) use ( $module ) {
+				$ret['options'] = array_map( static function ( $msg ) use ( $module ) {
 					return $msg->setContext( $module )->plain();
 				}, $field['options'] );
 				ApiResult::setArrayType( $ret['options'], 'assoc' );

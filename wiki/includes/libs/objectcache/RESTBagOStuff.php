@@ -127,8 +127,7 @@ class RESTBagOStuff extends MediumSpecificBagOStuff {
 		// Make sure URL ends with /
 		$this->url = rtrim( $params['url'], '/' ) . '/';
 
-		// Default config, R+W > N; no locks on reads though; writes go straight to state-machine
-		$this->attrMap[self::ATTR_SYNCWRITES] = self::QOS_SYNCWRITES_QC;
+		$this->attrMap[self::ATTR_DURABILITY] = self::QOS_DURABILITY_DISK;
 	}
 
 	public function setLogger( LoggerInterface $logger ) {
@@ -137,6 +136,7 @@ class RESTBagOStuff extends MediumSpecificBagOStuff {
 	}
 
 	protected function doGet( $key, $flags = 0, &$casToken = null ) {
+		$getToken = ( $casToken === self::PASS_BY_REF );
 		$casToken = null;
 
 		$req = [
@@ -145,21 +145,23 @@ class RESTBagOStuff extends MediumSpecificBagOStuff {
 			'headers' => $this->httpParams['readHeaders'],
 		];
 
+		$value = false;
+		$valueSize = false;
 		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $this->client->run( $req );
-		if ( $rcode === 200 ) {
-			if ( is_string( $rbody ) ) {
-				$value = $this->decodeBody( $rbody );
-				/// @FIXME: use some kind of hash or UUID header as CAS token
-				$casToken = ( $value !== false ) ? $rbody : null;
-
-				return $value;
+		if ( $rcode === 200 && is_string( $rbody ) ) {
+			$value = $this->decodeBody( $rbody );
+			$valueSize = strlen( $rbody );
+			// @FIXME: use some kind of hash or UUID header as CAS token
+			if ( $getToken && $value !== false ) {
+				$casToken = $rbody;
 			}
-			return false;
+		} elseif ( $rcode === 0 || ( $rcode >= 400 && $rcode != 404 ) ) {
+			$this->handleError( "Failed to fetch $key", $rcode, $rerr, $rhdrs, $rbody );
 		}
-		if ( $rcode === 0 || ( $rcode >= 400 && $rcode != 404 ) ) {
-			return $this->handleError( "Failed to fetch $key", $rcode, $rerr, $rhdrs, $rbody );
-		}
-		return false;
+
+		$this->updateOpStats( self::METRIC_OP_GET, [ $key => [ 0, $valueSize ] ] );
+
+		return $value;
 	}
 
 	protected function doSet( $key, $value, $exptime = 0, $flags = 0 ) {
@@ -173,10 +175,14 @@ class RESTBagOStuff extends MediumSpecificBagOStuff {
 		];
 
 		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $this->client->run( $req );
-		if ( $rcode === 200 || $rcode === 201 || $rcode === 204 ) {
-			return true;
+		$res = ( $rcode === 200 || $rcode === 201 || $rcode === 204 );
+		if ( !$res ) {
+			$this->handleError( "Failed to store $key", $rcode, $rerr, $rhdrs, $rbody );
 		}
-		return $this->handleError( "Failed to store $key", $rcode, $rerr, $rhdrs, $rbody );
+
+		$this->updateOpStats( self::METRIC_OP_SET, [ $key => [ strlen( $rbody ), 0 ] ] );
+
+		return $res;
 	}
 
 	protected function doAdd( $key, $value, $exptime = 0, $flags = 0 ) {
@@ -197,26 +203,56 @@ class RESTBagOStuff extends MediumSpecificBagOStuff {
 		];
 
 		list( $rcode, $rdesc, $rhdrs, $rbody, $rerr ) = $this->client->run( $req );
-		if ( in_array( $rcode, [ 200, 204, 205, 404, 410 ] ) ) {
-			return true;
+		$res = in_array( $rcode, [ 200, 204, 205, 404, 410 ] );
+		if ( !$res ) {
+			$this->handleError( "Failed to delete $key", $rcode, $rerr, $rhdrs, $rbody );
 		}
-		return $this->handleError( "Failed to delete $key", $rcode, $rerr, $rhdrs, $rbody );
+
+		$this->updateOpStats( self::METRIC_OP_DELETE, [ $key ] );
+
+		return $res;
 	}
 
 	public function incr( $key, $value = 1, $flags = 0 ) {
-		// @TODO: make this atomic
+		return $this->doIncr( $key, $value, $flags );
+	}
+
+	public function decr( $key, $value = 1, $flags = 0 ) {
+		return $this->doIncr( $key, -$value, $flags );
+	}
+
+	private function doIncr( $key, $value = 1, $flags = 0 ) {
+		// @TODO: make this atomic and respect existing key expiration
 		$n = $this->get( $key, self::READ_LATEST );
 		if ( $this->isInteger( $n ) ) { // key exists?
 			$n = max( $n + (int)$value, 0 );
-			// @TODO: respect $exptime
 			return $this->set( $key, $n ) ? $n : false;
 		}
 
 		return false;
 	}
 
-	public function decr( $key, $value = 1, $flags = 0 ) {
-		return $this->incr( $key, -$value, $flags );
+	protected function doIncrWithInit( $key, $exptime, $step, $init, $flags ) {
+		// @TODO: make this atomic and respect existing key expiration
+		$curValue = $this->doGet( $key );
+		if ( $curValue === false ) {
+			$newValue = $this->doSet( $key, $init, $exptime ) ? $init : false;
+		} elseif ( $this->isInteger( $curValue ) ) {
+			$sum = max( $curValue + $step, 0 );
+			$newValue = $this->doSet( $key, $sum, $exptime ) ? $sum : false;
+		} else {
+			$newValue = false;
+		}
+
+		return $newValue;
+	}
+
+	public function makeKeyInternal( $keyspace, $components ) {
+		return $this->genericKeyFromComponents( $keyspace, ...$components );
+	}
+
+	protected function convertGenericKey( $key ) {
+		return $key; // short-circuit; already uses "generic" keys
 	}
 
 	/**
@@ -296,7 +332,6 @@ class RESTBagOStuff extends MediumSpecificBagOStuff {
 	 * @param string $rerr Error message from client
 	 * @param array $rhdrs Response headers
 	 * @param string $rbody Error body from client (if any)
-	 * @return false
 	 */
 	protected function handleError( $msg, $rcode, $rerr, $rhdrs, $rbody ) {
 		$message = "$msg : ({code}) {error}";
@@ -323,6 +358,5 @@ class RESTBagOStuff extends MediumSpecificBagOStuff {
 
 		$this->logger->error( $message, $context );
 		$this->setLastError( $rcode === 0 ? self::ERR_UNREACHABLE : self::ERR_UNEXPECTED );
-		return false;
 	}
 }

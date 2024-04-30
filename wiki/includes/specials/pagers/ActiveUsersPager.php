@@ -19,7 +19,11 @@
  * @ingroup Pager
  */
 
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\HookContainer\HookContainer;
+use MediaWiki\User\UserGroupManager;
+use MediaWiki\User\UserIdentityValue;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * This class is used to get a list of active users. The ones with specials
@@ -52,11 +56,30 @@ class ActiveUsersPager extends UsersPager {
 	private $excludegroups;
 
 	/**
-	 * @param IContextSource|null $context
+	 * @param IContextSource $context
+	 * @param HookContainer $hookContainer
+	 * @param LinkBatchFactory $linkBatchFactory
+	 * @param ILoadBalancer $loadBalancer
+	 * @param UserGroupManager $userGroupManager
 	 * @param FormOptions $opts
 	 */
-	public function __construct( ?IContextSource $context, FormOptions $opts ) {
-		parent::__construct( $context );
+	public function __construct(
+		IContextSource $context,
+		HookContainer $hookContainer,
+		LinkBatchFactory $linkBatchFactory,
+		ILoadBalancer $loadBalancer,
+		UserGroupManager $userGroupManager,
+		FormOptions $opts
+	) {
+		parent::__construct(
+			$context,
+			$hookContainer,
+			$linkBatchFactory,
+			$loadBalancer,
+			$userGroupManager,
+			null,
+			null
+		);
 
 		$this->RCMaxAge = $this->getConfig()->get( 'ActiveUserDays' );
 		$this->requestedUser = '';
@@ -88,7 +111,7 @@ class ActiveUsersPager extends UsersPager {
 		$dbr = $this->getDatabase();
 
 		$activeUserSeconds = $this->getConfig()->get( 'ActiveUserDays' ) * 86400;
-		$timestamp = $dbr->timestamp( wfTimestamp( TS_UNIX ) - $activeUserSeconds );
+		$timestamp = $dbr->timestamp( (int)wfTimestamp( TS_UNIX ) - $activeUserSeconds );
 		$fname = __METHOD__ . ' (' . $this->getSqlComment() . ')';
 
 		// Inner subselect to pull the active users out of querycachetwo
@@ -126,10 +149,7 @@ class ActiveUsersPager extends UsersPager {
 			] ];
 			$conds['ug2.ug_user'] = null;
 		}
-		if ( !MediaWikiServices::getInstance()
-				  ->getPermissionManager()
-				  ->userHasRight( $this->getUser(), 'hideuser' )
-		) {
+		if ( !$this->canSeeHideuser() ) {
 			$conds[] = 'NOT EXISTS (' . $dbr->selectSQLText(
 					'ipblocks', '1', [ 'ipb_user=user_id', 'ipb_deleted' => 1 ], __METHOD__
 				) . ')';
@@ -181,7 +201,7 @@ class ActiveUsersPager extends UsersPager {
 			'limit' => intval( $limit ),
 			'order' => $dir,
 			'conds' =>
-				$offset != '' ? [ $this->mIndexField . $operator . $this->mDb->addQuotes( $offset ) ] : [],
+				$offset != '' ? [ $this->mIndexField . $operator . $this->getDatabase()->addQuotes( $offset ) ] : [],
 		] );
 
 		$tables = $info['tables'];
@@ -206,7 +226,7 @@ class ActiveUsersPager extends UsersPager {
 		// is done in two queries to avoid huge quicksorts and to make COUNT(*) correct.
 		$dbr = $this->getDatabase();
 		$res = $dbr->select( 'ipblocks',
-			[ 'ipb_user', 'MAX(ipb_deleted) AS deleted, MAX(ipb_sitewide) AS sitewide' ],
+			[ 'ipb_user', 'deleted' => 'MAX(ipb_deleted)', 'sitewide' => 'MAX(ipb_sitewide)' ],
 			[ 'ipb_user' => $uids ],
 			__METHOD__,
 			[ 'GROUP BY' => [ 'ipb_user' ] ]
@@ -242,7 +262,8 @@ class ActiveUsersPager extends UsersPager {
 
 		$list = [];
 
-		$ugms = self::getGroupMemberships( intval( $row->user_id ), $this->userGroupCache );
+		$userIdentity = new UserIdentityValue( intval( $row->user_id ), $userName );
+		$ugms = $this->getGroupMemberships( $userIdentity );
 		foreach ( $ugms as $ugm ) {
 			$list[] = $this->buildGroupLink( $ugm, $userName );
 		}

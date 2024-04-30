@@ -9,7 +9,7 @@ class ApiPrefixUniquenessTest extends MediaWikiIntegrationTestCase {
 
 	public function testPrefixes() {
 		$main = new ApiMain( new FauxRequest() );
-		$query = new ApiQuery( $main, 'foo' );
+		$query = $main->getModuleManager()->getModule( 'query' );
 		$moduleManager = $query->getModuleManager();
 
 		$modules = $moduleManager->getNames();
@@ -20,8 +20,7 @@ class ApiPrefixUniquenessTest extends MediaWikiIntegrationTestCase {
 			$class = get_class( $module );
 
 			$prefix = $module->getModulePrefix();
-			if ( $prefix === '' /* HACK: T196962 */ || $prefix === 'wbeu'
-				/* HACK: T290585 */ || $prefix === 'pi' ) {
+			if ( $prefix === '' /* HACK: T196962 */ || $prefix === 'wbeu' ) {
 				continue;
 			}
 

@@ -26,7 +26,7 @@ namespace Wikimedia\Rdbms;
 use InvalidArgumentException;
 
 /**
- * A simple single-master LBFactory that gets its configuration from the b/c globals
+ * A simple single-primary DB LBFactory that gets its configuration from the b/c globals
  */
 class LBFactorySimple extends LBFactory {
 	/** @var LoadBalancer */
@@ -38,7 +38,7 @@ class LBFactorySimple extends LBFactory {
 	private $loadMonitorConfig;
 
 	/** @var array[] Map of (server index => server config map) */
-	private $mainServers = [];
+	private $mainServers;
 	/** @var array[][] Map of (cluster => server index => server config map) */
 	private $externalServersByCluster = [];
 
@@ -74,11 +74,15 @@ class LBFactorySimple extends LBFactory {
 		}
 	}
 
-	public function newMainLB( $domain = false, $owner = null ) {
-		return $this->newLoadBalancer( $this->mainServers, $owner );
+	public function newMainLB( $domain = false, $owner = null ): ILoadBalancer {
+		return $this->newLoadBalancer(
+			self::CLUSTER_MAIN_DEFAULT,
+			$this->mainServers,
+			$owner
+		);
 	}
 
-	public function getMainLB( $domain = false ) {
+	public function getMainLB( $domain = false ): ILoadBalancer {
 		if ( $this->mainLB === null ) {
 			$this->mainLB = $this->newMainLB( $domain, $this->getOwnershipId() );
 		}
@@ -86,27 +90,34 @@ class LBFactorySimple extends LBFactory {
 		return $this->mainLB;
 	}
 
-	public function newExternalLB( $cluster, $owner = null ) {
+	public function newExternalLB( $cluster, $owner = null ): ILoadBalancer {
 		if ( !isset( $this->externalServersByCluster[$cluster] ) ) {
 			throw new InvalidArgumentException( "Unknown cluster '$cluster'." );
 		}
 
-		return $this->newLoadBalancer( $this->externalServersByCluster[$cluster], $owner );
+		return $this->newLoadBalancer(
+			$cluster,
+			$this->externalServersByCluster[$cluster],
+			$owner
+		);
 	}
 
-	public function getExternalLB( $cluster ) {
+	public function getExternalLB( $cluster ): ILoadBalancer {
 		if ( !isset( $this->externalLBs[$cluster] ) ) {
-			$this->externalLBs[$cluster] = $this->newExternalLB( $cluster, $this->getOwnershipId() );
+			$this->externalLBs[$cluster] = $this->newExternalLB(
+				$cluster,
+				$this->getOwnershipId()
+			);
 		}
 
 		return $this->externalLBs[$cluster];
 	}
 
-	public function getAllMainLBs() {
+	public function getAllMainLBs(): array {
 		return [ self::CLUSTER_MAIN_DEFAULT => $this->getMainLB() ];
 	}
 
-	public function getAllExternalLBs() {
+	public function getAllExternalLBs(): array {
 		$lbs = [];
 		foreach ( array_keys( $this->externalServersByCluster ) as $cluster ) {
 			$lbs[$cluster] = $this->getExternalLB( $cluster );
@@ -115,12 +126,13 @@ class LBFactorySimple extends LBFactory {
 		return $lbs;
 	}
 
-	private function newLoadBalancer( array $servers, $owner ) {
+	private function newLoadBalancer( string $clusterName, array $servers, $owner ) {
 		$lb = new LoadBalancer( array_merge(
 			$this->baseLoadBalancerParams( $owner ),
 			[
 				'servers' => $servers,
 				'loadMonitor' => $this->loadMonitorConfig,
+				'clusterName' => $clusterName
 			]
 		) );
 		$this->initLoadBalancer( $lb );

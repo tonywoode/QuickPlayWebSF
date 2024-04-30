@@ -24,7 +24,7 @@ class ResourceLoaderContextTest extends PHPUnit\Framework\TestCase {
 		// Request parameters
 		$this->assertEquals( [], $ctx->getModules() );
 		$this->assertEquals( 'qqx', $ctx->getLanguage() );
-		$this->assertFalse( $ctx->getDebug() );
+		$this->assertSame( 0, $ctx->getDebug() );
 		$this->assertNull( $ctx->getOnly() );
 		$this->assertEquals( 'fallback', $ctx->getSkin() );
 		$this->assertNull( $ctx->getUser() );
@@ -32,9 +32,10 @@ class ResourceLoaderContextTest extends PHPUnit\Framework\TestCase {
 
 		// Misc
 		$this->assertEquals( 'ltr', $ctx->getDirection() );
-		$this->assertEquals( 'qqx|fallback||||||||', $ctx->getHash() );
+		$this->assertEquals( 'qqx|fallback|0|||||||', $ctx->getHash() );
 		$this->assertSame( [], $ctx->getReqBase() );
 		$this->assertInstanceOf( User::class, $ctx->getUserObj() );
+		$this->assertNull( $ctx->getUserIdentity() );
 	}
 
 	public function testDummy() {
@@ -65,7 +66,7 @@ class ResourceLoaderContextTest extends PHPUnit\Framework\TestCase {
 			$ctx->getModules(),
 			[ 'foo', 'foo.quux', 'foo.baz', 'foo.bar', 'baz.quux' ]
 		);
-		$this->assertFalse( $ctx->getDebug() );
+		$this->assertSame( 0, $ctx->getDebug() );
 		$this->assertEquals( 'zh', $ctx->getLanguage() );
 		$this->assertEquals( 'styles', $ctx->getOnly() );
 		$this->assertEquals( 'fallback', $ctx->getSkin() );
@@ -73,7 +74,7 @@ class ResourceLoaderContextTest extends PHPUnit\Framework\TestCase {
 
 		// Misc
 		$this->assertEquals( 'ltr', $ctx->getDirection() );
-		$this->assertEquals( 'zh|fallback|||styles|||||', $ctx->getHash() );
+		$this->assertEquals( 'zh|fallback|0||styles|||||', $ctx->getHash() );
 		$this->assertSame( [ 'lang' => 'zh' ], $ctx->getReqBase() );
 	}
 
@@ -133,13 +134,15 @@ class ResourceLoaderContextTest extends PHPUnit\Framework\TestCase {
 	public function testGetUser() {
 		$ctx = new ResourceLoaderContext( $this->getResourceLoader(), new FauxRequest( [] ) );
 		$this->assertSame( null, $ctx->getUser() );
-		$this->assertTrue( $ctx->getUserObj()->isAnon() );
+		$this->assertFalse( $ctx->getUserObj()->isRegistered() );
+		$this->assertNull( $ctx->getUserIdentity() );
 
 		$ctx = new ResourceLoaderContext( $this->getResourceLoader(), new FauxRequest( [
 			'user' => 'Example'
 		] ) );
 		$this->assertSame( 'Example', $ctx->getUser() );
 		$this->assertEquals( 'Example', $ctx->getUserObj()->getName() );
+		$this->assertEquals( 'Example', $ctx->getUserIdentity()->getName() );
 	}
 
 	public function testMsg() {

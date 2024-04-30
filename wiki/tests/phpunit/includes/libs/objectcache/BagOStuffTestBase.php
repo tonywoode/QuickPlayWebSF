@@ -1,5 +1,6 @@
 <?php
 
+use Wikimedia\LightweightObjectStore\StorageAwareness;
 use Wikimedia\ScopedCallback;
 use Wikimedia\TestingAccessWrapper;
 
@@ -13,20 +14,37 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 	private $cache;
 
 	private const TEST_KEY = 'test';
+	private const TEST_TIME = 1563892142;
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 
-		$this->cache = $this->newCacheInstance();
-
-		$this->cache->delete( $this->cache->makeKey( self::TEST_KEY ) );
-		$this->cache->delete( $this->cache->makeKey( self::TEST_KEY ) . ':lock' );
+		try {
+			$this->cache = $this->newCacheInstance();
+		} catch ( InvalidArgumentException $e ) {
+			$this->markTestSkipped( "Cannot create cache instance for " . static::class .
+				': the configuration is presumably missing from $wgObjectCaches' );
+		}
+		$this->cache->deleteMulti( [
+			$this->cache->makeKey( self::TEST_KEY ),
+			$this->cache->makeKey( self::TEST_KEY ) . ':lock'
+		] );
 	}
 
 	/**
 	 * @return BagOStuff
 	 */
 	abstract protected function newCacheInstance();
+
+	protected function getCacheByClass( $className ) {
+		$caches = $this->getConfVar( 'ObjectCaches' );
+		foreach ( $caches as $id => $cache ) {
+			if ( ( $cache['class'] ?? '' ) === $className ) {
+				return ObjectCache::getInstance( $id );
+			}
+		}
+		$this->markTestSkipped( "No $className is configured" );
+	}
 
 	/**
 	 * @covers MediumSpecificBagOStuff::makeGlobalKey
@@ -38,14 +56,14 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$localKey = $cache->makeKey( 'first', 'second', 'third' );
 		$globalKey = $cache->makeGlobalKey( 'first', 'second', 'third' );
 
-		$this->assertStringMatchesFormat(
-			'%Sfirst%Ssecond%Sthird%S',
+		$this->assertSame(
+			'local:first:second:third',
 			$localKey,
 			'Local key interpolates parameters'
 		);
 
-		$this->assertStringMatchesFormat(
-			'global%Sfirst%Ssecond%Sthird%S',
+		$this->assertSame(
+			'global:first:second:third',
 			$globalKey,
 			'Global key interpolates parameters and contains global prefix'
 		);
@@ -60,6 +78,26 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 			$cache->makeKeyInternal( 'prefix', [ 'a', 'bc:', 'de' ] ),
 			$cache->makeKeyInternal( 'prefix', [ 'a', 'bc', ':de' ] )
 		);
+
+		$keyEmptyCollection = $cache->makeKey( '', 'second', 'third' );
+		$this->assertSame(
+			'local::second:third',
+			$keyEmptyCollection,
+			'Local key interpolates empty parameters'
+		);
+	}
+
+	/**
+	 * @covers MediumSpecificBagOStuff::isKeyGlobal
+	 */
+	public function testKeyIsGlobal() {
+		$cache = new HashBagOStuff();
+
+		$localKey = $cache->makeKey( 'first', 'second', 'third' );
+		$globalKey = $cache->makeGlobalKey( 'first', 'second', 'third' );
+
+		$this->assertFalse( $cache->isKeyGlobal( $localKey ) );
+		$this->assertTrue( $cache->isKeyGlobal( $globalKey ) );
 	}
 
 	/**
@@ -71,7 +109,7 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 
 		$calls = 0;
 		$casRace = false; // emulate a race
-		$callback = function ( BagOStuff $cache, $key, $oldVal, &$expiry ) use ( &$calls, &$casRace ) {
+		$callback = static function ( BagOStuff $cache, $key, $oldVal, &$expiry ) use ( &$calls, &$casRace ) {
 			++$calls;
 			if ( $casRace ) {
 				// Uses CAS instead?
@@ -110,9 +148,6 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 	 * @covers MediumSpecificBagOStuff::changeTTL
 	 */
 	public function testChangeTTLRenew() {
-		$now = microtime( true ); // need real time
-		$this->cache->setMockTime( $now );
-
 		$key = $this->cache->makeKey( self::TEST_KEY );
 		$value = 'meow';
 
@@ -131,39 +166,36 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 	 * @covers MediumSpecificBagOStuff::changeTTL
 	 */
 	public function testChangeTTLExpireRel() {
-		$now = microtime( true ); // need real time
-		$this->cache->setMockTime( $now );
-
 		$key = $this->cache->makeKey( self::TEST_KEY );
 		$value = 'meow';
 
 		$this->cache->add( $key, $value, 5 );
+		$this->assertSame( $value, $this->cache->get( $key ) );
 		$this->assertTrue( $this->cache->changeTTL( $key, -3600 ) );
 		$this->assertFalse( $this->cache->get( $key ) );
+		$this->assertFalse( $this->cache->changeTTL( $key, -3600 ) );
 	}
 
 	/**
 	 * @covers MediumSpecificBagOStuff::changeTTL
 	 */
 	public function testChangeTTLExpireAbs() {
-		$now = microtime( true ); // need real time
-		$this->cache->setMockTime( $now );
-
 		$key = $this->cache->makeKey( self::TEST_KEY );
 		$value = 'meow';
 
 		$this->cache->add( $key, $value, 5 );
-		$this->assertTrue( $this->cache->changeTTL( $key, $now - 3600 ) );
+		$this->assertSame( $value, $this->cache->get( $key ) );
+
+		$now = $this->cache->getCurrentTime();
+		$this->assertTrue( $this->cache->changeTTL( $key, (int)$now - 3600 ) );
 		$this->assertFalse( $this->cache->get( $key ) );
+		$this->assertFalse( $this->cache->changeTTL( $key, (int)$now - 3600 ) );
 	}
 
 	/**
 	 * @covers MediumSpecificBagOStuff::changeTTLMulti
 	 */
 	public function testChangeTTLMulti() {
-		$now = 1563892142;
-		$this->cache->setMockTime( $now );
-
 		$key1 = $this->cache->makeKey( 'test-key1' );
 		$key2 = $this->cache->makeKey( 'test-key2' );
 		$key3 = $this->cache->makeKey( 'test-key3' );
@@ -193,11 +225,11 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $ok, "One key missing" );
 		$this->assertSame( 1, $this->cache->get( $key1 ), "Key still live" );
 
-		$now = microtime( true ); // real time
 		$ok = $this->cache->setMulti( [ $key1 => 1, $key2 => 2, $key3 => 3 ] );
 		$this->assertTrue( $ok, "setMulti() succeeded" );
 
-		$ok = $this->cache->changeTTLMulti( [ $key1, $key2, $key3 ], $now + 86400 );
+		$now = $this->cache->getCurrentTime();
+		$ok = $this->cache->changeTTLMulti( [ $key1, $key2, $key3 ], (int)$now + 86400 );
 		$this->assertTrue( $ok, "Expiry set for all keys" );
 		$this->assertSame( 1, $this->cache->get( $key1 ), "Key still live" );
 
@@ -227,7 +259,7 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 
 		$key = $this->cache->makeKey( self::TEST_KEY );
 		$this->cache->add( $key, $value, 5 );
-		$this->assertEquals( $this->cache->get( $key ), $value );
+		$this->assertSame( $this->cache->get( $key ), $value );
 	}
 
 	/**
@@ -236,7 +268,7 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 	 * @covers MediumSpecificBagOStuff::getWithSetCallback
 	 */
 	public function testGetWithSetCallback() {
-		$now = 1563892142;
+		$now = self::TEST_TIME;
 		$cache = new HashBagOStuff( [] );
 		$cache->setMockTime( $now );
 		$key = $cache->makeKey( self::TEST_KEY );
@@ -246,7 +278,7 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$value = $cache->getWithSetCallback(
 			$key,
 			30,
-			function ( &$ttl ) {
+			static function ( &$ttl ) {
 				$ttl = 10;
 
 				return 'hello kitty';
@@ -278,6 +310,10 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 	 */
 	public function testIncrWithInit() {
 		$key = $this->cache->makeKey( self::TEST_KEY );
+
+		$val = $this->cache->get( $key );
+		$this->assertFalse( $val, "No value yet" );
+
 		$val = $this->cache->incrWithInit( $key, 0, 1, 3 );
 		$this->assertEquals( 3, $val, "Correct init value" );
 
@@ -374,7 +410,7 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		// 64 * 8 * 32768 = 16777216 bytes
 		$big = str_repeat( wfRandomString( 32 ) . '-' . wfRandomString( 32 ), 32768 );
 
-		$callback = function ( $cache, $key, $oldValue ) {
+		$callback = static function ( $cache, $key, $oldValue ) {
 			return $oldValue . '!';
 		};
 
@@ -480,22 +516,46 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 	 * @covers MediumSpecificBagOStuff::unlock()
 	 */
 	public function testLocking() {
-		$key = 'test';
+		$key = $this->cache->makeKey( self::TEST_KEY );
 		$this->assertTrue( $this->cache->lock( $key ) );
 		$this->assertFalse( $this->cache->lock( $key ) );
 		$this->assertTrue( $this->cache->unlock( $key ) );
+		$this->assertFalse( $this->cache->unlock( $key ) );
 
-		$key2 = 'test2';
-		$this->assertTrue( $this->cache->lock( $key2, 5, 5, 'rclass' ) );
-		$this->assertTrue( $this->cache->lock( $key2, 5, 5, 'rclass' ) );
-		$this->assertTrue( $this->cache->unlock( $key2 ) );
-		$this->assertTrue( $this->cache->unlock( $key2 ) );
+		$this->assertTrue( $this->cache->lock( $key, 5, 5, 'rclass' ) );
+		$this->assertTrue( $this->cache->lock( $key, 5, 5, 'rclass' ) );
+		$this->assertTrue( $this->cache->unlock( $key ) );
+		$this->assertTrue( $this->cache->unlock( $key ) );
 	}
 
-	protected function tearDown() : void {
-		$this->cache->delete( $this->cache->makeKey( self::TEST_KEY ) );
-		$this->cache->delete( $this->cache->makeKey( self::TEST_KEY ) . ':lock' );
+	/**
+	 * @covers MediumSpecificBagOStuff::watchErrors()
+	 * @covers MediumSpecificBagOStuff::getLastError()
+	 * @covers MediumSpecificBagOStuff::setLastError()
+	 */
+	public function testErrorHandling() {
+		$key = $this->cache->makeKey( self::TEST_KEY );
+		$wrapper = TestingAccessWrapper::newFromObject( $this->cache );
 
-		parent::tearDown();
+		$wp = $this->cache->watchErrors();
+		$this->cache->get( $key );
+		$this->assertSame( StorageAwareness::ERR_NONE, $this->cache->getLastError() );
+		$this->assertSame( StorageAwareness::ERR_NONE, $this->cache->getLastError( $wp ) );
+
+		$wrapper->setLastError( StorageAwareness::ERR_UNREACHABLE );
+		$this->assertSame( StorageAwareness::ERR_UNREACHABLE, $this->cache->getLastError() );
+		$this->assertSame( StorageAwareness::ERR_UNREACHABLE, $this->cache->getLastError( $wp ) );
+
+		$wp = $this->cache->watchErrors();
+		$wrapper->setLastError( StorageAwareness::ERR_UNEXPECTED );
+		$wp2 = $this->cache->watchErrors();
+		$this->assertSame( StorageAwareness::ERR_UNEXPECTED, $this->cache->getLastError() );
+		$this->assertSame( StorageAwareness::ERR_UNEXPECTED, $this->cache->getLastError( $wp ) );
+		$this->assertSame( StorageAwareness::ERR_NONE, $this->cache->getLastError( $wp2 ) );
+
+		$this->cache->get( $key );
+		$this->assertSame( StorageAwareness::ERR_UNEXPECTED, $this->cache->getLastError() );
+		$this->assertSame( StorageAwareness::ERR_UNEXPECTED, $this->cache->getLastError( $wp ) );
+		$this->assertSame( StorageAwareness::ERR_NONE, $this->cache->getLastError( $wp2 ) );
 	}
 }

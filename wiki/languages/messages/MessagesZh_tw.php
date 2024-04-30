@@ -1,5 +1,5 @@
 <?php
-/** Chinese (Taiwan) (‪中文(台灣)‬)
+/** Chinese (Taiwan) (‪中文(臺灣)‬)
  *
  * To improve a translation please visit https://translatewiki.net
  *
@@ -38,6 +38,7 @@ $namespaceAliases = [
 	"圖片討論" => NS_FILE_TALK,
 ];
 
+/** @phpcs-require-sorted-array */
 $specialPageAliases = [
 	'Allmessages'               => [ '所有訊息' ],
 	'Ancientpages'              => [ '最舊頁面' ],

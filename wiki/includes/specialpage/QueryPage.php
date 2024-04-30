@@ -21,10 +21,12 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\DBError;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**
@@ -56,7 +58,7 @@ abstract class QueryPage extends SpecialPage {
 	protected $numRows;
 
 	/**
-	 * @var string|null
+	 * @var string|null|false
 	 */
 	protected $cachedTimestamp = null;
 
@@ -64,6 +66,12 @@ abstract class QueryPage extends SpecialPage {
 	 * @var bool Whether to show prev/next links
 	 */
 	protected $shownavigation = true;
+
+	/** @var ILoadBalancer|null */
+	private $loadBalancer = null;
+
+	/** @var LinkBatchFactory|null */
+	private $linkBatchFactory = null;
 
 	/**
 	 * Get a list of query page classes and their associated special pages,
@@ -84,7 +92,6 @@ abstract class QueryPage extends SpecialPage {
 				[ SpecialBrokenRedirects::class, 'BrokenRedirects' ],
 				[ SpecialDeadendPages::class, 'Deadendpages' ],
 				[ SpecialDoubleRedirects::class, 'DoubleRedirects' ],
-				[ SpecialFileDuplicateSearch::class, 'FileDuplicateSearch' ],
 				[ SpecialListDuplicatedFiles::class, 'ListDuplicatedFiles' ],
 				[ SpecialLinkSearch::class, 'LinkSearch' ],
 				[ SpecialListRedirects::class, 'Listredirects' ],
@@ -119,6 +126,27 @@ abstract class QueryPage extends SpecialPage {
 		}
 
 		return $qp;
+	}
+
+	/**
+	 * @since 1.36
+	 * @param LinkBatchFactory $linkBatchFactory
+	 */
+	final protected function setLinkBatchFactory( LinkBatchFactory $linkBatchFactory ) {
+		$this->linkBatchFactory = $linkBatchFactory;
+	}
+
+	/**
+	 * @since 1.36
+	 * @return LinkBatchFactory
+	 */
+	final protected function getLinkBatchFactory(): LinkBatchFactory {
+		if ( $this->linkBatchFactory === null ) {
+			// Fallback if not provided
+			// TODO Change to wfWarn in a future release
+			$this->linkBatchFactory = MediaWikiServices::getInstance()->getLinkBatchFactory();
+		}
+		return $this->linkBatchFactory;
 	}
 
 	/**
@@ -190,6 +218,7 @@ abstract class QueryPage extends SpecialPage {
 	 * This is strongly deprecated; getQueryInfo() should be overridden instead.
 	 * @throws MWException
 	 * @return string
+	 * @suppress PhanPluginNeverReturnMethod
 	 */
 	protected function getSQL() {
 		/* Implement getQueryInfo() instead */
@@ -270,7 +299,7 @@ abstract class QueryPage extends SpecialPage {
 	}
 
 	/**
-	 * Sometime we don't want to build rss / atom feeds.
+	 * Sometimes we don't want to build rss / atom feeds.
 	 *
 	 * @stable to override
 	 * @return bool
@@ -285,7 +314,7 @@ abstract class QueryPage extends SpecialPage {
 	 * result data. You should be able to grab SQL results from it.
 	 * If the function returns false, the line output will be skipped.
 	 * @param Skin $skin
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return string|bool String or false to skip
 	 */
 	abstract protected function formatResult( $skin, $result );
@@ -339,24 +368,20 @@ abstract class QueryPage extends SpecialPage {
 		}
 
 		$fname = static::class . '::recache';
-		$dbw = wfGetDB( DB_MASTER );
-		if ( !$dbw ) {
-			return false;
-		}
+		$dbw = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_PRIMARY );
 
 		try {
-			# Do query
+			// Do query
 			$res = $this->reallyDoQuery( $limit, false );
 			$num = false;
 			if ( $res ) {
 				$num = $res->numRows();
-				# Fetch results
+				// Fetch results
 				$vals = [];
 				foreach ( $res as $i => $row ) {
 					if ( isset( $row->value ) ) {
 						if ( $this->usesTimestamps() ) {
-							$value = wfTimestamp( TS_UNIX,
-								$row->value );
+							$value = (int)wfTimestamp( TS_UNIX, $row->value );
 						} else {
 							$value = intval( $row->value ); // T16414
 						}
@@ -375,16 +400,16 @@ abstract class QueryPage extends SpecialPage {
 				$dbw->doAtomicSection(
 					__METHOD__,
 					function ( IDatabase $dbw, $fname ) use ( $vals ) {
-						# Clear out any old cached data
+						// Clear out any old cached data
 						$dbw->delete( 'querycache',
 							[ 'qc_type' => $this->getName() ],
 							$fname
 						);
-						# Save results into the querycache table on the master
+						// Save results into the querycache table on the primary DB
 						if ( count( $vals ) ) {
 							$dbw->insert( 'querycache', $vals, $fname );
 						}
-						# Update the querycache_info record for the page
+						// Update the querycache_info record for the page
 						$dbw->delete( 'querycache_info',
 							[ 'qci_type' => $this->getName() ],
 							$fname
@@ -413,7 +438,8 @@ abstract class QueryPage extends SpecialPage {
 	 * @return IDatabase
 	 */
 	protected function getRecacheDB() {
-		return wfGetDB( DB_REPLICA, [ $this->getName(), 'QueryPage::recache', 'vslow' ] );
+		return $this->getDBLoadBalancer()
+			->getConnectionRef( ILoadBalancer::DB_REPLICA, [ $this->getName(), 'QueryPage::recache', 'vslow' ] );
 	}
 
 	/**
@@ -424,13 +450,35 @@ abstract class QueryPage extends SpecialPage {
 	 */
 	public function delete( LinkTarget $title ) {
 		if ( $this->isCached() ) {
-			$dbw = wfGetDB( DB_MASTER );
+			$dbw = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_PRIMARY );
 			$dbw->delete( 'querycache', [
 				'qc_type' => $this->getName(),
 				'qc_namespace' => $title->getNamespace(),
 				'qc_title' => $title->getDBkey(),
 			], __METHOD__ );
 		}
+	}
+
+	/**
+	 * Remove all cached value
+	 * This is needed when the page is no longer using the cache
+	 * @since 1.36
+	 */
+	public function deleteAllCachedData() {
+		$fname = static::class . '::' . __FUNCTION__;
+		$dbw = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_PRIMARY );
+		$dbw->delete( 'querycache',
+			[ 'qc_type' => $this->getName() ],
+			$fname
+		);
+		$dbw->delete( 'querycachetwo',
+			[ 'qcc_type' => $this->getName() ],
+			$fname
+		);
+		$dbw->delete( 'querycache_info',
+			[ 'qci_type' => $this->getName() ],
+			$fname
+		);
 	}
 
 	/**
@@ -510,7 +558,7 @@ abstract class QueryPage extends SpecialPage {
 	 * @since 1.18
 	 */
 	public function fetchFromCache( $limit, $offset = false ) {
-		$dbr = wfGetDB( DB_REPLICA );
+		$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
 		$options = [];
 
 		if ( $limit !== false ) {
@@ -554,11 +602,11 @@ abstract class QueryPage extends SpecialPage {
 	}
 
 	/**
-	 * @return string
+	 * @return string|false
 	 */
 	public function getCachedTimestamp() {
 		if ( $this->cachedTimestamp === null ) {
-			$dbr = wfGetDB( DB_REPLICA );
+			$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
 			$fname = static::class . '::getCachedTimestamp';
 			$this->cachedTimestamp = $dbr->selectField( 'querycache_info', 'qci_timestamp',
 				[ 'qci_type' => $this->getName() ], $fname );
@@ -651,13 +699,13 @@ abstract class QueryPage extends SpecialPage {
 		$dbLimit = $this->getDBLimit( $this->limit, $this->offset );
 		// @todo Use doQuery()
 		if ( !$this->isCached() ) {
-			# select one extra row for navigation
+			// select one extra row for navigation
 			$res = $this->reallyDoQuery( $dbLimit, $this->offset );
 		} else {
-			# Get the cached result, select one extra row for navigation
+			// Get the cached result, select one extra row for navigation
 			$res = $this->fetchFromCache( $dbLimit, $this->offset );
 			if ( !$this->listoutput ) {
-				# Fetch the timestamp of this update
+				// Fetch the timestamp of this update
 				$ts = $this->getCachedTimestamp();
 				$lang = $this->getLanguage();
 				$maxResults = $lang->formatNum( $this->getConfig()->get( 'QueryCacheLimit' ) );
@@ -674,8 +722,8 @@ abstract class QueryPage extends SpecialPage {
 					$out->addWikiMsg( 'perfcached', $maxResults );
 				}
 
-				# If updates on this page have been disabled, let the user know
-				# that the data set won't be refreshed for now
+				// If updates on this page have been disabled, let the user know
+				// that the data set won't be refreshed for now
 				$disabledQueryPages = self::getDisabledQueryPages( $this->getConfig() );
 				if ( isset( $disabledQueryPages[$this->getName()] ) ) {
 					$runMode = $disabledQueryPages[$this->getName()];
@@ -702,14 +750,14 @@ abstract class QueryPage extends SpecialPage {
 
 		$out->addHTML( Xml::openElement( 'div', [ 'class' => 'mw-spcontent' ] ) );
 
-		# Top header and navigation
+		// Top header and navigation
 		if ( $this->shownavigation ) {
 			$out->addHTML( $this->getPageHeader() );
 			if ( $this->numRows > 0 ) {
 				$out->addHTML( $this->msg( 'showingresultsinrange' )->numParams(
-					min( $this->numRows, $this->limit ), # do not show the one extra row, if exist
+					min( $this->numRows, $this->limit ), // do not show the one extra row, if exist
 					$this->offset + 1, ( min( $this->numRows, $this->limit ) + $this->offset ) )->parseAsBlock() );
-				# Disable the "next" link when we reach the end
+				// Disable the "next" link when we reach the end
 				$miserMaxResults = $this->getConfig()->get( 'MiserMode' )
 					&& ( $this->offset + $this->limit >= $this->getMaxResults() );
 				$atEnd = ( $this->numRows <= $this->limit ) || $miserMaxResults;
@@ -717,25 +765,25 @@ abstract class QueryPage extends SpecialPage {
 					$this->limit, $this->linkParameters(), $atEnd, $par );
 				$out->addHTML( '<p>' . $paging . '</p>' );
 			} else {
-				# No results to show, so don't bother with "showing X of Y" etc.
-				# -- just let the user know and give up now
+				// No results to show, so don't bother with "showing X of Y" etc.
+				// -- just let the user know and give up now
 				$this->showEmptyText();
 				$out->addHTML( Xml::closeElement( 'div' ) );
 				return;
 			}
 		}
 
-		# The actual results; specialist subclasses will want to handle this
-		# with more than a straight list, so we hand them the info, plus
-		# an OutputPage, and let them get on with it
+		// The actual results; specialist subclasses will want to handle this
+		// with more than a straight list, so we hand them the info, plus
+		// an OutputPage, and let them get on with it
 		$this->outputResults( $out,
 			$this->getSkin(),
-			$dbr, # Should use IResultWrapper for this
+			$dbr, // Should use IResultWrapper for this
 			$res,
-			min( $this->numRows, $this->limit ), # do not format the one extra row, if exist
+			min( $this->numRows, $this->limit ), // do not format the one extra row, if exist
 			$this->offset );
 
-		# Repeat the paging links at the bottom
+		// Repeat the paging links at the bottom
 		if ( $this->shownavigation ) {
 			$out->addHTML( '<p>' . $paging . '</p>' );
 		}
@@ -763,8 +811,8 @@ abstract class QueryPage extends SpecialPage {
 				$html[] = $this->openList( $offset );
 			}
 
-			# $res might contain the whole 1,000 rows, so we read up to
-			# $num [should update this to use a Pager]
+			// $res might contain the whole 1,000 rows, so we read up to
+			// $num [should update this to use a Pager]
 			for ( $i = 0; $i < $num && $row = $res->fetchObject(); $i++ ) {
 				$line = $this->formatResult( $skin, $row );
 				if ( $line ) {
@@ -779,7 +827,7 @@ abstract class QueryPage extends SpecialPage {
 			}
 
 			$html = $this->listoutput
-				? MediaWikiServices::getInstance()->getContentLanguage()->listToText( $html )
+				? $this->getContentLanguage()->listToText( $html )
 				: implode( '', $html );
 
 			$out->addHTML( $html );
@@ -815,9 +863,11 @@ abstract class QueryPage extends SpecialPage {
 	 * title and optional the namespace field) and executes the batch. This operation will pre-cache
 	 * LinkCache information like page existence and information for stub color and redirect hints.
 	 *
+	 * @note Call self::setLinkBatchFactory from special page constructor when use
+	 *
 	 * @param IResultWrapper $res The result wrapper to process. Needs to include the title
 	 *  field and namespace field, if the $ns parameter isn't set.
-	 * @param null $ns Use this namespace for the given titles in the result wrapper,
+	 * @param int|null $ns Use this namespace for the given titles in the result wrapper,
 	 *  instead of the namespace value of $res.
 	 */
 	protected function executeLBFromResultWrapper( IResultWrapper $res, $ns = null ) {
@@ -825,12 +875,33 @@ abstract class QueryPage extends SpecialPage {
 			return;
 		}
 
-		$batch = new LinkBatch;
+		$batch = $this->getLinkBatchFactory()->newLinkBatch();
 		foreach ( $res as $row ) {
-			$batch->add( $ns ?? $row->namespace, $row->title );
+			$batch->add( $ns ?? (int)$row->namespace, $row->title );
 		}
 		$batch->execute();
 
 		$res->seek( 0 );
+	}
+
+	/**
+	 * @since 1.36
+	 * @param ILoadBalancer $loadBalancer
+	 */
+	final protected function setDBLoadBalancer( ILoadBalancer $loadBalancer ) {
+		$this->loadBalancer = $loadBalancer;
+	}
+
+	/**
+	 * @since 1.36
+	 * @return ILoadBalancer
+	 */
+	final protected function getDBLoadBalancer(): ILoadBalancer {
+		if ( $this->loadBalancer === null ) {
+			// Fallback if not provided
+			// TODO Change to wfWarn in a future release
+			$this->loadBalancer = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		}
+		return $this->loadBalancer;
 	}
 }

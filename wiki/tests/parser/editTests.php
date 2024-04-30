@@ -1,6 +1,8 @@
 <?php
 
-require __DIR__ . '/../../maintenance/Maintenance.php';
+use MediaWiki\Settings\SettingsBuilder;
+
+require_once __DIR__ . '/../../maintenance/Maintenance.php';
 
 define( 'MW_PARSER_TEST', true );
 
@@ -25,8 +27,8 @@ class ParserEditTests extends Maintenance {
 			'defaults.' );
 	}
 
-	public function finalSetup() {
-		parent::finalSetup();
+	public function finalSetup( SettingsBuilder $settingsBuilder = null ) {
+		parent::finalSetup( $settingsBuilder );
 		self::requireTestsAutoloader();
 		TestSetup::applyInitialConfig();
 	}
@@ -212,14 +214,6 @@ class ParserEditTests extends Maintenance {
 			'[U]pdate source file, copy actual to expected',
 			'[I]gnore' ];
 
-		if ( strpos( $testInfo['options'], ' tidy' ) === false ) {
-			if ( empty( $testInfo['isSubtest'] ) ) {
-				$specs[] = "Enable [T]idy";
-			}
-		} else {
-			$specs[] = 'Disable [T]idy';
-		}
-
 		if ( !empty( $testInfo['isSubtest'] ) ) {
 			$specs[] = 'Delete [s]ubtest';
 		}
@@ -236,7 +230,7 @@ class ParserEditTests extends Maintenance {
 		}
 
 		do {
-			$response = $this->readconsole();
+			$response = self::readconsole();
 			$cmdResult = false;
 			if ( $response === false ) {
 				exit( 0 );
@@ -409,7 +403,7 @@ class ParserEditTests extends Maintenance {
 			return false;
 		}
 		$result = TestFileEditor::edit( $text, $deletions, $changes,
-			function ( $msg ) {
+			static function ( $msg ) {
 				print "$msg\n";
 			}
 		);
@@ -448,9 +442,9 @@ class ParserEditTests extends Maintenance {
 
 	protected function switchTidy( $testInfo ) {
 		$resultSection = $testInfo['resultSection'];
-		if ( in_array( $resultSection, [ 'html/php', 'html/*', 'html', 'result' ] ) ) {
-			$newSection = 'html+tidy';
-		} elseif ( in_array( $resultSection, [ 'html/php+tidy', 'html+tidy' ] ) ) {
+		if ( in_array( $resultSection, [ 'html/php' ] ) ) {
+			$newSection = 'html/php';
+		} elseif ( in_array( $resultSection, [ 'html/*', 'html', 'result' ] ) ) {
 			$newSection = 'html';
 		} else {
 			print "Unrecognised result section name \"$resultSection\"";
@@ -485,4 +479,4 @@ class ParserEditTests extends Maintenance {
 }
 
 $maintClass = ParserEditTests::class;
-require RUN_MAINTENANCE_IF_MAIN;
+require_once RUN_MAINTENANCE_IF_MAIN;

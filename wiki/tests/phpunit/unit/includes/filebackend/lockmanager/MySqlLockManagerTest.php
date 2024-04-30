@@ -39,12 +39,12 @@ class MySqlLockManagerTest extends MediaWikiUnitTestCase {
 
 		$mockDb->expects( $this->once() )->method( 'query' )
 			->with( 'SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;' )
-			->will( $this->returnCallback( function () use ( &$isolationSet ) {
+			->will( $this->returnCallback( static function () use ( &$isolationSet ) {
 				$isolationSet = true;
 			} ) );
 
 		$mockDb->expects( $this->once() )->method( 'startAtomic' )
-			->will( $this->returnCallback( function () use ( &$trxStarted ) {
+			->will( $this->returnCallback( static function () use ( &$trxStarted ) {
 				$trxStarted = true;
 			} ) );
 
@@ -114,7 +114,7 @@ class MySqlLockManagerTest extends MediaWikiUnitTestCase {
 			->withConsecutive( ...$expectedSelectFieldArgs )
 			->willReturnOnConsecutiveCalls( ...$selectFieldReturns );
 
-		$mockDb->method( 'addQuotes' )->will( $this->returnCallback( function ( $s ) {
+		$mockDb->method( 'addQuotes' )->will( $this->returnCallback( static function ( $s ) {
 			return "'$s'";
 		} ) );
 
@@ -139,13 +139,11 @@ class MySqlLockManagerTest extends MediaWikiUnitTestCase {
 
 		$expectedErrors = [];
 		if ( !( $params['expectedOK'] ?? true ) ) {
-			foreach ( $params['lockArgs'][0] as $path ) {
-				$expectedErrors[] = [
-					'type' => 'error',
-					'message' => 'lockmanager-fail-acquirelock',
-					'params' => [ $path ],
-				];
-			}
+			$expectedErrors[] = [
+				'type' => 'error',
+				'message' => 'lockmanager-fail-conflict',
+				'params' => [],
+			];
 		}
 		$this->assertSame( $expectedErrors, $status->getErrors() );
 		$this->assertSame( !$expectedErrors, $status->isOK() );

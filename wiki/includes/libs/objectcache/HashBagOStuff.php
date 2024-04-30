@@ -49,9 +49,8 @@ class HashBagOStuff extends MediumSpecificBagOStuff {
 	 * @stable to call
 	 * @param array $params Additional parameters include:
 	 *   - maxKeys : only allow this many keys (using oldest-first eviction)
-	 * @codingStandardsIgnoreStart
+	 * @phpcs:ignore Generic.Files.LineLength
 	 * @phan-param array{logger?:Psr\Log\LoggerInterface,asyncHandler?:callable,keyspace?:string,reportDupes?:bool,syncTimeout?:int,segmentationSize?:int,segmentedValueMaxSize?:int,maxKeys?:int} $params
-	 * @codingStandardsIgnoreEnd
 	 */
 	public function __construct( $params = [] ) {
 		$params['segmentationSize'] = $params['segmentationSize'] ?? INF;
@@ -63,9 +62,12 @@ class HashBagOStuff extends MediumSpecificBagOStuff {
 			throw new InvalidArgumentException( '$maxKeys parameter must be above zero' );
 		}
 		$this->maxCacheKeys = $maxKeys;
+
+		$this->attrMap[self::ATTR_DURABILITY] = self::QOS_DURABILITY_SCRIPT;
 	}
 
 	protected function doGet( $key, $flags = 0, &$casToken = null ) {
+		$getToken = ( $casToken === self::PASS_BY_REF );
 		$casToken = null;
 
 		if ( !$this->hasKey( $key ) || $this->expire( $key ) ) {
@@ -77,7 +79,9 @@ class HashBagOStuff extends MediumSpecificBagOStuff {
 		unset( $this->bag[$key] );
 		$this->bag[$key] = $temp;
 
-		$casToken = $this->bag[$key][self::KEY_CAS];
+		if ( $getToken ) {
+			$casToken = $this->bag[$key][self::KEY_CAS];
+		}
 
 		return $this->bag[$key][self::KEY_VAL];
 	}
@@ -115,7 +119,15 @@ class HashBagOStuff extends MediumSpecificBagOStuff {
 	}
 
 	public function incr( $key, $value = 1, $flags = 0 ) {
-		$n = $this->get( $key );
+		return $this->doIncr( $key, $value, $flags );
+	}
+
+	public function decr( $key, $value = 1, $flags = 0 ) {
+		return $this->doIncr( $key, -$value, $flags );
+	}
+
+	private function doIncr( $key, $value = 1, $flags = 0 ) {
+		$n = $this->doGet( $key );
 		if ( $this->isInteger( $n ) ) {
 			$n = max( $n + (int)$value, 0 );
 			$this->bag[$key][self::KEY_VAL] = $n;
@@ -126,8 +138,18 @@ class HashBagOStuff extends MediumSpecificBagOStuff {
 		return false;
 	}
 
-	public function decr( $key, $value = 1, $flags = 0 ) {
-		return $this->incr( $key, -$value, $flags );
+	protected function doIncrWithInit( $key, $exptime, $step, $init, $flags ) {
+		$curValue = $this->doGet( $key );
+		if ( $curValue === false ) {
+			$newValue = $this->doSet( $key, $init, $exptime ) ? $init : false;
+		} elseif ( $this->isInteger( $curValue ) ) {
+			$newValue = max( $curValue + $step, 0 );
+			$this->bag[$key][self::KEY_VAL] = $newValue;
+		} else {
+			$newValue = false;
+		}
+
+		return $newValue;
 	}
 
 	/**
@@ -171,5 +193,13 @@ class HashBagOStuff extends MediumSpecificBagOStuff {
 	 */
 	public function hasKey( $key ) {
 		return isset( $this->bag[$key] );
+	}
+
+	public function makeKeyInternal( $keyspace, $components ) {
+		return $this->genericKeyFromComponents( $keyspace, ...$components );
+	}
+
+	protected function convertGenericKey( $key ) {
+		return $key; // short-circuit; already uses "generic" keys
 	}
 }

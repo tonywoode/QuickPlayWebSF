@@ -5,6 +5,9 @@ namespace MediaWiki\ResourceLoader\Hook;
 use ResourceLoaderContext;
 
 /**
+ * This is a hook handler interface, see docs/Hooks.md.
+ * Use the hook name "ResourceLoaderJqueryMsgModuleMagicWords" to register handlers implementing this interface.
+ *
  * @stable to implement
  * @ingroup ResourceLoaderHooks
  */
@@ -23,5 +26,5 @@ interface ResourceLoaderJqueryMsgModuleMagicWordsHook {
 	public function onResourceLoaderJqueryMsgModuleMagicWords(
 		ResourceLoaderContext $context,
 		array &$magicWords
-	) : void;
+	): void;
 }

@@ -1,9 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Lycaon (on ny.wikipedia.org)",
 			"Amire80",
-			"Icem4k"
+			"Icem4k",
+			"Lycaon (on ny.wikipedia.org)"
 		]
 	},
 	"sunday": "Lamlungu",
@@ -54,6 +54,7 @@
 	"searcharticle": "Pitani",
 	"printableversion": "Zosindikizidwa",
 	"edit": "Sintha",
+	"view-edit": "Sintha",
 	"talkpagelinktext": "nkhani",
 	"personaltools": "Zida zawekha",
 	"talk": "Kukambirana",
@@ -103,5 +104,6 @@
 	"tooltip-t-print": "Zosindikizidwa patsamba lino",
 	"pageinfo-toolboxlink": "Zambiri za tsamba",
 	"specialpages": "Masamba apadera",
-	"searchsuggest-search": "Sakani {{SITENAME}}"
+	"searchsuggest-search": "Sakani {{SITENAME}}",
+	"nstab-mainpage": "Tsamba lalikulu"
 }

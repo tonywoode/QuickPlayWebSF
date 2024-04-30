@@ -30,8 +30,10 @@
  */
 
 use MediaWiki\Config\ServiceOptions;
+use MediaWiki\Languages\LanguageNameUtils;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Settings\SettingsBuilder;
 
 require_once __DIR__ . '/Maintenance.php';
 
@@ -56,15 +58,36 @@ class RebuildLocalisationCache extends Maintenance {
 			false,
 			true
 		);
+		$this->addOption(
+			'no-database',
+			'EXPERIMENTAL: Disable the database backend. Setting this option will result in an error ' .
+			'if you have extensions or use site configuration that need the database. This is an ' .
+			'experimental feature to allow offline building of the localisation cache. Known limitations:' .
+			"\n" .
+			'* Incompatible with LCStoreDB, which always requires a database. ' . "\n" .
+			'* The message purge may require a database. See --skip-message-purge.'
+		);
+		// T237148: The Gadget extension (bundled with MediaWiki by default) requires a database`
+		// connection to register its modules for MessageBlobStore.
+		$this->addOption(
+			'skip-message-purge',
+			'Skip purging of MessageBlobStore. The purge operation may require a database, depending ' .
+			'on the configuration and extensions on this wiki. If skipping the purge now, you need to ' .
+			'run purgeMessageBlobStore.php shortly after deployment.'
+		);
+		$this->addOption(
+			'no-progress',
+			"Don't print a message for each rebuilt language file.  Use this instead of " .
+			"--quiet to get a brief summary of the operation."
+		);
 	}
 
-	public function finalSetup() {
-		# This script needs to be run to build the inital l10n cache. But if
-		# $wgLanguageCode is not 'en', it won't be able to run because there is
-		# no l10n cache. Break the cycle by forcing $wgLanguageCode = 'en'.
-		global $wgLanguageCode;
-		$wgLanguageCode = 'en';
-		parent::finalSetup();
+	public function finalSetup( SettingsBuilder $settingsBuilder = null ) {
+		# This script needs to be run to build the initial l10n cache. But if
+		# LanguageCode is not 'en', it won't be able to run because there is
+		# no l10n cache. Break the cycle by forcing the LanguageCode setting to 'en'.
+		$settingsBuilder->putConfigValue( 'LanguageCode', 'en' );
+		parent::finalSetup( $settingsBuilder );
 	}
 
 	public function execute() {
@@ -80,8 +103,8 @@ class RebuildLocalisationCache extends Maintenance {
 			$this->output( "Threaded rebuild is not supported on Windows; running single-threaded.\n" );
 			$threads = 1;
 		}
-		if ( $threads > 1 && !function_exists( 'pcntl_fork' ) ) {
-			$this->output( "PHP pcntl extension is not present; running single-threaded.\n" );
+		if ( $threads > 1 && ( !extension_loaded( 'sockets' ) || !function_exists( 'pcntl_fork' ) ) ) {
+			$this->output( "Threaded rebuild requires ext-pcntl and ext-sockets; running single-threaded.\n" );
 			$threads = 1;
 		}
 
@@ -96,6 +119,7 @@ class RebuildLocalisationCache extends Maintenance {
 		if ( $this->hasOption( 'store-class' ) ) {
 			$conf['storeClass'] = $this->getOption( 'store-class' );
 		}
+
 		// XXX Copy-pasted from ServiceWiring.php. Do we need a factory for this one caller?
 		$services = MediaWikiServices::getInstance();
 		$lc = new LocalisationCacheBulkLoad(
@@ -106,16 +130,17 @@ class RebuildLocalisationCache extends Maintenance {
 			),
 			LocalisationCache::getStoreFromConf( $conf, $wgCacheDirectory ),
 			LoggerFactory::getInstance( 'localisation' ),
-			[ function () use ( $services ) {
-				MessageBlobStore::clearGlobalCacheEntry( $services->getMainWANObjectCache() );
-			} ],
+			$this->hasOption( 'skip-message-purge' ) ? [] :
+				[ static function () use ( $services ) {
+					MessageBlobStore::clearGlobalCacheEntry( $services->getMainWANObjectCache() );
+				} ],
 			$services->getLanguageNameUtils(),
 			$services->getHookContainer()
 		);
 
 		$allCodes = array_keys( $services
 			->getLanguageNameUtils()
-			->getLanguageNames( null, 'mwfile' ) );
+			->getLanguageNames( LanguageNameUtils::AUTONYMS, LanguageNameUtils::SUPPORTED ) );
 		if ( $this->hasOption( 'lang' ) ) {
 			# Validate requested languages
 			$codes = array_intersect( $allCodes,
@@ -130,49 +155,83 @@ class RebuildLocalisationCache extends Maintenance {
 		}
 		sort( $codes );
 
-		// Initialise and split into chunks
 		$numRebuilt = 0;
 		$total = count( $codes );
-		$chunks = array_chunk( $codes, ceil( count( $codes ) / $threads ) );
-		$pids = [];
 		$parentStatus = 0;
-		foreach ( $chunks as $codes ) {
-			// Do not fork for only one thread
-			$pid = ( $threads > 1 ) ? pcntl_fork() : -1;
 
-			if ( $pid === 0 ) {
-				// Child, reseed because there is no bug in PHP:
-				// https://bugs.php.net/bug.php?id=42465
-				mt_srand( getmypid() );
+		if ( $threads <= 1 ) {
+			// Single-threaded implementation
+			$numRebuilt += $this->doRebuild( $codes, $lc, $force );
+		} else {
+			// Multi-threaded implementation
+			$chunks = array_chunk( $codes, ceil( count( $codes ) / $threads ) );
+			// Map from PID to readable socket
+			$sockets = [];
 
-				$this->doRebuild( $codes, $lc, $force );
-				exit( 0 );
-			} elseif ( $pid === -1 ) {
-				// Fork failed or one thread, do it serialized
-				$numRebuilt += $this->doRebuild( $codes, $lc, $force );
-			} else {
-				// Main thread
-				$pids[] = $pid;
+			foreach ( $chunks as $codes ) {
+				$socketpair = [];
+				// Create a pair of sockets so that the child can communicate
+				// the number of rebuilt langs to the parent.
+				if ( socket_create_pair( AF_UNIX, SOCK_STREAM, 0, $socketpair ) === false ) {
+					$this->fatalError( 'socket_create_pair failed' );
+				}
+
+				$pid = pcntl_fork();
+
+				if ( $pid === -1 ) {
+					$this->fatalError( ' pcntl_fork failed' );
+				} elseif ( $pid === 0 ) {
+					// Child, reseed because there is no bug in PHP:
+					// https://bugs.php.net/bug.php?id=42465
+					mt_srand( getmypid() );
+
+					$numRebuilt = $this->doRebuild( $codes, $lc, $force );
+					// Report the number of rebuilt langs to the parent.
+					$msg = strval( $numRebuilt ) . "\n";
+					socket_write( $socketpair[1], $msg, strlen( $msg ) );
+					// Child exits.
+					return;
+				} else {
+					// Main thread
+					$sockets[$pid] = $socketpair[0];
+				}
+			}
+
+			// Wait for all children
+			foreach ( $sockets as $pid => $socket ) {
+				$status = 0;
+				pcntl_waitpid( $pid, $status );
+
+				if ( pcntl_wifexited( $status ) ) {
+					$code = pcntl_wexitstatus( $status );
+					if ( $code ) {
+						$this->output( "Pid $pid exited with status $code !!\n" );
+					} else {
+						// Good exit status from child.  Read the number of rebuilt langs from it.
+						$res = socket_read( $socket, 512, PHP_NORMAL_READ );
+						if ( $res === false ) {
+							$this->output( "socket_read failed in parent\n" );
+						} else {
+							$numRebuilt += intval( $res );
+						}
+					}
+
+					// Mush all child statuses into a single value in the parent.
+					$parentStatus |= $code;
+				} elseif ( pcntl_wifsignaled( $status ) ) {
+					$signum = pcntl_wtermsig( $status );
+					$this->output( "Pid $pid terminated by signal $signum !!\n" );
+					$parentStatus |= 1;
+				}
 			}
 		}
-		// Wait for all children
-		foreach ( $pids as $pid ) {
-			$status = 0;
-			pcntl_waitpid( $pid, $status );
-			if ( pcntl_wexitstatus( $status ) ) {
-				// Pass a fatal error code through to the caller
-				$parentStatus = pcntl_wexitstatus( $status );
-			}
-		}
 
-		if ( !$pids ) {
-			$this->output( "$numRebuilt languages rebuilt out of $total\n" );
-			if ( $numRebuilt === 0 ) {
-				$this->output( "Use --force to rebuild the caches which are still fresh.\n" );
-			}
+		$this->output( "$numRebuilt languages rebuilt out of $total\n" );
+		if ( $numRebuilt === 0 ) {
+			$this->output( "Use --force to rebuild the caches which are still fresh.\n" );
 		}
 		if ( $parentStatus ) {
-			exit( $parentStatus );
+			$this->fatalError( 'Failed.', $parentStatus );
 		}
 	}
 
@@ -188,13 +247,24 @@ class RebuildLocalisationCache extends Maintenance {
 		$numRebuilt = 0;
 		foreach ( $codes as $code ) {
 			if ( $force || $lc->isExpired( $code ) ) {
-				$this->output( "Rebuilding $code...\n" );
+				if ( !$this->hasOption( 'no-progress' ) ) {
+					$this->output( "Rebuilding $code...\n" );
+				}
 				$lc->recache( $code );
 				$numRebuilt++;
 			}
 		}
 
 		return $numRebuilt;
+	}
+
+	/** @inheritDoc */
+	public function getDbType() {
+		if ( $this->hasOption( 'no-database' ) ) {
+			return Maintenance::DB_NONE;
+		}
+
+		return parent::getDbType();
 	}
 
 	/**

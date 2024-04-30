@@ -21,8 +21,8 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Auth\AuthManager;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\MediaWikiServices;
 
 /**
  * Let users manage bot passwords
@@ -37,18 +37,36 @@ class SpecialBotPasswords extends FormSpecialPage {
 	/** @var BotPassword|null Bot password being edited, if any */
 	private $botPassword = null;
 
-	/** @var string Operation being performed: create, update, delete */
+	/** @var string|null Operation being performed: create, update, delete */
 	private $operation = null;
 
-	/** @var string New password set, for communication between onSubmit() and onSuccess() */
+	/** @var string|null New password set, for communication between onSubmit() and onSuccess() */
 	private $password = null;
 
 	/** @var Psr\Log\LoggerInterface */
-	private $logger = null;
+	private $logger;
 
-	public function __construct() {
+	/** @var PasswordFactory */
+	private $passwordFactory;
+
+	/** @var CentralIdLookup */
+	private $centralIdLookup;
+
+	/**
+	 * @param PasswordFactory $passwordFactory
+	 * @param AuthManager $authManager
+	 * @param CentralIdLookup $centralIdLookup
+	 */
+	public function __construct(
+		PasswordFactory $passwordFactory,
+		AuthManager $authManager,
+		CentralIdLookup $centralIdLookup
+	) {
 		parent::__construct( 'BotPasswords', 'editmyprivateinfo' );
 		$this->logger = LoggerFactory::getInstance( 'authentication' );
+		$this->passwordFactory = $passwordFactory;
+		$this->centralIdLookup = $centralIdLookup;
+		$this->setAuthManager( $authManager );
 	}
 
 	/**
@@ -71,12 +89,15 @@ class SpecialBotPasswords extends FormSpecialPage {
 		$this->requireLogin();
 		$this->addHelpLink( 'Manual:Bot_passwords' );
 
-		$par = trim( $par );
-		if ( strlen( $par ) === 0 ) {
-			$par = null;
-		} elseif ( strlen( $par ) > BotPassword::APPID_MAXLENGTH ) {
-			throw new ErrorPageError( 'botpasswords', 'botpasswords-bad-appid',
-				[ htmlspecialchars( $par ) ] );
+		if ( $par !== null ) {
+			$par = trim( $par );
+			if ( $par === '' ) {
+				$par = null;
+			} elseif ( strlen( $par ) > BotPassword::APPID_MAXLENGTH ) {
+				throw new ErrorPageError(
+					'botpasswords', 'botpasswords-bad-appid', [ htmlspecialchars( $par ) ]
+				);
+			}
 		}
 
 		parent::execute( $par );
@@ -89,7 +110,7 @@ class SpecialBotPasswords extends FormSpecialPage {
 			throw new ErrorPageError( 'botpasswords', 'botpasswords-disabled' );
 		}
 
-		$this->userId = CentralIdLookup::factory()->centralIdFromLocalUser( $this->getUser() );
+		$this->userId = $this->centralIdLookup->centralIdFromLocalUser( $this->getUser() );
 		if ( !$this->userId ) {
 			throw new ErrorPageError( 'botpasswords', 'botpasswords-no-central-id' );
 		}
@@ -126,6 +147,8 @@ class SpecialBotPasswords extends FormSpecialPage {
 
 			$lang = $this->getLanguage();
 			$showGrants = MWGrants::getValidGrants();
+			$grantLinks = array_map( [ MWGrants::class, 'getGrantsLink' ], $showGrants );
+
 			$fields['grants'] = [
 				'type' => 'checkmatrix',
 				'label-message' => 'botpasswords-label-grants',
@@ -134,26 +157,27 @@ class SpecialBotPasswords extends FormSpecialPage {
 					$this->msg( 'botpasswords-label-grants-column' )->escaped() => 'grant'
 				],
 				'rows' => array_combine(
-					array_map( 'MWGrants::getGrantsLink', $showGrants ),
+					$grantLinks,
 					$showGrants
 				),
 				'default' => array_map(
-					function ( $g ) {
+					static function ( $g ) {
 						return "grant-$g";
 					},
 					$this->botPassword->getGrants()
 				),
 				'tooltips' => array_combine(
-					array_map( 'MWGrants::getGrantsLink', $showGrants ),
+					$grantLinks,
 					array_map(
-						function ( $rights ) use ( $lang ) {
-							return $lang->semicolonList( array_map( 'User::getRightDescription', $rights ) );
+						static function ( $rights ) use ( $lang ) {
+							return $lang->semicolonList( array_map( [ User::class, 'getRightDescription' ], $rights ) );
 						},
-						array_intersect_key( MWGrants::getRightsByGrant(), array_flip( $showGrants ) )
+						array_intersect_key( MWGrants::getRightsByGrant(),
+							array_fill_keys( $showGrants, true ) )
 					)
 				),
 				'force-options-on' => array_map(
-					function ( $g ) {
+					static function ( $g ) {
 						return "grant-$g";
 					},
 					MWGrants::getHiddenGrants()
@@ -168,7 +192,6 @@ class SpecialBotPasswords extends FormSpecialPage {
 
 		} else {
 			$linkRenderer = $this->getLinkRenderer();
-			$passwordFactory = MediaWikiServices::getInstance()->getPasswordFactory();
 
 			$dbr = BotPassword::getDB( DB_REPLICA );
 			$res = $dbr->select(
@@ -179,7 +202,7 @@ class SpecialBotPasswords extends FormSpecialPage {
 			);
 			foreach ( $res as $row ) {
 				try {
-					$password = $passwordFactory->newFromCiphertext( $row->bp_password );
+					$password = $this->passwordFactory->newFromCiphertext( $row->bp_password );
 					$passwordInvalid = $password instanceof InvalidPassword;
 					unset( $password );
 				} catch ( PasswordError $ex ) {
@@ -212,7 +235,7 @@ class SpecialBotPasswords extends FormSpecialPage {
 				'required' => true,
 				'size' => BotPassword::APPID_MAXLENGTH,
 				'maxlength' => BotPassword::APPID_MAXLENGTH,
-				'validation-callback' => function ( $v ) {
+				'validation-callback' => static function ( $v ) {
 					$v = trim( $v );
 					return $v !== '' && strlen( $v ) <= BotPassword::APPID_MAXLENGTH;
 				},
@@ -329,8 +352,7 @@ class SpecialBotPasswords extends FormSpecialPage {
 
 		if ( $this->operation === 'insert' || !empty( $data['resetPassword'] ) ) {
 			$this->password = BotPassword::generatePassword( $this->getConfig() );
-			$passwordFactory = MediaWikiServices::getInstance()->getPasswordFactory();
-			$password = $passwordFactory->newFromPlaintext( $this->password );
+			$password = $this->passwordFactory->newFromPlaintext( $this->password );
 		} else {
 			$password = null;
 		}

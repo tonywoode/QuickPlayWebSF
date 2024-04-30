@@ -20,7 +20,7 @@
  * @file
  */
 
-use MediaWiki\MediaWikiServices;
+use MediaWiki\BadFileLookup;
 
 /**
  * A query action to get image information from temporarily stashed files.
@@ -29,19 +29,43 @@ use MediaWiki\MediaWikiServices;
  */
 class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 
-	public function __construct( ApiQuery $query, $moduleName ) {
-		parent::__construct( $query, $moduleName, 'sii' );
+	/** @var RepoGroup */
+	private $repoGroup;
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param RepoGroup $repoGroup
+	 * @param Language $contentLanguage
+	 * @param BadFileLookup $badFileLookup
+	 */
+	public function __construct(
+		ApiQuery $query,
+		$moduleName,
+		RepoGroup $repoGroup,
+		Language $contentLanguage,
+		BadFileLookup $badFileLookup
+	) {
+		parent::__construct(
+			$query,
+			$moduleName,
+			'sii',
+			$repoGroup,
+			$contentLanguage,
+			$badFileLookup
+		);
+		$this->repoGroup = $repoGroup;
 	}
 
 	public function execute() {
-		if ( !$this->getUser()->isLoggedIn() ) {
+		if ( !$this->getUser()->isRegistered() ) {
 			$this->dieWithError( 'apierror-mustbeloggedin-uploadstash', 'notloggedin' );
 		}
 
 		$params = $this->extractRequestParams();
 		$modulePrefix = $this->getModulePrefix();
 
-		$prop = array_flip( $params['prop'] );
+		$prop = array_fill_keys( $params['prop'], true );
 
 		$scale = $this->getScale( $params );
 
@@ -55,8 +79,7 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 		}
 
 		try {
-			$stash = MediaWikiServices::getInstance()->getRepoGroup()
-				->getLocalRepo()->getUploadStash( $this->getUser() );
+			$stash = $this->repoGroup->getLocalRepo()->getUploadStash( $this->getUser() );
 
 			foreach ( $params['filekey'] as $filekey ) {
 				$file = $stash->getFile( $filekey );

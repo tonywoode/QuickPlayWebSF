@@ -1,7 +1,9 @@
 <?php
 
+use MediaWiki\Actions\ActionFactory;
 use MediaWiki\Block\DatabaseBlock;
-use MediaWiki\Block\Restriction\PageRestriction;
+use MediaWiki\DAO\WikiAwareEntity;
+use MediaWiki\Permissions\PermissionManager;
 
 /**
  * @covers Action
@@ -14,7 +16,7 @@ use MediaWiki\Block\Restriction\PageRestriction;
  */
 class ActionTest extends MediaWikiIntegrationTestCase {
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 
 		$context = $this->getContext();
@@ -23,7 +25,17 @@ class ActionTest extends MediaWikiIntegrationTestCase {
 			'disabled' => false,
 			'view' => true,
 			'edit' => true,
-			'revisiondelete' => SpecialPageAction::class,
+			'revisiondelete' => [
+				'class' => SpecialPageAction::class,
+				'services' => [
+					'SpecialPageFactory',
+				],
+				'args' => [
+					// SpecialPageAction is used for both 'editchangetags' and
+					// 'revisiondelete' actions, tell it which one this is
+					'revisiondelete',
+				],
+			],
 			'dummy' => true,
 			'access' => 'ControlledAccessDummyAction',
 			'unblock' => 'RequiresUnblockDummyAction',
@@ -63,7 +75,7 @@ class ActionTest extends MediaWikiIntegrationTestCase {
 	private function getArticle(
 		WikiPage $wikiPage = null,
 		IContextSource $context = null
-	) : Article {
+	): Article {
 		$context = $context ?? $this->getContext();
 		if ( $wikiPage !== null ) {
 			$context->setWikiPage( $wikiPage );
@@ -75,11 +87,11 @@ class ActionTest extends MediaWikiIntegrationTestCase {
 		return Article::newFromWikiPage( $wikiPage, $context );
 	}
 
-	private function getPage() : WikiPage {
+	private function getPage(): WikiPage {
 		return WikiPage::factory( $this->getTitle() );
 	}
 
-	private function getTitle() : Title {
+	private function getTitle(): Title {
 		return Title::makeTitle( 0, 'Title' );
 	}
 
@@ -89,7 +101,7 @@ class ActionTest extends MediaWikiIntegrationTestCase {
 	 */
 	private function getContext(
 		string $requestedAction = null
-	) : IContextSource {
+	): IContextSource {
 		$request = new FauxRequest( [ 'action' => $requestedAction ] );
 
 		$context = new DerivativeContext( RequestContext::getMain() );
@@ -123,12 +135,16 @@ class ActionTest extends MediaWikiIntegrationTestCase {
 	 * @param string|null $expected
 	 */
 	public function testActionExists( string $requestedAction, $expected ) {
+		$this->hideDeprecated( ActionFactory::class . '::actionExists' );
+		$this->hideDeprecated( Action::class . '::exists' );
 		$exists = Action::exists( $requestedAction );
 
 		$this->assertSame( $expected !== null, $exists );
 	}
 
 	public function testActionExists_doesNotRequireInstantiation() {
+		$this->hideDeprecated( ActionFactory::class . '::actionExists' );
+		$this->hideDeprecated( Action::class . '::exists' );
 		// The method is not supposed to check if the action can be instantiated.
 		$exists = Action::exists( 'declared' );
 
@@ -156,8 +172,6 @@ class ActionTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetActionNameNotPossible
-	 * @param mixed $requestedAction
-	 * @param string $expected
 	 */
 	public function testGetActionNameNotPossible( $requestedAction, string $expected ) {
 		$actionName = Action::getActionName(
@@ -224,16 +238,9 @@ class ActionTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( 'view', $actionName );
 	}
 
-	/**
-	 * @covers \Action::factory
-	 */
-	public function testActionFactory_withNull_expectNull() {
-		$this->hideDeprecated( 'Action::factory with null $action' );
-		$result = Action::factory( null, $this->getPage() );
-		$this->assertNull( $result );
-	}
-
 	public function testDisabledAction_exists() {
+		$this->hideDeprecated( ActionFactory::class . '::actionExists' );
+		$this->hideDeprecated( Action::class . '::exists' );
 		$exists = Action::exists( 'disabled' );
 
 		$this->assertTrue( $exists );
@@ -271,40 +278,35 @@ class ActionTest extends MediaWikiIntegrationTestCase {
 		$user = $this->getTestUser()->getUser();
 		$this->overrideUserPermissions( $user, [] );
 		$action = $this->getAction( 'access' );
-		try {
-			$action->canExecute( $user );
-		} catch ( Exception $e ) {
-			$this->assertInstanceOf( PermissionsError::class, $e );
-		}
+		$this->expectException( PermissionsError::class );
+		$action->canExecute( $user );
 	}
 
 	public function testCanExecuteRequiresUnblock() {
-		$user = $this->getTestUser()->getUser();
-		$this->overrideUserPermissions( $user, [] );
-
 		$page = $this->getExistingTestPage();
 		$action = $this->getAction( 'unblock', $page );
 
+		$user = $this->createMock( User::class );
+
+		$user->method( 'getWikiId' )->willReturn( WikiAwareEntity::LOCAL );
+
 		$block = new DatabaseBlock( [
 			'address' => $user,
-			'by' => $this->getTestSysop()->getUser()->getId(),
+			'by' => $this->getTestSysop()->getUser(),
 			'expiry' => 'infinity',
 			'sitewide' => false,
 		] );
-		$block->setRestrictions( [
-			new PageRestriction( 0, $page->getTitle()->getArticleID() ),
-		] );
 
-		$block->insert();
+		$user->expects( $this->once() )
+			->method( 'getBlock' )
+			->willReturn( $block );
 
-		try {
-			$action->canExecute( $user );
-			$this->assertFalse( true );
-		} catch ( Exception $e ) {
-			$this->assertInstanceOf( UserBlockedError::class, $e );
-		}
+		$permissionManager = $this->createMock( PermissionManager::class );
+		$permissionManager->method( 'isBlockedFrom' )->willReturn( true );
+		$this->setService( 'PermissionManager', $permissionManager );
 
-		$block->delete();
+		$this->expectException( UserBlockedError::class );
+		$action->canExecute( $user );
 	}
 
 }

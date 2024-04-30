@@ -70,10 +70,10 @@ class ForeignResourceManager {
 	) {
 		$this->registryFile = $registryFile;
 		$this->libDir = $libDir;
-		$this->infoPrinter = $infoPrinter ?? function ( $_ ) {
+		$this->infoPrinter = $infoPrinter ?? static function ( $_ ) {
 		};
 		$this->errorPrinter = $errorPrinter ?? $this->infoPrinter;
-		$this->verbosePrinter = $verbosePrinter ?? function ( $_ ) {
+		$this->verbosePrinter = $verbosePrinter ?? static function ( $_ ) {
 		};
 
 		// Use a temporary directory under the destination directory instead
@@ -203,8 +203,9 @@ class ForeignResourceManager {
 		} elseif ( $this->action === 'make-sri' ) {
 			$this->output( "Integrity for {$src}\n\tintegrity: {$actualIntegrity}\n" );
 		} else {
+			$expectedIntegrity = $integrity ?? 'null';
 			throw new Exception( "Integrity check failed for {$src}\n" .
-				"\tExpected: {$integrity}\n" .
+				"\tExpected: {$expectedIntegrity}\n" .
 				"\tActual: {$actualIntegrity}"
 			);
 		}

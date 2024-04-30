@@ -16,7 +16,7 @@ class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
 	 */
 	private $obLevel;
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		parent::setUp();
 
 		$this->interfaceTitle = Title::newFromText( __CLASS__ );
@@ -25,7 +25,7 @@ class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
 		$this->setMwGlobals( 'wgArticlePath', '/wiki/$1' );
 	}
 
-	protected function tearDown() : void {
+	protected function tearDown(): void {
 		$obLevel = ob_get_level();
 
 		while ( ob_get_level() > $this->obLevel ) {
@@ -217,7 +217,7 @@ class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
 		$output = $this->makeOutputPage( $params, $headers );
 		$request = $output->getRequest();
 
-		/* @var FauxResponse $response */
+		/** @var FauxResponse $response */
 		$response = $request->response();
 
 		// construct handler
@@ -290,15 +290,13 @@ class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
 	 * @param Title $title
 	 * @param array $headers Request headers
 	 * @param string $expectedRedirectSuffix Expected suffix of the HTTP Location header.
-	 *
-	 * @throws HttpError
 	 */
 	public function testHttpContentNegotiation(
 		Title $title,
 		array $headers,
 		$expectedRedirectSuffix
 	) {
-		/* @var FauxResponse $response */
+		/** @var FauxResponse $response */
 		$output = $this->makeOutputPage( [], $headers );
 		$request = $output->getRequest();
 

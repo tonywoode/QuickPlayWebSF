@@ -25,8 +25,7 @@ use MediaWiki\Config\ServiceOptions;
 use MediaWiki\FileBackend\FSFile\TempFSFileFactory;
 use MediaWiki\FileBackend\LockManager\LockManagerGroupFactory;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\MediaWikiServices;
-use Wikimedia\ObjectFactory;
+use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
  * Class to handle file backend registration
@@ -63,7 +62,7 @@ class FileBackendGroup {
 	private $objectFactory;
 
 	/**
-	 * @internal
+	 * @internal For use by ServiceWiring
 	 */
 	public const CONSTRUCTOR_OPTIONS = [
 		'DirectoryMode',
@@ -72,23 +71,6 @@ class FileBackendGroup {
 		'LocalFileRepo',
 		'fallbackWikiId',
 	];
-
-	/**
-	 * @deprecated since 1.35, inject the service instead
-	 * @return FileBackendGroup
-	 */
-	public static function singleton() : FileBackendGroup {
-		return MediaWikiServices::getInstance()->getFileBackendGroup();
-	}
-
-	/**
-	 * Destroy the singleton instance
-	 *
-	 * @deprecated since 1.35, test framework should reset services between tests instead
-	 */
-	public static function destroySingleton() {
-		MediaWikiServices::getInstance()->resetServiceForTesting( 'FileBackendGroup' );
-	}
 
 	/**
 	 * @param ServiceOptions $options
@@ -136,11 +118,12 @@ class FileBackendGroup {
 			$deletedDir = $info['deletedDir'] ?? false; // deletion disabled
 			$thumbDir = $info['thumbDir'] ?? "{$directory}/thumb";
 			$transcodedDir = $info['transcodedDir'] ?? "{$directory}/transcoded";
+			$lockManager = $info['lockManager'] ?? 'fsLockManager';
 			// Get the FS backend configuration
 			$autoBackends[] = [
 				'name' => $backendName,
 				'class' => FSFileBackend::class,
-				'lockManager' => 'fsLockManager',
+				'lockManager' => $lockManager,
 				'containerPaths' => [
 					"{$repoName}-public" => "{$directory}",
 					"{$repoName}-thumb" => $thumbDir,
@@ -245,7 +228,7 @@ class FileBackendGroup {
 				'wanCache' => $this->wanCache,
 				'srvCache' => $this->srvCache,
 				'logger' => LoggerFactory::getInstance( 'FileOperation' ),
-				'profiler' => function ( $section ) {
+				'profiler' => static function ( $section ) {
 					return Profiler::instance()->scopedProfileIn( $section );
 				}
 			],
@@ -257,11 +240,6 @@ class FileBackendGroup {
 				'lockManager' =>
 					$this->lmgFactory->getLockManagerGroup( $config['domainId'] )
 						->get( $config['lockManager'] ),
-				'fileJournal' => isset( $config['fileJournal'] )
-					? $this->objectFactory->createObject(
-						$config['fileJournal'] + [ 'backend' => $name ],
-						[ 'specIsArg' => true, 'assertClass' => FileJournal::class ] )
-					: new NullFileJournal
 			]
 		);
 	}

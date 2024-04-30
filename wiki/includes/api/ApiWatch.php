@@ -20,6 +20,7 @@
  * @file
  */
 
+use MediaWiki\Watchlist\WatchlistManager;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\ExpiryDef;
 
@@ -37,16 +38,20 @@ class ApiWatch extends ApiBase {
 	/** @var string Relative maximum expiry. */
 	private $maxDuration;
 
-	public function __construct( ApiMain $mainModule, $moduleName, $modulePrefix = '' ) {
-		parent::__construct( $mainModule, $moduleName, $modulePrefix );
+	/** @var WatchlistManager */
+	protected $watchlistManager;
 
+	public function __construct( ApiMain $mainModule, $moduleName, WatchlistManager $watchlistManager ) {
+		parent::__construct( $mainModule, $moduleName );
+
+		$this->watchlistManager = $watchlistManager;
 		$this->expiryEnabled = $this->getConfig()->get( 'WatchlistExpiry' );
 		$this->maxDuration = $this->getConfig()->get( 'WatchlistExpiryMaxDuration' );
 	}
 
 	public function execute() {
 		$user = $this->getUser();
-		if ( !$user->isLoggedIn() ) {
+		if ( !$user->isRegistered() ) {
 			$this->dieWithError( 'watchlistanontext', 'notloggedin' );
 		}
 
@@ -83,7 +88,7 @@ class ApiWatch extends ApiBase {
 			ApiResult::setIndexedTagName( $res, 'w' );
 		} else {
 			// dont allow use of old title parameter with new pageset parameters.
-			$extraParams = array_keys( array_filter( $pageSet->extractRequestParams(), function ( $x ) {
+			$extraParams = array_keys( array_filter( $pageSet->extractRequestParams(), static function ( $x ) {
 				return $x !== null && $x !== false;
 			} ) );
 
@@ -99,7 +104,7 @@ class ApiWatch extends ApiBase {
 			}
 
 			$title = Title::newFromText( $params['title'] );
-			if ( !$title || !$title->isWatchable() ) {
+			if ( !$title || !$this->watchlistManager->isWatchable( $title ) ) {
 				$this->dieWithError( [ 'invalidtitle', $params['title'] ] );
 			}
 			$res = $this->watchTitle( $title, $user, $params, true );
@@ -115,13 +120,13 @@ class ApiWatch extends ApiBase {
 	) {
 		$res = [ 'title' => $title->getPrefixedText(), 'ns' => $title->getNamespace() ];
 
-		if ( !$title->isWatchable() ) {
+		if ( !$this->watchlistManager->isWatchable( $title ) ) {
 			$res['watchable'] = 0;
 			return $res;
 		}
 
 		if ( $params['unwatch'] ) {
-			$status = UnwatchAction::doUnwatch( $title, $user );
+			$status = $this->watchlistManager->removeWatch( $user, $title );
 			$res['unwatched'] = $status->isOK();
 		} else {
 			$expiry = null;
@@ -132,7 +137,7 @@ class ApiWatch extends ApiBase {
 				$res['expiry'] = ApiResult::formatExpiry( $expiry );
 			}
 
-			$status = WatchAction::doWatch( $title, $user, User::CHECK_USER_RIGHTS, $expiry );
+			$status = $this->watchlistManager->addWatch( $user, $title, $expiry );
 			$res['watched'] = $status->isOK();
 		}
 

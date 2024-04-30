@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Classes used to send e-mails
  *
@@ -23,6 +24,9 @@
  * @author Tim Starling
  * @author Luke Welling lwelling@wikimedia.org
  */
+
+use MediaWiki\MediaWikiServices;
+use Wikimedia\AtEase\AtEase;
 
 /**
  * Collection of static functions for sending mail
@@ -58,14 +62,14 @@ class UserMailer {
 	 * @return string
 	 */
 	private static function makeMsgId() {
-		global $wgSMTP, $wgServer;
-
+		$smtp = MediaWikiServices::getInstance()->getMainConfig()->get( 'SMTP' );
+		$server = MediaWikiServices::getInstance()->getMainConfig()->get( 'Server' );
 		$domainId = WikiMap::getCurrentWikiDbDomain()->getId();
 		$msgid = uniqid( $domainId . ".", true /** for cygwin */ );
-		if ( is_array( $wgSMTP ) && isset( $wgSMTP['IDHost'] ) && $wgSMTP['IDHost'] ) {
-			$domain = $wgSMTP['IDHost'];
+		if ( is_array( $smtp ) && isset( $smtp['IDHost'] ) && $smtp['IDHost'] ) {
+			$domain = $smtp['IDHost'];
 		} else {
-			$url = wfParseUrl( $wgServer );
+			$url = wfParseUrl( $server );
 			$domain = $url['host'];
 		}
 		return "<$msgid@$domain>";
@@ -91,7 +95,7 @@ class UserMailer {
 	 * @return Status
 	 */
 	public static function send( $to, $from, $subject, $body, $options = [] ) {
-		global $wgAllowHTMLEmail;
+		$allowHTMLEmail = MediaWikiServices::getInstance()->getMainConfig()->get( 'AllowHTMLEmail' );
 
 		if ( !isset( $options['contentType'] ) ) {
 			$options['contentType'] = 'text/plain; charset=UTF-8';
@@ -124,7 +128,7 @@ class UserMailer {
 			return Status::newFatal( 'user-mail-no-body' );
 		}
 
-		if ( !$wgAllowHTMLEmail && is_array( $body ) ) {
+		if ( !$allowHTMLEmail && is_array( $body ) ) {
 			// HTML not wanted.  Dump it.
 			$body = $body['text'];
 		}
@@ -177,7 +181,7 @@ class UserMailer {
 	private static function isMailMimeUsable() {
 		static $usable = null;
 		if ( $usable === null ) {
-			$usable = class_exists( 'Mail_mime' );
+			$usable = class_exists( Mail_mime::class );
 		}
 		return $usable;
 	}
@@ -191,7 +195,7 @@ class UserMailer {
 	private static function isMailUsable() {
 		static $usable = null;
 		if ( $usable === null ) {
-			$usable = class_exists( 'Mail' );
+			$usable = class_exists( Mail::class );
 		}
 
 		return $usable;
@@ -220,7 +224,10 @@ class UserMailer {
 		$body,
 		$options = []
 	) {
-		global $wgSMTP, $wgEnotifMaxRecips, $wgAdditionalMailParams;
+		$mainConfig = MediaWikiServices::getInstance()->getMainConfig();
+		$smtp = $mainConfig->get( 'SMTP' );
+		$enotifMaxRecips = $mainConfig->get( 'EnotifMaxRecips' );
+		$additionalMailParams = $mainConfig->get( 'AdditionalMailParams' );
 		$mime = null;
 
 		$replyto = $options['replyTo'] ?? null;
@@ -268,7 +275,7 @@ class UserMailer {
 
 		$headers['From'] = $from->toString();
 		$returnPath = $from->address;
-		$extraParams = $wgAdditionalMailParams;
+		$extraParams = $additionalMailParams;
 
 		// Hook to generate custom VERP address for 'Return-Path'
 		Hooks::runner()->onUserMailerChangeReturnPath( $to, $returnPath );
@@ -351,11 +358,10 @@ class UserMailer {
 			return Status::newGood();
 		} elseif ( $ret !== true ) {
 			// the hook implementation will return a string to pass an error message
-			// @phan-suppress-next-line PhanTypeVoidArgument
 			return Status::newFatal( 'php-mail-error', $ret );
 		}
 
-		if ( is_array( $wgSMTP ) ) {
+		if ( is_array( $smtp ) ) {
 			// Check if pear/mail is already loaded (via composer)
 			if ( !self::isMailUsable() ) {
 				throw new MWException( 'PEAR mail package is not installed' );
@@ -363,13 +369,13 @@ class UserMailer {
 
 			$recips = array_map( 'strval', $to );
 
-			Wikimedia\suppressWarnings();
+			AtEase::suppressWarnings();
 
 			// Create the mail object using the Mail::factory method
-			$mail_object = Mail::factory( 'smtp', $wgSMTP );
+			$mail_object = Mail::factory( 'smtp', $smtp );
 			if ( PEAR::isError( $mail_object ) ) {
 				wfDebug( "PEAR::Mail factory failed: " . $mail_object->getMessage() );
-				Wikimedia\restoreWarnings();
+				AtEase::restoreWarnings();
 				return Status::newFatal( 'pear-mail-error', $mail_object->getMessage() );
 			}
 			'@phan-var Mail_smtp $mail_object';
@@ -385,16 +391,16 @@ class UserMailer {
 
 			// Split jobs since SMTP servers tends to limit the maximum
 			// number of possible recipients.
-			$chunks = array_chunk( $recips, $wgEnotifMaxRecips );
+			$chunks = array_chunk( $recips, $enotifMaxRecips );
 			foreach ( $chunks as $chunk ) {
 				$status = self::sendWithPear( $mail_object, $chunk, $headers, $body );
 				// FIXME : some chunks might be sent while others are not!
 				if ( !$status->isOK() ) {
-					Wikimedia\restoreWarnings();
+					AtEase::restoreWarnings();
 					return $status;
 				}
 			}
-			Wikimedia\restoreWarnings();
+			AtEase::restoreWarnings();
 			return Status::newGood();
 		} else {
 			// PHP mail()
@@ -494,16 +500,13 @@ class UserMailer {
 		$charset = str_replace( 'ISO-8859', 'ISO8859', $charset ); // ?
 
 		$illegal = '\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff=';
+		$replace = $illegal . '\t ?_';
 		if ( !preg_match( "/[$illegal]/", $string ) ) {
 			return $string;
 		}
-
-		// T344912: Add period '.' char
-		$replace = $illegal . '.\t ?_';
-
 		$out = "=?$charset?Q?";
 		$out .= preg_replace_callback( "/([$replace])/",
-			function ( $matches ) {
+			static function ( $matches ) {
 				return sprintf( "=%02X", ord( $matches[1] ) );
 			},
 			$string

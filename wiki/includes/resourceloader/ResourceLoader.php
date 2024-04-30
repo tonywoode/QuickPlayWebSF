@@ -29,7 +29,11 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Wikimedia\DependencyStore\DependencyStore;
 use Wikimedia\DependencyStore\KeyValueDependencyStore;
+use Wikimedia\Minify\CSSMin;
+use Wikimedia\Minify\JavaScriptMinifier;
 use Wikimedia\Rdbms\DBConnectionError;
+use Wikimedia\RequestTimeout\TimeoutException;
+use Wikimedia\ScopedCallback;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 use Wikimedia\WrappedString;
 
@@ -54,67 +58,59 @@ use Wikimedia\WrappedString;
  * @since 1.17
  */
 class ResourceLoader implements LoggerAwareInterface {
-	/** @var Config */
-	protected $config;
-	/** @var MessageBlobStore */
-	protected $blobStore;
-	/** @var DependencyStore */
-	protected $depStore;
+	/** @var int */
+	public const CACHE_VERSION = 9;
+	/** @var string JavaScript / CSS pragma to disable minification. * */
+	public const FILTER_NOMIN = '/*@nomin*/';
 
+	/** @var string */
+	private const RL_DEP_STORE_PREFIX = 'ResourceLoaderModule';
+	/** @var int How long to preserve indirect dependency metadata in our backend store. */
+	private const RL_MODULE_DEP_TTL = BagOStuff::TTL_WEEK;
+
+	/** @var int|null */
+	protected static $debugMode = null;
+
+	/** @var Config */
+	private $config;
+	/** @var MessageBlobStore */
+	private $blobStore;
+	/** @var DependencyStore */
+	private $depStore;
 	/** @var LoggerInterface */
 	private $logger;
-
 	/** @var HookContainer */
 	private $hookContainer;
-
 	/** @var HookRunner */
 	private $hookRunner;
 
 	/** @var ResourceLoaderModule[] Map of (module name => ResourceLoaderModule) */
-	protected $modules = [];
+	private $modules = [];
 	/** @var array[] Map of (module name => associative info array) */
-	protected $moduleInfos = [];
-	/**
-	 * Associative array mapping framework ids to a list of names of test suite modules
-	 * like [ 'qunit' => [ 'mediawiki.tests.qunit.suites', 'ext.foo.tests', ... ], ... ]
-	 * @var array
-	 */
-	protected $testModuleNames = [];
+	private $moduleInfos = [];
 	/** @var string[] List of module names that contain QUnit test suites */
-	protected $testSuiteModuleNames = [];
-	/** @var array Map of (source => path); E.g. [ 'source-id' => 'http://.../load.php' ] */
-	protected $sources = [];
-	/** @var array Errors accumulated during current respond() call */
+	private $testSuiteModuleNames = [];
+	/** @var string[] Map of (source => path); E.g. [ 'source-id' => 'http://.../load.php' ] */
+	private $sources = [];
+	/** @var array Errors accumulated during a respond() call. Exposed for testing. */
 	protected $errors = [];
-	/** @var string[] Extra HTTP response headers from modules loaded in makeModuleResponse() */
+	/**
+	 * @var string[] Buffer for extra response headers during a makeModuleResponse() call.
+	 * Exposed for testing.
+	 */
 	protected $extraHeaders = [];
-
 	/** @var array Map of (module-variant => buffered DependencyStore updates) */
 	private $depStoreUpdateBuffer = [];
-
-	/** @var array Styles that are skin-specific and supplement or replace the
+	/**
+	 * @var array Styles that are skin-specific and supplement or replace the
 	 * default skinStyles of a FileModule. See $wgResourceModuleSkinStyles.
 	 */
 	private $moduleSkinStyles = [];
 
-	/** @var bool */
-	protected static $debugMode = null;
-
-	/** @var int */
-	public const CACHE_VERSION = 8;
-
-	/** @var string */
-	private const RL_DEP_STORE_PREFIX = 'ResourceLoaderModule';
-	/** @var int Expiry (in seconds) of indirect dependency information for modules */
-	private const RL_MODULE_DEP_TTL = BagOStuff::TTL_WEEK;
-
-	/** @var string JavaScript / CSS pragma to disable minification. * */
-	public const FILTER_NOMIN = '/*@nomin*/';
-
 	/**
 	 * Load information stored in the database and dependency tracking store about modules
 	 *
-	 * @param string[] $moduleNames Module names
+	 * @param string[] $moduleNames
 	 * @param ResourceLoaderContext $context ResourceLoader-specific context of the request
 	 */
 	public function preloadModuleInfo( array $moduleNames, ResourceLoaderContext $context ) {
@@ -165,8 +161,8 @@ class ResourceLoader implements LoggerAwareInterface {
 	 *
 	 * Available filters are:
 	 *
-	 *    - minify-js \see JavaScriptMinifier::minify
-	 *    - minify-css \see CSSMin::minify
+	 *    - minify-js
+	 *    - minify-css
 	 *
 	 * If $data is empty, only contains whitespace or the filter was unknown,
 	 * $data is returned unmodified.
@@ -196,14 +192,16 @@ class ResourceLoader implements LoggerAwareInterface {
 			md5( $data )
 		);
 
-		$result = $cache->get( $key );
-		if ( $result === false ) {
-			$stats->increment( "resourceloader_cache.$filter.miss" );
-			$result = self::applyFilter( $filter, $data );
-			$cache->set( $key, $result, 24 * 3600 );
-		} else {
-			$stats->increment( "resourceloader_cache.$filter.hit" );
-		}
+		$incKey = "resourceloader_cache.$filter.hit";
+		$result = $cache->getWithSetCallback(
+			$key,
+			BagOStuff::TTL_DAY,
+			function () use ( $filter, $data, &$incKey ) {
+				$incKey = "resourceloader_cache.$filter.miss";
+				return self::applyFilter( $filter, $data );
+			}
+		);
+		$stats->increment( $incKey );
 		if ( $result === null ) {
 			// Cached failure
 			$result = $data;
@@ -224,6 +222,8 @@ class ResourceLoader implements LoggerAwareInterface {
 				$data = ( $filter === 'minify-css' )
 					? CSSMin::minify( $data )
 					: JavaScriptMinifier::minify( $data );
+			} catch ( TimeoutException $e ) {
+				throw $e;
 			} catch ( Exception $e ) {
 				MWExceptionHandler::logException( $e );
 				return null;
@@ -233,25 +233,23 @@ class ResourceLoader implements LoggerAwareInterface {
 	}
 
 	/**
-	 * Register core modules and runs registration hooks.
-	 * @param Config|null $config
+	 * @param Config $config Required configuration:
+	 *  - EnableJavaScriptTest
+	 *  - LoadScript
+	 *  - ResourceLoaderMaxage
+	 *  - UseFileCache
 	 * @param LoggerInterface|null $logger [optional]
 	 * @param DependencyStore|null $tracker [optional]
 	 */
 	public function __construct(
-		Config $config = null,
+		Config $config,
 		LoggerInterface $logger = null,
 		DependencyStore $tracker = null
 	) {
-		$this->logger = $logger ?: new NullLogger();
-		$services = MediaWikiServices::getInstance();
-
-		if ( !$config ) {
-			wfDeprecated( __METHOD__ . ' without a Config instance', '1.34' );
-			$config = $services->getMainConfig();
-		}
 		$this->config = $config;
+		$this->logger = $logger ?: new NullLogger();
 
+		$services = MediaWikiServices::getInstance();
 		$this->hookContainer = $services->getHookContainer();
 		$this->hookRunner = new HookRunner( $this->hookContainer );
 
@@ -327,6 +325,7 @@ class ResourceLoader implements LoggerAwareInterface {
 	/**
 	 * Register a module with the ResourceLoader system.
 	 *
+	 * @see $wgResourceModules for the available options.
 	 * @param string|array[] $name Module name as a string or, array of module info arrays
 	 *  keyed by name.
 	 * @param array|null $info Module info array. When using the first parameter to register
@@ -360,42 +359,6 @@ class ResourceLoader implements LoggerAwareInterface {
 
 			// Attach module
 			$this->moduleInfos[$name] = $info;
-
-			// Last-minute changes
-			// Apply custom skin-defined styles to existing modules.
-			if ( $this->isFileModule( $name ) ) {
-				foreach ( $this->moduleSkinStyles as $skinName => $skinStyles ) {
-					// If this module already defines skinStyles for this skin, ignore ResourceModuleSkinStyles.
-					if ( isset( $this->moduleInfos[$name]['skinStyles'][$skinName] ) ) {
-						continue;
-					}
-
-					// If $name is preceded with a '+', the defined style files will be added to 'default'
-					// skinStyles, otherwise 'default' will be ignored as it normally would be.
-					if ( isset( $skinStyles[$name] ) ) {
-						$paths = (array)$skinStyles[$name];
-						$styleFiles = [];
-					} elseif ( isset( $skinStyles['+' . $name] ) ) {
-						$paths = (array)$skinStyles['+' . $name];
-						$styleFiles = isset( $this->moduleInfos[$name]['skinStyles']['default'] ) ?
-							(array)$this->moduleInfos[$name]['skinStyles']['default'] :
-							[];
-					} else {
-						continue;
-					}
-
-					// Add new file paths, remapping them to refer to our directories and not use settings
-					// from the module we're modifying, which come from the base definition.
-					list( $localBasePath, $remoteBasePath ) =
-						ResourceLoaderFileModule::extractBasePaths( $skinStyles );
-
-					foreach ( $paths as $path ) {
-						$styleFiles[] = new ResourceLoaderFilePath( $path, $localBasePath, $remoteBasePath );
-					}
-
-					$this->moduleInfos[$name]['skinStyles'][$skinName] = $styleFiles;
-				}
-			}
 		}
 	}
 
@@ -403,7 +366,7 @@ class ResourceLoader implements LoggerAwareInterface {
 	 * @internal For use by ServiceWiring only
 	 * @codeCoverageIgnore
 	 */
-	public function registerTestModules() : void {
+	public function registerTestModules(): void {
 		global $IP;
 
 		if ( $this->config->get( 'EnableJavaScriptTest' ) !== true ) {
@@ -476,9 +439,7 @@ class ResourceLoader implements LoggerAwareInterface {
 	}
 
 	/**
-	 * Get a list of module names.
-	 *
-	 * @return array List of module names
+	 * @return string[]
 	 */
 	public function getModuleNames() {
 		return array_keys( $this->moduleInfos );
@@ -488,7 +449,7 @@ class ResourceLoader implements LoggerAwareInterface {
 	 * Get a list of module names with QUnit test suites.
 	 *
 	 * @internal For use by SpecialJavaScriptTest only
-	 * @return array
+	 * @return string[]
 	 * @codeCoverageIgnore
 	 */
 	public function getTestSuiteModuleNames() {
@@ -541,6 +502,7 @@ class ResourceLoader implements LoggerAwareInterface {
 				[ $this, 'loadModuleDependenciesInternal' ],
 				[ $this, 'saveModuleDependenciesInternal' ]
 			);
+			$object->setSkinStylesOverride( $this->moduleSkinStyles );
 			$this->modules[$name] = $object;
 		}
 
@@ -549,7 +511,7 @@ class ResourceLoader implements LoggerAwareInterface {
 
 	/**
 	 * @internal Exposed for letting getModule() pass the callable to DependencyStore
-	 * @param string $moduleName Module name
+	 * @param string $moduleName
 	 * @param string $variant Language/skin variant
 	 * @return string[] List of absolute file paths
 	 */
@@ -561,7 +523,7 @@ class ResourceLoader implements LoggerAwareInterface {
 
 	/**
 	 * @internal Exposed for letting getModule() pass the callable to DependencyStore
-	 * @param string $moduleName Module name
+	 * @param string $moduleName
 	 * @param string $variant Language/skin variant
 	 * @param string[] $paths List of relative paths referenced during computation
 	 * @param string[] $priorPaths List of relative paths tracked in the dependency store
@@ -601,7 +563,8 @@ class ResourceLoader implements LoggerAwareInterface {
 						// avoid duplicate write request slams (T124649)
 						// the lock must be specific to the current wiki (T247028)
 						continue;
-					} elseif ( $update === null ) {
+					}
+					if ( $update === null ) {
 						$entitiesUnreg[] = $entity;
 					} elseif ( $update === '*' ) {
 						$entitiesRenew[] = $entity;
@@ -616,26 +579,6 @@ class ResourceLoader implements LoggerAwareInterface {
 				$this->depStore->renew( self::RL_DEP_STORE_PREFIX, $entitiesRenew, $ttl );
 			} );
 		}
-	}
-
-	/**
-	 * Whether the module is a ResourceLoaderFileModule or subclass thereof.
-	 *
-	 * @param string $name Module name
-	 * @return bool
-	 */
-	protected function isFileModule( $name ) {
-		if ( !isset( $this->moduleInfos[$name] ) ) {
-			return false;
-		}
-		$info = $this->moduleInfos[$name];
-		return !isset( $info['factory'] ) && (
-			// The implied default for 'class' is ResourceLoaderFileModule
-			!isset( $info['class'] ) ||
-			// Explicit default
-			$info['class'] === ResourceLoaderFileModule::class ||
-			is_subclass_of( $info['class'], ResourceLoaderFileModule::class )
-		);
 	}
 
 	/**
@@ -773,6 +716,8 @@ class ResourceLoader implements LoggerAwareInterface {
 		$hashes = array_map( function ( $module ) use ( $context ) {
 			try {
 				return $this->getModule( $module )->getVersionHash( $context );
+			} catch ( TimeoutException $e ) {
+				throw $e;
 			} catch ( Exception $e ) {
 				// If modules fail to compute a version, don't fail the request (T152266)
 				// and still compute versions of other modules.
@@ -799,14 +744,10 @@ class ResourceLoader implements LoggerAwareInterface {
 	 *
 	 * @since 1.28
 	 * @param ResourceLoaderContext $context
-	 * @param string[]|null $modules
+	 * @param string[] $modules
 	 * @return string Hash
 	 */
-	public function makeVersionQuery( ResourceLoaderContext $context, array $modules = null ) {
-		if ( $modules === null ) {
-			wfDeprecated( __METHOD__ . ' without $modules', '1.34' );
-			$modules = $context->getModules();
-		}
+	public function makeVersionQuery( ResourceLoaderContext $context, array $modules ) {
 		// As of MediaWiki 1.28, the server and client use the same algorithm for combining
 		// version hashes. There is no technical reason for this to be same, and for years the
 		// implementations differed. If getCombinedVersion in PHP (used for StartupModule and
@@ -839,86 +780,96 @@ class ResourceLoader implements LoggerAwareInterface {
 		// See https://bugs.php.net/bug.php?id=36514
 		ob_start();
 
-		$this->measureResponseTime( RequestContext::getMain()->getTiming() );
+		$responseTime = $this->measureResponseTime();
 
-		// Find out which modules are missing and instantiate the others
-		$modules = [];
-		$missing = [];
-		foreach ( $context->getModules() as $name ) {
-			$module = $this->getModule( $name );
-			if ( $module ) {
-				// Do not allow private modules to be loaded from the web.
-				// This is a security issue, see T36907.
-				if ( $module->getGroup() === 'private' ) {
-					// Not a serious error, just means something is trying to access it (T101806)
-					$this->logger->debug( "Request for private module '$name' denied" );
-					$this->errors[] = "Cannot build private module \"$name\"";
-					continue;
+		$response = '';
+		try { // TimeoutException
+			// Find out which modules are missing and instantiate the others
+			$modules = [];
+			$missing = [];
+			foreach ( $context->getModules() as $name ) {
+				$module = $this->getModule( $name );
+				if ( $module ) {
+					// Do not allow private modules to be loaded from the web.
+					// This is a security issue, see T36907.
+					if ( $module->getGroup() === ResourceLoaderModule::GROUP_PRIVATE ) {
+						// Not a serious error, just means something is trying to access it (T101806)
+						$this->logger->debug( "Request for private module '$name' denied" );
+						$this->errors[] = "Cannot build private module \"$name\"";
+						continue;
+					}
+					$modules[$name] = $module;
+				} else {
+					$missing[] = $name;
 				}
-				$modules[$name] = $module;
+			}
+
+			try {
+				// Preload for getCombinedVersion() and for batch makeModuleResponse()
+				$this->preloadModuleInfo( array_keys( $modules ), $context );
+			}
+			catch ( TimeoutException $e ) {
+				throw $e;
+			}
+			catch ( Exception $e ) {
+				$this->outputErrorAndLog( $e, 'Preloading module info failed: {exception}' );
+			}
+
+			// Combine versions to propagate cache invalidation
+			$versionHash = '';
+			try {
+				$versionHash = $this->getCombinedVersion( $context, array_keys( $modules ) );
+			}
+			catch ( TimeoutException $e ) {
+				throw $e;
+			}
+			catch ( Exception $e ) {
+				$this->outputErrorAndLog( $e, 'Calculating version hash failed: {exception}' );
+			}
+
+			// See RFC 2616 § 3.11 Entity Tags
+			// https://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.11
+			$etag = 'W/"' . $versionHash . '"';
+
+			// Try the client-side cache first
+			if ( $this->tryRespondNotModified( $context, $etag ) ) {
+				return; // output handled (buffers cleared)
+			}
+
+			// Use file cache if enabled and available...
+			if ( $this->config->get( 'UseFileCache' ) ) {
+				$fileCache = ResourceFileCache::newFromContext( $context );
+				if ( $this->tryRespondFromFileCache( $fileCache, $context, $etag ) ) {
+					return; // output handled
+				}
 			} else {
-				$missing[] = $name;
+				$fileCache = null;
 			}
-		}
 
-		try {
-			// Preload for getCombinedVersion() and for batch makeModuleResponse()
-			$this->preloadModuleInfo( array_keys( $modules ), $context );
-		} catch ( Exception $e ) {
-			$this->outputErrorAndLog( $e, 'Preloading module info failed: {exception}' );
-		}
+			// Generate a response
+			$response = $this->makeModuleResponse( $context, $modules, $missing );
 
-		// Combine versions to propagate cache invalidation
-		$versionHash = '';
-		try {
-			$versionHash = $this->getCombinedVersion( $context, array_keys( $modules ) );
-		} catch ( Exception $e ) {
-			$this->outputErrorAndLog( $e, 'Calculating version hash failed: {exception}' );
-		}
-
-		// See RFC 2616 § 3.11 Entity Tags
-		// https://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.11
-		$etag = 'W/"' . $versionHash . '"';
-
-		// Try the client-side cache first
-		if ( $this->tryRespondNotModified( $context, $etag ) ) {
-			return; // output handled (buffers cleared)
-		}
-
-		// Use file cache if enabled and available...
-		if ( $this->config->get( 'UseFileCache' ) ) {
-			$fileCache = ResourceFileCache::newFromContext( $context );
-			if ( $this->tryRespondFromFileCache( $fileCache, $context, $etag ) ) {
-				return; // output handled
+			// Capture any PHP warnings from the output buffer and append them to the
+			// error list if we're in debug mode.
+			if ( $context->getDebug() ) {
+				$warnings = ob_get_contents();
+				if ( strlen( $warnings ) ) {
+					$this->errors[] = $warnings;
+				}
 			}
-		} else {
-			$fileCache = null;
-		}
 
-		// Generate a response
-		$response = $this->makeModuleResponse( $context, $modules, $missing );
-
-		// Capture any PHP warnings from the output buffer and append them to the
-		// error list if we're in debug mode.
-		if ( $context->getDebug() ) {
-			$warnings = ob_get_contents();
-			if ( strlen( $warnings ) ) {
-				$this->errors[] = $warnings;
+			// Consider saving the response to file cache (unless there are errors).
+			if ( $fileCache && !$this->errors && $missing === [] &&
+				ResourceFileCache::useFileCache( $context ) ) {
+				if ( $fileCache->isCacheWorthy() ) {
+					// There were enough hits, save the response to the cache
+					$fileCache->saveText( $response );
+				} else {
+					$fileCache->incrMissesRecent( $context->getRequest() );
+				}
 			}
-		}
-
-		// Consider saving the response to file cache (unless there are errors).
-		if ( $fileCache &&
-			!$this->errors &&
-			$missing === [] &&
-			ResourceFileCache::useFileCache( $context )
-		) {
-			if ( $fileCache->isCacheWorthy() ) {
-				// There were enough hits, save the response to the cache
-				$fileCache->saveText( $response );
-			} else {
-				$fileCache->incrMissesRecent( $context->getRequest() );
-			}
+		} catch ( TimeoutException $e ) {
+			$this->outputErrorAndLog( $e, "Request timed out" );
 		}
 
 		$this->sendResponseHeaders( $context, $etag, (bool)$this->errors, $this->extraHeaders );
@@ -943,16 +894,20 @@ class ResourceLoader implements LoggerAwareInterface {
 		}
 
 		$this->errors = [];
+		// @phan-suppress-next-line SecurityCheck-XSS
 		echo $response;
 	}
 
-	protected function measureResponseTime( Timing $timing ) {
-		DeferredUpdates::addCallableUpdate( function () use ( $timing ) {
-			$measure = $timing->measure( 'responseTime', 'requestStart', 'requestShutdown' );
-			if ( $measure !== false ) {
-				$stats = MediaWikiServices::getInstance()->getStatsdDataFactory();
-				$stats->timing( 'resourceloader.responseTime', $measure['duration'] * 1000 );
-			}
+	/**
+	 * Send stats about the time used to build the response
+	 * @return ScopedCallback
+	 */
+	protected function measureResponseTime() {
+		$statStart = $_SERVER['REQUEST_TIME_FLOAT'];
+		return new ScopedCallback( static function () use ( $statStart ) {
+			$statTiming = microtime( true ) - $statStart;
+			$stats = MediaWikiServices::getInstance()->getStatsdDataFactory();
+			$stats->timing( 'resourceloader.responseTime', $statTiming * 1000 );
 		} );
 	}
 
@@ -968,7 +923,7 @@ class ResourceLoader implements LoggerAwareInterface {
 	 */
 	protected function sendResponseHeaders(
 		ResourceLoaderContext $context, $etag, $errors, array $extra = []
-	) : void {
+	): void {
 		HeaderCallback::warnIfHeadersSent();
 		$rlMaxage = $this->config->get( 'ResourceLoaderMaxage' );
 		// Use a short cache expiry so that updates propagate to clients quickly, if:
@@ -1015,7 +970,7 @@ class ResourceLoader implements LoggerAwareInterface {
 	}
 
 	/**
-	 * Respond with HTTP 304 Not Modified if appropiate.
+	 * Respond with HTTP 304 Not Modified if appropriate.
 	 *
 	 * If there's an If-None-Match header, respond with a 304 appropriately
 	 * and clear out the output buffer. If the client cache is too old then do nothing.
@@ -1134,9 +1089,9 @@ class ResourceLoader implements LoggerAwareInterface {
 	 * @return string Sanitized text that can be returned to the user
 	 */
 	protected static function formatExceptionNoComment( Throwable $e ) {
-		global $wgShowExceptionDetails;
+		$showExceptionDetails = MediaWikiServices::getInstance()->getMainConfig()->get( 'ShowExceptionDetails' );
 
-		if ( !$wgShowExceptionDetails ) {
+		if ( !$showExceptionDetails ) {
 			return MWExceptionHandler::getPublicLogMessage( $e );
 		}
 
@@ -1184,7 +1139,9 @@ MESSAGE;
 			$states[$name] = 'missing';
 		}
 
-		$filter = $context->getOnly() === 'styles' ? 'minify-css' : 'minify-js';
+		$only = $context->getOnly();
+		$filter = $only === 'styles' ? 'minify-css' : 'minify-js';
+		$debug = (bool)$context->getDebug();
 
 		foreach ( $modules as $name => $module ) {
 			try {
@@ -1197,7 +1154,7 @@ MESSAGE;
 				}
 
 				// Append output
-				switch ( $context->getOnly() ) {
+				switch ( $only ) {
 					case 'scripts':
 						$scripts = $content['scripts'];
 						if ( is_string( $scripts ) ) {
@@ -1227,10 +1184,10 @@ MESSAGE;
 						if ( is_string( $scripts ) ) {
 							if ( $name === 'site' || $name === 'user' ) {
 								// Legacy scripts that run in the global scope without a closure.
-								// mw.loader.implement will use globalEval if scripts is a string.
+								// mw.loader.implement will use eval if scripts is a string.
 								// Minify manually here, because general response minification is
 								// not effective due it being a string literal, not a function.
-								if ( !$context->getDebug() ) {
+								if ( !$debug ) {
 									$scripts = self::filter( 'minify-js', $scripts ); // T107377
 								}
 							} else {
@@ -1242,27 +1199,35 @@ MESSAGE;
 							$implementKey,
 							$scripts,
 							$content['styles'] ?? [],
+							// @phan-suppress-next-line SecurityCheck-XSS
 							isset( $content['messagesBlob'] ) ? new XmlJsCode( $content['messagesBlob'] ) : [],
 							$content['templates'] ?? []
 						);
 						break;
 				}
 
-				if ( !$context->getDebug() ) {
-					$strContent = self::filter( $filter, $strContent );
+				if ( !$debug ) {
+					$strContent = self::filter( $filter, $strContent, [
+						// Important: Do not cache minifications of embedded modules
+						// This is especially for the private 'user.options' module,
+						// which varies on every pageview and would explode the cache (T84960)
+						'cache' => !$module->shouldEmbedModule( $context )
+					] );
 				} else {
 					// In debug mode, separate each response by a new line.
 					// For example, between 'mw.loader.implement();' statements.
-					$strContent = $this->ensureNewline( $strContent );
+					$strContent = self::ensureNewline( $strContent );
 				}
 
-				if ( $context->getOnly() === 'scripts' ) {
+				if ( $only === 'scripts' ) {
 					// Use a linebreak between module scripts (T162719)
-					$out .= $this->ensureNewline( $strContent );
+					$out .= self::ensureNewline( $strContent );
 				} else {
 					$out .= $strContent;
 				}
 
+			} catch ( TimeoutException $e ) {
+				throw $e;
 			} catch ( Exception $e ) {
 				$this->outputErrorAndLog( $e, 'Generating module package failed: {exception}' );
 
@@ -1274,7 +1239,7 @@ MESSAGE;
 
 		// Update module states
 		if ( $context->shouldIncludeScripts() && !$context->getRaw() ) {
-			if ( $modules && $context->getOnly() === 'scripts' ) {
+			if ( $modules && $only === 'scripts' ) {
 				// Set the state of modules loaded as only scripts to ready as
 				// they don't have an mw.loader.implement wrapper that sets the state
 				foreach ( $modules as $name => $module ) {
@@ -1285,11 +1250,11 @@ MESSAGE;
 			// Set the state of modules we didn't respond to with mw.loader.implement
 			if ( $states ) {
 				$stateScript = self::makeLoaderStateScript( $context, $states );
-				if ( !$context->getDebug() ) {
+				if ( !$debug ) {
 					$stateScript = self::filter( 'minify-js', $stateScript );
 				}
 				// Use a linebreak between module script and state script (T162719)
-				$out = $this->ensureNewline( $out ) . $stateScript;
+				$out = self::ensureNewline( $out ) . $stateScript;
 			}
 		} elseif ( $states ) {
 			$this->errors[] = 'Problematic modules: '
@@ -1301,10 +1266,11 @@ MESSAGE;
 
 	/**
 	 * Ensure the string is either empty or ends in a line break
+	 * @internal
 	 * @param string $str
 	 * @return string
 	 */
-	private function ensureNewline( $str ) {
+	public static function ensureNewline( $str ) {
 		$end = substr( $str, -1 );
 		if ( $end === false || $end === '' || $end === "\n" ) {
 			return $str;
@@ -1335,7 +1301,7 @@ MESSAGE;
 	 * @param ResourceLoaderContext $context
 	 * @param string $name Module name or implement key (format "`[name]@[version]`")
 	 * @param XmlJsCode|array|string $scripts Code as XmlJsCode (to be wrapped in a closure),
-	 *  list of URLs to JavaScript files, string of JavaScript for `$.globalEval`, or array with
+	 *  list of URLs to JavaScript files, string of JavaScript for eval, or array with
 	 *  'files' and 'main' properties (see ResourceLoaderModule::getScript())
 	 * @param mixed $styles Array of CSS strings keyed by media type, or an array of lists of URLs
 	 *   to CSS files keyed by media type
@@ -1352,10 +1318,9 @@ MESSAGE;
 		if ( $scripts instanceof XmlJsCode ) {
 			if ( $scripts->value === '' ) {
 				$scripts = null;
-			} elseif ( $context->getDebug() ) {
-				$scripts = new XmlJsCode( "function ( $, jQuery, require, module ) {\n{$scripts->value}\n}" );
 			} else {
-				$scripts = new XmlJsCode( 'function($,jQuery,require,module){' . $scripts->value . '}' );
+				// @phan-suppress-next-line SecurityCheck-XSS
+				$scripts = new XmlJsCode( "function ( $, jQuery, require, module ) {\n{$scripts->value}\n}" );
 			}
 		} elseif ( is_array( $scripts ) && isset( $scripts['files'] ) ) {
 			$files = $scripts['files'];
@@ -1363,20 +1328,21 @@ MESSAGE;
 				// $file is changed (by reference) from a descriptor array to the content of the file
 				// All of these essentially do $file = $file['content'];, some just have wrapping around it
 				if ( $file['type'] === 'script' ) {
-					// Multi-file modules only get two parameters ($ and jQuery are being phased out)
-					if ( $context->getDebug() ) {
-						$file = new XmlJsCode( "function ( require, module ) {\n{$file['content']}\n}" );
-					} else {
-						$file = new XmlJsCode( 'function(require,module){' . $file['content'] . '}' );
-					}
+					// Ensure that the script has a newline at the end to close any comment in the
+					// last line.
+					$content = self::ensureNewline( $file['content'] );
+					// Provide CJS `exports` (in addition to CJS2 `module.exports`) to package modules (T284511).
+					// $/jQuery are simply used as globals instead.
+					// TODO: Remove $/jQuery param from traditional module closure too (and bump caching)
+					$file = new XmlJsCode( "function ( require, module, exports ) {\n$content}" );
 				} else {
 					$file = $file['content'];
 				}
 			}
 			$scripts = XmlJsCode::encodeObject( [
 				'main' => $scripts['main'],
-				'files' => XmlJsCode::encodeObject( $files, $context->getDebug() )
-			], $context->getDebug() );
+				'files' => XmlJsCode::encodeObject( $files, true )
+			], true );
 		} elseif ( !is_string( $scripts ) && !is_array( $scripts ) ) {
 			throw new InvalidArgumentException( 'Script must be a string or an array of URLs' );
 		}
@@ -1393,7 +1359,9 @@ MESSAGE;
 		];
 		self::trimArray( $module );
 
-		return Xml::encodeJsCall( 'mw.loader.implement', $module, $context->getDebug() );
+		// We use pretty output unconditionally to make this method simpler.
+		// Minification is taken care of closer to the output.
+		return Xml::encodeJsCall( 'mw.loader.implement', $module, true );
 	}
 
 	/**
@@ -1511,7 +1479,7 @@ MESSAGE;
 	 *
 	 * @param array &$array
 	 */
-	private static function trimArray( array &$array ) : void {
+	private static function trimArray( array &$array ): void {
 		$i = count( $array );
 		while ( $i-- ) {
 			if ( $array[$i] === null
@@ -1548,9 +1516,7 @@ MESSAGE;
 	 *  - string|null: Module group (optional)
 	 *  - string|null: Name of foreign module source, or 'local' (optional)
 	 *  - string|null: Script body of a skip function (optional)
-	 * @codingStandardsIgnoreStart
 	 * @phan-param array<int,array{0:string,1:string,2?:?array,3?:?string,4?:?string,5?:?string}> $modules
-	 * @codingStandardsIgnoreEnd
 	 * @return string JavaScript code
 	 */
 	public static function makeLoaderRegisterScript(
@@ -1558,7 +1524,7 @@ MESSAGE;
 	) {
 		// Optimisation: Transform dependency names into indexes when possible
 		// to produce smaller output. They are expanded by mw.loader.register on
-		// the other end using resolveIndexedDependencies().
+		// the other end.
 		$index = [];
 		foreach ( $modules as $i => &$module ) {
 			// Build module name index
@@ -1758,14 +1724,16 @@ MESSAGE;
 	 * - 2) Cookie,
 	 * - 3) Site configuration.
 	 *
-	 * @return bool
+	 * @return int
 	 */
 	public static function inDebugMode() {
 		if ( self::$debugMode === null ) {
-			global $wgRequest, $wgResourceLoaderDebug;
-			self::$debugMode = $wgRequest->getFuzzyBool( 'debug',
-				$wgRequest->getCookie( 'resourceLoaderDebug', '', $wgResourceLoaderDebug )
+			global $wgRequest;
+			$resourceLoaderDebug = MediaWikiServices::getInstance()->getMainConfig()->get( 'ResourceLoaderDebug' );
+			$str = $wgRequest->getRawVal( 'debug',
+				$wgRequest->getCookie( 'resourceLoaderDebug', '', $resourceLoaderDebug ? 'true' : '' )
 			);
+			self::$debugMode = ResourceLoaderContext::debugFromString( $str );
 		}
 		return self::$debugMode;
 	}
@@ -1823,7 +1791,7 @@ MESSAGE;
 			$context->getDebug(),
 			$context->getOnly(),
 			$context->getRequest()->getBool( 'printable' ),
-			$context->getRequest()->getBool( 'handheld' ),
+			null,
 			$extraQuery
 		);
 	}
@@ -1837,16 +1805,16 @@ MESSAGE;
 	 * @param string $skin
 	 * @param string|null $user
 	 * @param string|null $version
-	 * @param bool $debug
+	 * @param int $debug
 	 * @param string|null $only
 	 * @param bool $printable
-	 * @param bool $handheld
+	 * @param bool|null $handheld Unused as of MW 1.38
 	 * @param array $extraQuery
 	 * @return array
 	 */
 	public static function makeLoaderQuery( array $modules, $lang, $skin, $user = null,
-		$version = null, $debug = false, $only = null, $printable = false,
-		$handheld = false, array $extraQuery = []
+		$version = null, $debug = ResourceLoaderContext::DEBUG_OFF, $only = null,
+		$printable = false, $handheld = null, array $extraQuery = []
 	) {
 		$query = [
 			'modules' => self::makePackedModulesString( $modules ),
@@ -1861,8 +1829,8 @@ MESSAGE;
 		if ( $skin !== ResourceLoaderContext::DEFAULT_SKIN ) {
 			$query['skin'] = $skin;
 		}
-		if ( $debug === true ) {
-			$query['debug'] = 'true';
+		if ( $debug !== ResourceLoaderContext::DEBUG_OFF ) {
+			$query['debug'] = strval( $debug );
 		}
 		if ( $user !== null ) {
 			$query['user'] = $user;
@@ -1875,9 +1843,6 @@ MESSAGE;
 		}
 		if ( $printable ) {
 			$query['printable'] = 1;
-		}
-		if ( $handheld ) {
-			$query['handheld'] = 1;
 		}
 		$query += $extraQuery;
 
@@ -1907,26 +1872,75 @@ MESSAGE;
 	 * @param array $vars Associative array of variables that should be used
 	 *  for compilation. Since 1.32, this method no longer automatically includes
 	 *  global LESS vars from ResourceLoader::getLessVars (T191937).
+	 * @param array $importDirs Additional directories to look in for @import (since 1.36)
 	 * @throws MWException
 	 * @return Less_Parser
 	 */
-	public function getLessCompiler( $vars = [] ) {
+	public function getLessCompiler( array $vars = [], array $importDirs = [] ) {
 		global $IP;
 		// When called from the installer, it is possible that a required PHP extension
 		// is missing (at least for now; see T49564). If this is the case, throw an
 		// exception (caught by the installer) to prevent a fatal error later on.
-		if ( !class_exists( 'Less_Parser' ) ) {
+		if ( !class_exists( Less_Parser::class ) ) {
 			throw new MWException( 'MediaWiki requires the less.php parser' );
 		}
 
+		$importDirs[] = "$IP/resources/src/mediawiki.less";
+
 		$parser = new Less_Parser;
 		$parser->ModifyVars( $vars );
-		$parser->SetImportDirs( [
-			"$IP/resources/src/mediawiki.less/" => '',
-		] );
+		// SetImportDirs expects an array like [ 'path1' => '', 'path2' => '' ]
+		$parser->SetImportDirs( array_fill_keys( $importDirs, '' ) );
 		$parser->SetOption( 'relativeUrls', false );
 
 		return $parser;
+	}
+
+	/**
+	 * Resolve a possibly relative URL against a base URL.
+	 *
+	 * The base URL must have a server and should have a protocol.
+	 * A protocol-relative base expands to HTTPS.
+	 *
+	 * This is a standalone version of MediaWiki's wfExpandUrl (T32956).
+	 *
+	 * @internal For use by core ResourceLoader classes only
+	 * @param string $base
+	 * @param string $url
+	 * @return string URL
+	 */
+	public function expandUrl( string $base, string $url ): string {
+		// Net_URL2::resolve() doesn't allow protocol-relative URLs, but we do.
+		$isProtoRelative = strpos( $base, '//' ) === 0;
+		if ( $isProtoRelative ) {
+			$base = "https:$base";
+		}
+		// Net_URL2::resolve() takes care of throwing if $base doesn't have a server.
+		$baseUrl = new Net_URL2( $base );
+		$ret = $baseUrl->resolve( $url );
+		if ( $isProtoRelative ) {
+			$ret->setScheme( false );
+		}
+		return $ret->getURL();
+	}
+
+	/**
+	 * Get user default options to expose to JavaScript on all pages via `mw.user.options`.
+	 *
+	 * @internal Exposed for use from Resources.php
+	 * @param ResourceLoaderContext $context
+	 * @return array
+	 */
+	public static function getUserDefaults( ResourceLoaderContext $context ): array {
+		// TODO inject
+		$defaultOptions = MediaWikiServices::getInstance()->getUserOptionsLookup()->getDefaultOptions();
+		$keysToExclude = [];
+		$hookRunner = new HookRunner( MediaWikiServices::getInstance()->getHookContainer() );
+		$hookRunner->onResourceLoaderExcludeUserOptions( $keysToExclude, $context );
+		foreach ( $keysToExclude as $excludedKey ) {
+			unset( $defaultOptions[ $excludedKey ] );
+		}
+		return $defaultOptions;
 	}
 
 	/**
@@ -1939,7 +1953,7 @@ MESSAGE;
 	 */
 	public static function getSiteConfigSettings(
 		ResourceLoaderContext $context, Config $conf
-	) : array {
+	): array {
 		// Namespace related preparation
 		// - wgNamespaceIds: Key-value pairs of all localized, canonical and aliases for namespaces.
 		// - wgCaseSensitiveNamespaces: Array of namespaces that are case-sensitive.
@@ -1981,7 +1995,6 @@ MESSAGE;
 			'wgDBname' => $conf->get( 'DBname' ),
 			'wgWikiID' => WikiMap::getCurrentWikiId(),
 			'wgCaseSensitiveNamespaces' => $caseSensitiveNamespaces,
-			'wgCommentByteLimit' => null,
 			'wgCommentCodePointLimit' => CommentStore::COMMENT_CHARACTER_LIMIT,
 			'wgExtensionAssetsPath' => $conf->get( 'ExtensionAssetsPath' ),
 		];
@@ -1999,17 +2012,8 @@ MESSAGE;
 			'wgTranslateNumerals' => $conf->get( 'TranslateNumerals' ),
 			// @internal For mediawiki.Title
 			'wgExtraSignatureNamespaces' => $conf->get( 'ExtraSignatureNamespaces' ),
-			// @internal For mediawiki.cookie
-			'wgCookiePrefix' => $conf->get( 'CookiePrefix' ),
-			'wgCookieDomain' => $conf->get( 'CookieDomain' ),
-			'wgCookiePath' => $conf->get( 'CookiePath' ),
-			'wgCookieExpiration' => $conf->get( 'CookieExpiration' ),
-			// @internal For mediawiki.Title
 			'wgLegalTitleChars' => Title::convertByteClassToUnicodeClass( Title::legalChars() ),
 			'wgIllegalFileChars' => Title::convertByteClassToUnicodeClass( $illegalFileChars ),
-			// @internal For mediawiki.ForeignUpload
-			'wgForeignUploadTargets' => $conf->get( 'ForeignUploadTargets' ),
-			'wgEnableUploads' => $conf->get( 'EnableUploads' ),
 		];
 
 		Hooks::runner()->onResourceLoaderGetConfigVars( $vars, $skin, $conf );
