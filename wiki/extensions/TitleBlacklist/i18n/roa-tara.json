@@ -23,5 +23,5 @@
 	"titleblacklist-warning": "<strong>Iapre l'uecchie: sta pàgene pò essere cangiate sulamende da le amministrature o da le utinde cu 'u deritte <code>tboverride</code> purcé jè probbie 'a vôsce ca ste jndr'à l'elenghe de le titole non conzendite:</strong><br /><code>$1</code>",
 	"right-tboverride": "Sovrascrive l'elenghe de le titole o de le utinde non conzendite.",
 	"right-tboverride-account": "Sovrasrive l'elenghe de le utinde non conzendite",
-	"right-titleblacklistlog": "'Ndruche l'archivije de le titole jndr'à l'elenghe gnure"
+	"right-titleblacklistlog": "'Ndruche l'archivije de le elenghe de le titole non conzendite"
 }

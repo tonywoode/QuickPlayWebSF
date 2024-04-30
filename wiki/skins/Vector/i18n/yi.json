@@ -38,5 +38,7 @@
 	"vector-page-tools-label": "געצייג",
 	"vector-page-tools-general-label": "אַלגעמיין",
 	"vector-pin-element-label": "אַריבערפיֿרן צו זייט־פאַס",
-	"vector-unpin-element-label": "באַהאַלטן"
+	"vector-unpin-element-label": "באַהאַלטן",
+	"vector-toc-unpinned-popup": "די אינהאַלט־טאַבעלע האט מען אַריבערגעפֿירט אַהער.",
+	"vector-main-menu-unpinned-popup": "דעם הויפט־מעניו האט מען אַריבערגעפֿירט אַהער."
 }

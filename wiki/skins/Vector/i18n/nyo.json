@@ -15,6 +15,7 @@
 	"vector-language-button-label": "{{PLURAL:$1|Orulimi $1|Endimi $1}}",
 	"vector-no-language-button-label": "Taho endimi zindi",
 	"vector-no-language-button-aria-label": "Enu endugaho eroho omu rulimi runu rwonka. Taho endugaho omu ndimi ezindi",
+	"vector-language-redirect-to-top": "Ebiyunganiza by'endimi biri haiguru y'orupapura na nseeri y'omutwe.",
 	"vector-language-variant-switcher-label": "Hindura omulingo gw'orulimi",
 	"vector-action-addsection": "Taho ekirukubazibwa",
 	"vector-action-delete": "Ita",
@@ -46,11 +47,14 @@
 	"vector-site-nav-label": "Entemburo",
 	"vector-main-menu-label": "Omusorongo rw'emirimo omukuru",
 	"vector-limited-width-toggle": "Hinduliza obugazi bw'ebinyakurumu obutangwa",
+	"vector-limited-width-toggle-on-popup": "Ohindwire enteekaniza yaawe ha bugazi obutatangwa. Kugaruka obugazi obutangwa, miga linu ipeesa.",
+	"vector-limited-width-toggle-off-popup": "Noosobora kuhinduliza emalirra y'obugazi n'okumiga linu ipeesa.",
 	"vector-page-tools-label": "Ebikwatwa",
 	"vector-page-tools-general-label": "Ebya byona",
 	"vector-page-tools-actions-label": "Ebikorwa",
 	"vector-pin-element-label": "irizaayo omusorongo ha rubaju",
 	"vector-unpin-element-label": "sereka",
 	"tooltip-vector-anon-user-menu-title": "Emirimo endi",
+	"vector-page-tools-nav-label": "Ebikwatwa by'orupapura",
 	"empty-language-selector-body": "Tiharoho birumu by'orupapura omu ndimi ezindi."
 }

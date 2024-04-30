@@ -23,5 +23,11 @@
 	"cite-tracking-category-cite-error": "Қате сілтемелері бар беттер",
 	"cite_references_link_accessibility_label": "Жоғарыға көтеріліңіз",
 	"cite_references_link_many_accessibility_label": "Мынаған өту:",
-	"cite_section_preview_references": "Дереккөздерді алдын ала қарау"
+	"cite_section_preview_references": "Дереккөздерді алдын ала қарау",
+	"cite-wikieditor-tool-reference": "Дереккөз",
+	"cite-wikieditor-help-page-references": "Дереккөздер",
+	"cite-wikieditor-help-content-reference-description": "Дереккөз",
+	"cite-wikieditor-help-content-named-reference-description": "Аталған дереккөз",
+	"cite-wikieditor-help-content-rereference-description": "Кейбір дереккөздердің қосымша қолданылуы",
+	"cite-wikieditor-help-content-showreferences-description": "Дереккөзін көрсету"
 }

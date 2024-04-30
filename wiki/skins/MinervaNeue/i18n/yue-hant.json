@@ -36,6 +36,7 @@
 	"mobile-frontend-user-page-member-since": "$1{{GENDER:$2|加入}}",
 	"mobile-frontend-user-page-talk": "傾偈",
 	"minerva-user-menu-button": "用戶選單",
+	"minerva-page-actions-editfull": "改曬成版",
 	"minerva-page-actions-overflow": "多啲",
 	"minerva-page-actions-language-switcher": "話",
 	"minerva-page-actions-history": "史",

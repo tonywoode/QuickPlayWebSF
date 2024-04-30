@@ -202,6 +202,7 @@
 	"showpreview": "Nanich ukuk pipa kakwa pus maika wik munk-ts'əm kopa ikta",
 	"showdiff": "Nanich kanawi chako-x̣luima-ikta",
 	"anoneditwarning": "Maika wik kopa laysins. Tilixam nanich maika IP-k'winin-ikta pus maika munk-ts'əm kopa pipa. Pus maika <strong>[$1 ɬatwa kopa maika laysins]</strong> epe <strong>[$2 mamuk laysins]</strong>, kanawi maika ts'əm-ikta tuʔan khanumakwst maika nim, pi maika iskəm x̣luima ɬush ikta.",
+	"blockedtext": "<strong>Maika x̣auqaɬ munk-ts'əm kanawi pipa pus maika mamuk ukuk IP-k'winin-ikta epe tilixam-nim.</strong>\n{{int:blockedtext-made-by|$1}}\n{{int:blockedtext-reason-comment|$2}}.\n\n*{{int:blockedtext-start-time|$8}}\n*{{int:blockedtext-expiration-time|$6}}\n*{{int:blockedtext-intended-blockee|$7}}\n\n{{int:blockedtext-contact-blocker-admin|$1}}\n\nMamuk \"{{int:emailuser}}\" pus kopa maika [[Special:Preferences|preferences]] ixt delet e-post yaka nim, pi maika wik x̣auqaɬ mamuk ukuk laysins.\n{{int:blockedtext-block-ip|$3}} {{int:blockedtext-block-id|$5}}\n{{int:blockedtext-include-details-queries}}",
 	"loginreqlink": "ɬatwa kopa maika laysins",
 	"newarticletext": "Maika ɬatwa kopa hayu-lakhlwa-ɬipait pi alta kopa kəltəs pipa maika. Pus maika tiki mamuk ukuk pipa, mamuk ts'əm kopa kikwəli-lakhaset (nanich [$1 help page|elip-pipa kopa $1] pus maika tiki wix̣t kəmtəks.)",
 	"anontalkpagetext": "----\n<em>Tilixam hilu laysins yaka wawa-pipa ukuk, pi naika nanich yaka IP-k'winin-ikta. Ixt-ixt hayu tilixam t'uʔan ixt IP-k'winin-ikta.\nPus wik kopa laysins maika, [[Special:CreateAccount\n|mamuk laysins]] epe [[Special:UserLogin|ɬatwa kopa maika laysins]] pus maika tiki.",
@@ -250,6 +251,7 @@
 	"compareselectedversions": "Nanich kanawi ukuk pik-ts'əm-ikta:",
 	"editundo": "k’ilapay",
 	"diff-empty": "(delet wik x̣luima)",
+	"diff-multi-sameuser": "({{GENDER:$3|user}} munk-ts'əm wik-x̣luima ({{PLURAL:$1|tsum-ikta kopa katsəq}})(maika wik nanich ukuk))",
 	"diff-multi-otherusers": "maika wik nanich {{PLURAL:$2|ixt tilixam yaka|$2 tilixam ɬaska}} {{PLURAL:$1|katsaq-ts'əm-ikta|$1 katsaq-ts'əm-ikta}}",
 	"searchresults": "ikta mayka t’ɬap",
 	"searchresults-title": "ikta mayka t’ɬap pus \"$1\":",
@@ -534,6 +536,7 @@
 	"blockedtext-expiration-time": "x̣awqaɬ-munk-ts'əm yaka elip-kimta-taym: $1",
 	"blockedtext-intended-blockee": "Tilixam ukuk tilixam yaka tiki mamuk-x̣auqaɬ-munk-ts'əm: $1",
 	"blockedtext-contact-blocker-admin": "Wawa kopa $1 epe x̣luima [[{{MediaWiki:Grouppage-sysop}}|tayi-tilixam]] pus maika tiki wawa pus ukuk.",
+	"blockedtext-block-ip": "Maika IP-k'winin-ikta $1.",
 	"blockedtext-include-details-queries": "Mamuk kanawi sax̣ali-ikta kopa kanawi pus-ikta pus maika mamuk ukuk pus-ikta.",
 	"renameuserreason": "Qhata:",
 	"renameusersubmit": "Mamuk ukuk"

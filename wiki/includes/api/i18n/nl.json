@@ -2,6 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"1233qwer1234qwer4",
+			"Amire80",
+			"DiGro",
 			"Edoderoo",
 			"Elderson",
 			"Elroy",
@@ -26,8 +28,6 @@
 			"Sjoerddebruin",
 			"Southparkfan",
 			"Valhallasw",
-			"Amire80",
-			"DiGro",
 			"Strepulah"
 		]
 	},
@@ -52,7 +52,7 @@
 	"apihelp-block-param-userid": "Geef in plaats hiervan <kbd>$1user=#<var>ID</var></kbd> op.",
 	"apihelp-block-param-expiry": "Vervaldatum. Kan relatief zijn (bijv. <kbd>5 months</kbd> of <kbd>2 weeks</kbd>) of absoluut (bijv. <kbd>2014-09-18T12:34:56Z</kbd>). Indien ingesteld op <kbd>infinite</kbd>, <kbd>indefinite</kbd> of <kbd>never</kbd> zal de blokkade nooit verlopen.",
 	"apihelp-block-param-reason": "Reden voor blokkade.",
-	"apihelp-block-param-anononly": "Alleen anonieme gebruikers blokkeren (d.w.z. anonieme bewerkingen via dit IP-adres uitschakelen).",
+	"apihelp-block-param-anononly": "Alleen anonieme gebruikers blokkeren (d.w.z. anonieme bewerkingen via dit IP-adres onmogelijk maken, waaronder bewerkingen van tijdelijke accounts).",
 	"apihelp-block-param-nocreate": "Het aanmaken van accounts verhinderen.",
 	"apihelp-block-param-autoblock": "Automatisch het laatst gebruikte IP-adres blokkeren, en tevens ieder volgend IP-adres waar vanaf de gebruiker probeert aan te melden.",
 	"apihelp-block-param-noemail": "Het sturen van e-mail via wiki verhinderen. (Vereist het <code>blockemail</code>-recht.)",
@@ -120,6 +120,9 @@
 	"apihelp-edit-param-undoafter": "Maak alle revisies vanaf $1undo tot deze ongedaan. Indien niet ingesteld wordt slechts één revisie ongedaan gemaakt.",
 	"apihelp-edit-param-redirect": "Doorverwijzingen automatisch oplossen.",
 	"apihelp-edit-param-contentmodel": "Inhoudsmodel van de nieuwe inhoud.",
+	"apihelp-edit-param-returnto": "Paginatitel. Als bij het opslaan van de bewerking een tijdelijk account is aangemaakt, kan de API reageren met een URL die de cliënt moet bezoeken om het aanmelden te voltooien. Als deze parameter wordt opgegeven, wordt de URL doorverwezen naar de opgegeven pagina, in plaats van naar de pagina die is bewerkt.",
+	"apihelp-edit-param-returntoquery": "URL-queryparameters (met leidende <kbd>?</kbd>). Als bij het opslaan van de bewerking een tijdelijk account is aangemaakt, kan de API reageren met een URL die de cliënt moet bezoeken om het aanmelden te voltooien. Als deze parameter wordt opgegeven, wordt de URL doorverwezen naar een pagina met de opgegeven queryparameters.",
+	"apihelp-edit-param-returntoanchor": "URL-fragment (met voorloop <kbd>#</kbd>). Als bij het opslaan van de bewerking een tijdelijk account is aangemaakt, kan de API reageren met een URL die de cliënt moet bezoeken om het aanmelding te voltooien. Als deze parameter wordt opgegeven, wordt de URL doorverwezen naar een pagina met het gegeven fragment.",
 	"apihelp-edit-param-token": "De token moet altijd als de laatste parameter worden verzonden, of in ieder geval na de $1text parameter.",
 	"apihelp-edit-example-edit": "Een pagina bewerken.",
 	"apihelp-edit-example-prepend": "Voeg <kbd>_&#95;NOTOC_&#95;</kbd> toe aan het begin van een pagina.",
@@ -494,6 +497,7 @@
 	"api-help-permissions": "{{PLURAL:$1|Toestemming|Toestemmingen}}:",
 	"api-help-permissions-granted-to": "{{PLURAL:$1|Toegekend}} aan: $2",
 	"api-help-open-in-apisandbox": "<small>[in de sandbox openen]</small>",
+	"apierror-alreadyregistered": "U heeft al een gebruikersaccount.",
 	"apierror-articleexists": "Het artikel dat u probeert aan te maken, bestaat al.",
 	"apierror-assertbotfailed": "U hebt niet het <code>bot</code>-recht, waardoor de handeling niet kon worden voltooid.",
 	"apierror-assertnameduserfailed": "U bent niet meer aangemeld als “$1”, waardoor de handeling niet kon worden voltooid.",

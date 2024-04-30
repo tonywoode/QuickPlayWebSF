@@ -349,8 +349,11 @@
 	"difference-title-multipage": "$1 we $2: Betler arasındaqı parq",
 	"difference-multipage": "(Betler arasındaqı parq)",
 	"lineno": "$1 satır:",
+	"lineno-inline": "Şĭzgĭ $1 ⟶ $2:",
 	"editundo": "kerĭ aluw",
 	"diff-empty": "(Parq yoq)",
+	"diff-line-deleted": "⟵ síl",
+	"diff-newline": "↲ cañı şĭzgĭ",
 	"searchresults": "Qıdıruw neticelerĭ",
 	"search-filter-title-prefix-reset": "Pütün betlerdĭ qıdır",
 	"searchresults-title": "“$1” üşĭn qıdıruw neticelerĭ",
@@ -684,6 +687,7 @@
 	"watchlisttools-view": "Deñĭşĭklĭklerdĭ köster",
 	"watchlisttools-edit": "Közetüw cedwelĭnĭ körüw bĭrde deñĭştĭrüw",
 	"signature": "[[{{ns:user}}:$1|$2]] ([[{{ns:user_talk}}:$1|muhabbet]])",
+	"version-libraries-source": "Memba",
 	"specialpages": "Hususiy betler",
 	"tags-active-yes": "Ya",
 	"tags-active-no": "Yoq",
@@ -696,5 +700,6 @@
 	"blockedtext-made-by": "Blok $1 tarapından etĭldĭ.",
 	"blockedtext-reason-comment": "Berĭlgen sebep <em>$1</em>",
 	"blockedtext-start-time": "Bloknıñ başlawı: $1",
-	"blockedtext-expiration-time": "Bloknıñ pĭtüwĭ: $1"
+	"blockedtext-expiration-time": "Bloknıñ pĭtüwĭ: $1",
+	"blockedtext-block-ip": "Şĭmdĭkĭ IP adresĭñĭz $1."
 }

@@ -25,6 +25,8 @@
 	"action-oathauth-disable-for-user": "váldit geavaheaddji guovtteceahkat autentiserema eret anus",
 	"right-oathauth-verify-user": "Duođaš, leago geavaheaddji váldán guovtteceahkat autentiserema atnui",
 	"action-oathauth-verify-user": "duođaštit, leago geavaheaddji váldán guovtteceahkat autentiserema atnui",
+	"right-oathauth-view-log": "Beassat geahččat logga guovtteceahkat autentiserema rievdadusain",
+	"action-oathauth-view-log": "beassat geahččat logga guovtteceahkat autentiserema rievdadusain",
 	"oathauth-enteruser": "Geavaheaddjinamma:",
 	"oathauth-user-not-does-not-have-oath-enabled": "Geavaheaddji ii leat váldán guovtteceahkat autentiserema atnui, nappo ii leat vejolaš váldit dan eret anus.",
 	"right-oathauth-enable": "Váldit guovtteceahkat autentiserema atnui",

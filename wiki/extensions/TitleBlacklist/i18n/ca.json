@@ -19,5 +19,6 @@
 	"titleblacklist-invalid": "{{PLURAL:$1|La línia següent|Les línies següents}} de la llista negra no {{PLURAL:$1|és vàlida|són vàlides}}; heu de corregir-{{PLURAL:$1|la|les}} abans de guardar:",
 	"titleblacklist-override": "Substitueix la llista negra del títol si coincideix",
 	"right-tboverride": "Sobrepassar els títols no permesos o la llista de noms d'usuari",
-	"right-tboverride-account": "Ignorar la llista negra de noms d'usuari"
+	"right-tboverride-account": "Ignorar la llista negra de noms d'usuari",
+	"right-titleblacklistlog": "Veure el registre de títols no permesos"
 }

@@ -21,16 +21,21 @@
  * @ingroup SpecialPage
  */
 
+namespace MediaWiki\Specials;
+
+use HTMLCheckField;
+use HTMLForm;
+use LinkCache;
 use MediaWiki\Html\Html;
 use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\ILoadBalancer;
+use Wikimedia\Rdbms\IConnectionProvider;
 
 /**
  * Implements Special:Prefixindex
  *
  * @ingroup SpecialPage
  */
-class SpecialPrefixindex extends SpecialAllPages {
+class SpecialPrefixIndex extends SpecialAllPages {
 
 	/**
 	 * Whether to remove the searched prefix from the displayed link. Useful
@@ -42,23 +47,20 @@ class SpecialPrefixindex extends SpecialAllPages {
 
 	// Inherit $maxPerPage
 
-	/** @var ILoadBalancer */
-	private $loadBalancer;
-
-	/** @var LinkCache */
-	private $linkCache;
+	private IConnectionProvider $dbProvider;
+	private LinkCache $linkCache;
 
 	/**
-	 * @param ILoadBalancer $loadBalancer
+	 * @param IConnectionProvider $dbProvider
 	 * @param LinkCache $linkCache
 	 */
 	public function __construct(
-		ILoadBalancer $loadBalancer,
+		IConnectionProvider $dbProvider,
 		LinkCache $linkCache
 	) {
-		parent::__construct( $loadBalancer );
+		parent::__construct( $dbProvider );
 		$this->mName = 'Prefixindex';
-		$this->loadBalancer = $loadBalancer;
+		$this->dbProvider = $dbProvider;
 		$this->linkCache = $linkCache;
 	}
 
@@ -83,9 +85,11 @@ class SpecialPrefixindex extends SpecialAllPages {
 		$this->stripPrefix = $request->getBool( 'stripprefix', $this->stripPrefix );
 
 		$namespaces = $this->getContentLanguage()->getNamespaces();
-		$out->setPageTitle(
+		$out->setPageTitleMsg(
 			( $namespace > 0 && array_key_exists( $namespace, $namespaces ) )
-				? $this->msg( 'prefixindex-namespace', str_replace( '_', ' ', $namespaces[$namespace] ) )
+				? $this->msg( 'prefixindex-namespace' )->plaintextParams(
+					str_replace( '_', ' ', $namespaces[$namespace] )
+				)
 				: $this->msg( 'prefixindex' )
 		);
 
@@ -181,28 +185,24 @@ class SpecialPrefixindex extends SpecialAllPages {
 
 			# ## @todo FIXME: Should complain if $fromNs != $namespace
 
-			$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
-
-			$conds = [
-				'page_namespace' => $namespace,
-				'page_title' . $dbr->buildLike( $prefixKey, $dbr->anyString() ),
-				'page_title >= ' . $dbr->addQuotes( $fromKey ),
-			];
+			$dbr = $this->dbProvider->getReplicaDatabase();
+			$queryBuiler = $dbr->newSelectQueryBuilder()
+				->select( LinkCache::getSelectFields() )
+				->from( 'page' )
+				->where( [
+					'page_namespace' => $namespace,
+					'page_title' . $dbr->buildLike( $prefixKey, $dbr->anyString() ),
+					'page_title >= ' . $dbr->addQuotes( $fromKey ),
+				] )
+				->orderBy( 'page_title' )
+				->limit( $this->maxPerPage + 1 )
+				->useIndex( 'page_name_title' );
 
 			if ( $this->hideRedirects ) {
-				$conds['page_is_redirect'] = 0;
+				$queryBuiler->andWhere( [ 'page_is_redirect' => 0 ] );
 			}
 
-			$res = $dbr->select( 'page',
-				LinkCache::getSelectFields(),
-				$conds,
-				__METHOD__,
-				[
-					'ORDER BY' => 'page_title',
-					'LIMIT' => $this->maxPerPage + 1,
-					'USE INDEX' => 'page_name_title',
-				]
-			);
+			$res = $queryBuiler->caller( __METHOD__ )->fetchResultSet();
 
 			// @todo FIXME: Side link to previous
 
@@ -301,3 +301,9 @@ class SpecialPrefixindex extends SpecialAllPages {
 		return 'pages';
 	}
 }
+
+/**
+ * Retain the old class name for backwards compatibility.
+ * @deprecated since 1.41
+ */
+class_alias( SpecialPrefixIndex::class, 'SpecialPrefixindex' );

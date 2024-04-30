@@ -7,7 +7,6 @@
 			"Movses"
 		]
 	},
-	"apihelp-templatedata-description": "Отримати дані, що зберігаються розширенням TemplateData.",
 	"apihelp-templatedata-summary": "Отримати дані, що зберігаються розширенням TemplateData.",
 	"apihelp-templatedata-example-1": "Вивести TemplateData для [[Template:Foobar]] з результатами, якщо шаблон не існує, або існує та в ньому відсутні TemplateData",
 	"apihelp-templatedata-example-2": "Вивести TemplateData для [[Template:Phabricator]] без результатів, якщо шаблон не існує, або існує та в ньому відсутні TemplateData",

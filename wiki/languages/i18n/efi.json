@@ -207,6 +207,7 @@
 	"showpreview": "Wụt se idikpepde",
 	"showdiff": "Wụt ukpụhọde",
 	"anoneditwarning": "<strong>Ntọt:</strong> uduke. Eyekụt IP address afo añwaañwa edieke okpụhọde mme n̄kpọ. Edieke afo <strong>[$1 dụk] </strong> mme <strong>[$2 siak ikpehe]</strong>, eyesịn ukpụhọde anamde ke nditik enyin̄ fo ke adianade ye mme ufọn eñwen.",
+	"blockedtext": "<strong>Nditik enyiñ fo mme IP adres ama okure.</strong>\n\n{{int:blockedtext-made-by|$1}}\n{{int:blockedtext-reason-comment|$2}}.\n\n*{{int:blockedtext-start-time|$8}}\n*{{int:blockedtext-expiration-time|$6}}\n*{{int:blockedtext-intended-blockee|$7}}\n\n{{int:blockedtext-contact-blocker-admin|$1}}\nekemede ndida nnam \"{{int:emailuser}}\" wụt edieke etinde ebana eti email adres \n[[Special:Preferences|preferences]] ndien owo iketreke if ndida ikpehe fo anam ñkpọ\n{{int:blockedtext-block-ip|$3}} {{int:blockedtext-block-id|$5}}\n{{int:blockedtext-include-details-queries}}",
 	"loginreqlink": "dụk",
 	"newarticletext": "Afo emefịk page emi miwọrọke n̄kpọ kan̄a.\nOkpoyom ndisiak obufa page, tọn̄ọ ndiwet n̄kpọ ke ekebe oro odude ke idak emi (se n̄kpọ [$1 help page] okpyom ntọt efen efen).\nEkpedi okodụk ikpehe emi ke ndiduhe, fịk  ikpehe Iternet emi <strong>back</strong> itie emi.",
 	"anontalkpagetext": "----\n<em>Emi edi page nneme ọnọ mmo owo minyeneke ikpehe kana, mmê inyun idaha inam nkpo.</em>\nKe ntre ana nnyin ida nọmba IP adres idiọhọ mmọ.\nEkeme ndibuana utọ IP adres oro ye ediwak mme andida nnam ñkpọ.\nEdieke edide andida ikpehe nnam ñkpọ emi minyeneke enyiñ ndien ekere ke mme ikọ etinde minyeneke ufọn edi ye afo, mbọk [[Special:CreateAccount|Siak ikpehe]] mmê [[Special:UserLogin|dụk]] mman\nefep ndutịme ke ini iso ye mbon eñwen minyeneke ikpehe.",
@@ -256,7 +257,9 @@
 	"compareselectedversions": "Domo mme ndụn̄ọde emekde",
 	"editundo": "fiak nam",
 	"diff-empty": "(Ukpụhọde iduhe)",
+	"diff-multi-sameuser": "({{PLURAL:$1|Ndụn̄ọde kiet oro edisịnede ke ufọt |$1 mme ndụn̄ọde oro edisịnede ke ufọt}} ke ukem {{GENDER:$3|andida nnam n̄kpọ}} iwọrọke ida)",
 	"diff-multi-otherusers": "({{PLURAL:$1|Ndụn̄ọde kiet oro edisịnede ke ufọt |$1 mme ndụn̄ọde oro edisịnede ke ufọt}} ke ukem  {{PLURAL:$2| andida nnam eñwen|$2 andida nnam n̄kpọ}} iwọrọke ida)",
+	"diff-line-deleted": "⟵ sọhi",
 	"searchresults": "Fịk yom",
 	"searchresults-title": "Fịk yom \"$1\"",
 	"prevn": "mbemiso {{PLURAL:$1|$1}}",
@@ -533,6 +536,7 @@
 	"blockedtext-expiration-time": "Edimende ukpan ifeb: $1",
 	"blockedtext-intended-blockee": "Se ẹkedaukde ndida mberi: $1",
 	"blockedtext-contact-blocker-admin": "Afo emekeme ndika mbine $1 midịghe en̄wen [[{{MediaWiki:Grouppage-sysop}}|adise mban̄a]] man eneme se ikanade eberi.",
+	"blockedtext-block-ip": "Obufa IP adres fo edi $1.",
 	"blockedtext-include-details-queries": "Mbọk sịn kpukpru ntọt emi ke mbụme ekededi emi afo obụpde.",
 	"renameusersubmit": "Sịn"
 }

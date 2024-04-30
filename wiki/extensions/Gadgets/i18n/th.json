@@ -28,7 +28,7 @@
 	"gadgets-viewdescription": "ดูคำอธิบาย",
 	"gadgets-uses": "เรียกใช้",
 	"gadgets-required-rights": "ต้องการ{{PLURAL:$2|สิทธิ}}ดังต่อไปนี้:\n\n$1",
-	"gadgets-required-skins": "ใช้ได้บน{{PLURAL:$2|หน้าตา $1|หน้าตาดังต่อไปนี้: $1}}",
+	"gadgets-required-skins": "ใช้ได้สำหรับ{{PLURAL:$2|หน้าตา $1|หน้าตาดังต่อไปนี้: $1}}",
 	"gadgets-default": "เปิดใช้งานสำหรับทุกคนตามค่าเริ่มต้น",
 	"gadgets-export": "ส่งออก",
 	"gadgets-export-title": "การส่งออกอุปกรณ์เสริม",

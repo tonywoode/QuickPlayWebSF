@@ -22,13 +22,12 @@
 	"mobile-frontend-main-menu-nearby": "ਨੇੜੇ-ਤੇੜੇ",
 	"mobile-frontend-main-menu-settings": "ਪਸੰਦਾਂ",
 	"mobile-frontend-main-menu-watchlist": "ਨਿਗਰਾਨ-ਸੂਚੀ",
-	"mobile-frontend-meta-data-issues-header-talk": "ਇਸ ਸਫ਼ੇ ਬਾਬਤ",
-	"mobile-frontend-meta-data-issues-talk": "ਇਸ ਗੱਲਬਾਤ ਸਫ਼ੇ ਬਾਬਤ",
 	"mobile-frontend-pageaction-edit-tooltip": "ਇਸ ਸਫ਼ੇ ਦਾ ਅਗੇਤਰਾ ਹਿੱਸਾ ਸੋਧੋ।",
 	"mobile-frontend-placeholder": "{{SITENAME}} 'ਤੇ ਖੋਜੋ",
 	"mobile-frontend-random-button": "ਅਟਕਲ ਪੱਚੂ",
 	"mobile-frontend-user-page-contributions": "ਯੋਗਦਾਨ",
 	"mobile-frontend-user-page-talk": "ਗੱਲ-ਬਾਤ",
+	"minerva-page-actions-editfull": "ਪੂਰਾ ਸਫ਼ਾ ਸੋਧੋ",
 	"minerva-page-actions-overflow": "ਹੋਰ",
 	"skin-minerva-mobile-option-MinervaShowCategories": "ਸ਼੍ਰੇਣੀਆਂ"
 }

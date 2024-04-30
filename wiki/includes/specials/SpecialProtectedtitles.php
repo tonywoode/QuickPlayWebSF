@@ -21,39 +21,39 @@
  * @ingroup SpecialPage
  */
 
+namespace MediaWiki\Specials;
+
+use HTMLForm;
+use HTMLSelectNamespace;
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Html\Html;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\ILoadBalancer;
+use MediaWiki\Pager\ProtectedTitlesPager;
+use MediaWiki\SpecialPage\SpecialPage;
+use Wikimedia\Rdbms\IConnectionProvider;
 
 /**
  * A special page that list protected titles from creation
  *
  * @ingroup SpecialPage
  */
-class SpecialProtectedtitles extends SpecialPage {
+class SpecialProtectedTitles extends SpecialPage {
 	protected $IdLevel = 'level';
 	protected $IdType = 'type';
 
-	/** @var LinkBatchFactory */
-	private $linkBatchFactory;
-
-	/** @var ILoadBalancer */
-	private $loadBalancer;
+	private LinkBatchFactory $linkBatchFactory;
+	private IConnectionProvider $dbProvider;
 
 	/**
 	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param ILoadBalancer $loadBalancer
+	 * @param IConnectionProvider $dbProvider
 	 */
 	public function __construct(
 		LinkBatchFactory $linkBatchFactory,
-		ILoadBalancer $loadBalancer
+		IConnectionProvider $dbProvider
 	) {
 		parent::__construct( 'Protectedtitles' );
 		$this->linkBatchFactory = $linkBatchFactory;
-		$this->loadBalancer = $loadBalancer;
+		$this->dbProvider = $dbProvider;
 	}
 
 	public function execute( $par ) {
@@ -69,9 +69,10 @@ class SpecialProtectedtitles extends SpecialPage {
 		$NS = $request->getIntOrNull( 'namespace' );
 
 		$pager = new ProtectedTitlesPager(
-			$this,
+			$this->getContext(),
+			$this->getLinkRenderer(),
 			$this->linkBatchFactory,
-			$this->loadBalancer,
+			$this->dbProvider,
 			[],
 			$type,
 			$level,
@@ -91,51 +92,6 @@ class SpecialProtectedtitles extends SpecialPage {
 		} else {
 			$this->getOutput()->addWikiMsg( 'protectedtitlesempty' );
 		}
-	}
-
-	/**
-	 * Callback function to output a restriction
-	 *
-	 * @param stdClass $row Database row
-	 * @return string
-	 */
-	public function formatRow( $row ) {
-		$title = Title::makeTitleSafe( $row->pt_namespace, $row->pt_title );
-		if ( !$title ) {
-			return Html::rawElement(
-				'li',
-				[],
-				Html::element(
-					'span',
-					[ 'class' => 'mw-invalidtitle' ],
-					Linker::getInvalidTitleDescription(
-						$this->getContext(),
-						$row->pt_namespace,
-						$row->pt_title
-					)
-				)
-			) . "\n";
-		}
-
-		$link = $this->getLinkRenderer()->makeLink( $title );
-		// Messages: restriction-level-sysop, restriction-level-autoconfirmed
-		$description = $this->msg( 'restriction-level-' . $row->pt_create_perm )->escaped();
-		$lang = $this->getLanguage();
-		$expiry = strlen( $row->pt_expiry ) ?
-			$lang->formatExpiry( $row->pt_expiry, TS_MW ) :
-			'infinity';
-
-		if ( $expiry !== 'infinity' ) {
-			$user = $this->getUser();
-			$description .= $this->msg( 'comma-separator' )->escaped() . $this->msg(
-				'protect-expiring-local',
-				$lang->userTimeAndDate( $expiry, $user ),
-				$lang->userDate( $expiry, $user ),
-				$lang->userTime( $expiry, $user )
-			)->escaped();
-		}
-
-		return '<li>' . $lang->specialList( $link, $description ) . "</li>\n";
 	}
 
 	/**
@@ -166,32 +122,25 @@ class SpecialProtectedtitles extends SpecialPage {
 	 * @return string|array
 	 */
 	private function getLevelMenu() {
-		// Temporary array
-		$m = [ $this->msg( 'restriction-level-all' )->text() => 0 ];
-		$options = [];
+		$options = [ 'restriction-level-all' => 0 ];
 
-		// First pass to load the log names
+		// Load the log names as options
 		foreach ( $this->getConfig()->get( MainConfigNames::RestrictionLevels ) as $type ) {
 			if ( $type != '' && $type != '*' ) {
 				// Messages: restriction-level-sysop, restriction-level-autoconfirmed
-				$text = $this->msg( "restriction-level-$type" )->text();
-				$m[$text] = $type;
+				$options["restriction-level-$type"] = $type;
 			}
 		}
 
 		// Is there only one level (aside from "all")?
-		if ( count( $m ) <= 2 ) {
+		if ( count( $options ) <= 2 ) {
 			return '';
-		}
-		// Third pass generates sorted XHTML content
-		foreach ( $m as $text => $type ) {
-			$options[ $text ] = $type;
 		}
 
 		return [
 			'type' => 'select',
-			'options' => $options,
-			'label' => $this->msg( 'restriction-level' )->text(),
+			'options-messages' => $options,
+			'label-message' => 'restriction-level',
 			'name' => $this->IdLevel,
 			'id' => $this->IdLevel
 		];
@@ -201,3 +150,9 @@ class SpecialProtectedtitles extends SpecialPage {
 		return 'maintenance';
 	}
 }
+
+/**
+ * Retain the old class name for backwards compatibility.
+ * @deprecated since 1.41
+ */
+class_alias( SpecialProtectedTitles::class, 'SpecialProtectedtitles' );

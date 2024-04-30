@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"Alesaru",
 			"Andrei Stroe",
 			"Andreyyshore",
 			"Carcassonne93",
@@ -20,7 +21,6 @@
 			"Stelistcristi",
 			"Strainu",
 			"WebSourceContentRO",
-			"Alesaru",
 			"Heron702"
 		]
 	},
@@ -143,6 +143,7 @@
 	"logentry-rights-blockautopromote": "$1 a {{GENDER:$2|blocat}} promovarea automată a {{GENDER:$4|$3}} pentru o perioadă de $5",
 	"logentry-rights-restoreautopromote": "$1 a {{GENDER:$2|restabilit}} promovarea automată a {{GENDER:$4|$3}}",
 	"abusefilterprivatedetails-log-name": "Jurnal de acces la detaliile private AbuseFilter",
+	"log-name-abusefilterblockeddomainhit": "Jurnal împiedicăre domenii blocate",
 	"abusefilter-list": "Toate filtrele",
 	"abusefilter-list-id": "ID filtru",
 	"abusefilter-list-pattern": "Model",
@@ -494,7 +495,6 @@
 	"abusefilter-test-page": "Schimbări aduse paginii:",
 	"abusefilter-test-shownegative": "Arată schimbările care nu se potrivesc filtrului",
 	"abusefilter-test-syntaxerr": "Filtrul pe care l-ați introdus conține o eroare de sintaxă.\nPuteți primi o explicație completă apăsând butonul „{{int:abusefilter-edit-check}}”.",
-	"abusefilter-test-badtitle": "Titlul paginii introdus nu este valid. Este posibil să conțină unul sau mai multe caractere care nu pot fi folosite în titluri.",
 	"abusefilter-test-action": "Tipul acțiunii:",
 	"abusefilter-test-search-type-all": "Toate acțiunile",
 	"abusefilter-test-search-type-edit": "Modificări",
@@ -543,6 +543,7 @@
 	"abusefilter-http-error": "A apărut o eroare HTTP: $1.",
 	"abusefilter-view-privatedetails-submit": "Vezi detalii private",
 	"abusefilter-view-privatedetails-legend": "Vezi detalii private",
+	"abusefilter-blocked-domains-remove-reason": "Motiv",
 	"abusefilter-log-ip-not-available": "Indisponibil",
 	"notification-link-text-show-filter": "Arată filtrul"
 }

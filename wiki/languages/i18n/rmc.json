@@ -676,5 +676,6 @@
 	"skin-view-create-local": "Te prithovel thaneskeri deskripcija",
 	"nstab-mainpage": "Šerutni sera",
 	"skin-action-delete": "Tele te khosel",
-	"skin-action-move": "Avrete te thovel"
+	"skin-action-move": "Avrete te thovel",
+	"blockedtext-block-ip": "Tiri akarutňi IP adresa hin $1."
 }

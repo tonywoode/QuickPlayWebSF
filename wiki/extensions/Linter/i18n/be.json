@@ -2,14 +2,15 @@
 	"@metadata": {
 		"authors": [
 			"Artsiom91",
-			"Mechanizatar",
 			"Maksim L.",
+			"Mechanizatar",
 			"Chadyka"
 		]
 	},
 	"linterrors": "Памылкі статычнага аналізатара",
 	"linter-category-bogus-image-options": "Няслушныя парамэтры файлу",
 	"linter-category-bogus-image-options-desc": "Гэтыя старонкі ўтрымліваюць файлы з няслушнымі параметрамі.",
+	"linter-category-large-tables": "Вялікія табліцы, якія цяжка праглядаць на мабільным тэлефоне",
 	"linter-category-missing-end-tag": "Бракуе завяршальнага тэга",
 	"linter-category-wikilink-in-extlink": "Спасылкі ў спасылках",
 	"linter-page-edit": "правіць",

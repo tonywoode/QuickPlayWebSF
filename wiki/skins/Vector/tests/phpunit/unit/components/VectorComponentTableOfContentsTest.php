@@ -34,9 +34,8 @@ use MessageLocalizer;
  */
 class VectorComponentTableOfContentsTest extends \MediaWikiUnitTestCase {
 
-	public function provideGetTocData() {
+	public static function provideGetTocData() {
 		$config = [
-			'VectorTableOfContentsBeginning' => true,
 			'VectorTableOfContentsCollapseAtCount' => 1
 		];
 		$tocData = [
@@ -107,8 +106,8 @@ class VectorComponentTableOfContentsTest extends \MediaWikiUnitTestCase {
 		];
 
 		$expectedConfigData = [
-			'is-vector-toc-beginning-enabled' => $config[ 'VectorTableOfContentsBeginning' ],
 			'vector-is-collapse-sections-enabled' =>
+				count( $tocData['array-sections'] ) > 3 &&
 				$tocData[ 'number-section-count' ] >= $config[ 'VectorTableOfContentsCollapseAtCount' ],
 			'id' => 'vector-toc',
 			'data-pinnable-header' => [
@@ -153,15 +152,6 @@ class VectorComponentTableOfContentsTest extends \MediaWikiUnitTestCase {
 				array_merge( $config, [ 'VectorTableOfContentsCollapseAtCount' => 1 ] ),
 				// 'vector-is-collapse-sections-enabled' value is true
 				array_merge( $tocData, $expectedConfigData )
-			],
-			// When "Beginning" TOC section is configured to be turned off
-			[
-				$tocData,
-				array_merge( $config, [ 'VectorTableOfContentsBeginning' => false ] ),
-				// 'is-vector-toc-beginning-enabled' value is false
-				array_merge( $tocData, $expectedConfigData, [
-					'is-vector-toc-beginning-enabled' => false
-				] )
 			],
 			// When TOC has sections with top level parent sections
 			[

@@ -85,9 +85,10 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 		}
 
 		if ( $filter ) {
-			$out->setPageTitle( $this->msg( 'abusefilter-history' )->numParams( $filter ) );
+			// Parse wikitext in this message to allow formatting of numero signs (T343994#9209383)
+			$out->setPageTitle( $this->msg( 'abusefilter-history' )->numParams( $filter )->parse() );
 		} else {
-			$out->setPageTitle( $this->msg( 'abusefilter-filter-log' ) );
+			$out->setPageTitleMsg( $this->msg( 'abusefilter-filter-log' ) );
 		}
 
 		// Useful links

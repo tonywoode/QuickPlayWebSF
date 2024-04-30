@@ -19,6 +19,7 @@
 	"multimediaviewer-multiple-authors": "{{PLURAL:$1|un autor máis|$1 autores máis}}",
 	"multimediaviewer-multiple-authors-combine": "$1 e $2",
 	"multimediaviewer-metadata-error": "Non se puideron cargar os detalles da imaxe (erro: $1)",
+	"multimediaviewer-file-not-found-error": "Sentímolo, o ficheiro $1 non se pode amosar porque non está presente na páxina actual.",
 	"multimediaviewer-thumbnail-error": "Sentímolo, non se pode amosar o ficheiro",
 	"multimediaviewer-thumbnail-error-description": "Semella haber un problema técnico. Pode $1 se persiste. Erro: $2",
 	"multimediaviewer-thumbnail-error-retry": "reintentar",

@@ -8,6 +8,7 @@
 			"Demmy",
 			"Duolaimi",
 			"FakeGreenHand",
+			"GuoPC",
 			"Hudafu",
 			"Hydra",
 			"Hzy980512",
@@ -27,9 +28,8 @@
 			"乌拉跨氪",
 			"佛壁灯",
 			"夢蝶葬花",
-			"GuoPC",
-			"LittlePaw365",
-			"沈澄心"
+			"沈澄心",
+			"LittlePaw365"
 		]
 	},
 	"visualeditor-cite-tool-name-book": "图书",
@@ -50,6 +50,8 @@
 	"cite-ve-citationneeded-title": "需要引证",
 	"cite-ve-dialog-reference-editing-reused": "此参考资料在此页面上使用了{{PLURAL:$1|$1次}}。",
 	"cite-ve-dialog-reference-editing-reused-long": "此参考资料在此页面上使用了{{PLURAL:$1|$1次}}。此处所作更改会应用到此参考资料的所有复用处。",
+	"cite-ve-dialog-reference-editing-extends": "这是另一参考资料的扩展。",
+	"cite-ve-dialog-reference-editing-extends-long": "这是另一参考资料“$1”的扩展。",
 	"cite-ve-dialog-reference-options-group-label": "使用此分组",
 	"cite-ve-dialog-reference-options-group-placeholder": "常规参考资料",
 	"cite-ve-dialog-reference-options-name-label": "以此名称复用",
@@ -72,7 +74,7 @@
 	"cite-ve-referenceslist-isempty-default": "此页面上没有可列入此列表的参考资料。",
 	"cite-ve-referenceslist-missingref": "此参考资料定义在模板或其他生成块内，目前只能使用源代码模式编辑。",
 	"cite-ve-referenceslist-missingref-in-list": "此参考资料定义在模板或其他生成块内，目前只能使用源代码模式预览。",
-	"cite-ve-referenceslist-missingreflist": "此参考资料列表由模板生成，并且目前只能在源代码模式中编辑。",
+	"cite-ve-referenceslist-missingreflist": "此参考资料列表由模板生成。",
 	"cite-ve-toolbar-group-label": "引证",
 	"cite-ve-othergroup-item": "$1参考资料",
 	"visualeditor-internal-list-diff-default-group-name-mwreference": "参考文献",

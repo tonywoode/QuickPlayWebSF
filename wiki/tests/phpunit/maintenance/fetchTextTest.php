@@ -8,8 +8,8 @@ use FetchText;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Title\Title;
 use MediaWikiIntegrationTestCase;
-use MWException;
 use PHPUnit\Framework\ExpectationFailedException;
+use RuntimeException;
 use WikiPage;
 
 /**
@@ -112,7 +112,6 @@ class FetchTextTest extends MediaWikiIntegrationTestCase {
 	 * @param string $text The revisions text
 	 * @param string $summary The revisions summare
 	 * @return string
-	 * @throws MWException
 	 */
 	private function addRevision( $page, $text, $summary ) {
 		$status = $page->doUserEditContent(
@@ -127,7 +126,7 @@ class FetchTextTest extends MediaWikiIntegrationTestCase {
 			return $address;
 		}
 
-		throw new MWException( "Could not create revision" );
+		throw new RuntimeException( "Could not create revision" );
 	}
 
 	public function addDBDataOnce() {
@@ -135,7 +134,7 @@ class FetchTextTest extends MediaWikiIntegrationTestCase {
 		$wikiPageFactory = $this->getServiceContainer()->getWikiPageFactory();
 
 		try {
-			$title = Title::newFromText( 'FetchTextTestPage1', $wikitextNamespace );
+			$title = Title::makeTitle( $wikitextNamespace, 'FetchTextTestPage1' );
 			$page = $wikiPageFactory->newFromTitle( $title );
 			self::$textId1 = $this->addRevision(
 				$page,
@@ -143,7 +142,7 @@ class FetchTextTest extends MediaWikiIntegrationTestCase {
 				"FetchTextTestPage1Summary1"
 			);
 
-			$title = Title::newFromText( 'FetchTextTestPage2', $wikitextNamespace );
+			$title = Title::makeTitle( $wikitextNamespace, 'FetchTextTestPage2' );
 			$page = $wikiPageFactory->newFromTitle( $title );
 			self::$textId2 = $this->addRevision(
 				$page,

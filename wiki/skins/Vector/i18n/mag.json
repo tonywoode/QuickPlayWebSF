@@ -45,6 +45,8 @@
 	"vector-site-nav-label": "जालस्थान",
 	"vector-main-menu-label": "मुख्य मेन्यू",
 	"vector-limited-width-toggle": "सामग्रीके सीमित चौड़ाई टॉगल् करी",
+	"vector-limited-width-toggle-on-popup": "अपने अपन लेआउट् पूरा चौड़ाई पर बदलली हे । सीमित चौड़ाई पर बापिस जायेला ई बटन् दबावी ।",
+	"vector-limited-width-toggle-off-popup": "अपने ई बटन् पर क्लिक् करके सीमित चौड़ाई आउ पूरा चौड़ाई के बीच बदल सकही ।",
 	"vector-page-tools-label": "उपकरण",
 	"vector-page-tools-general-label": "सामान्य",
 	"vector-page-tools-actions-label": "क्रिया",
@@ -52,6 +54,7 @@
 	"vector-unpin-element-label": "लुकावी",
 	"vector-2022-prefs-talkpage": "[[mw:Talk:Reading/Web/Desktop_Improvements|चर्चा]]",
 	"tooltip-vector-anon-user-menu-title": "आउ बिकल्प",
+	"vector-page-tools-nav-label": "पन्ना उपकरण",
 	"vector-prefs-limited-width": "सीमित चौड़ाई मोड् सक्षम करी",
 	"vector-prefs-limited-width-help": "निमन पठन अनुभव लागि सीमित चौड़ाई मोड् सक्षम करी ।",
 	"empty-language-selector-body": "पन्ना सामग्री दुसर भाषामे उपलब्ध न हे ।"

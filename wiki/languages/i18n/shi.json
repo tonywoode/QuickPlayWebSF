@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"AguzulH",
 			"Amara-Amaziɣ",
 			"Amire80",
 			"Ayour2002",
@@ -12,8 +13,7 @@
 			"Lhoussine AIT TAYFST",
 			"Mhab Zdan1",
 			"Zanatos",
-			"아라",
-			"AguzulH"
+			"아라"
 		]
 	},
 	"tog-underline": "krrj du izdayn:",
@@ -221,7 +221,6 @@
 	"versionrequired": "Txxṣṣa $1 n MediaWiki",
 	"versionrequiredtext": "Ixxṣṣa w-ayyaw $1 n MediaWiki bac at tskrert tasna yad.\nẒr [[Special:Version|ayyaw tasna]].",
 	"ok": "Waxxa",
-	"pagetitle": "$1 - {{SITENAME}}",
 	"retrievedfrom": "Yurrid zɣ \"$1\"",
 	"youhavenewmessages": "{{PLURAL:$3|{{GENDER:$3|Dark|Darm}}}} $1 ($2).",
 	"youhavenewmessagesfromusers": "{{PLURAL:$4|Illa dark}} $1 zɣ {{PLURAL:$3|yan umssmrs yaḍn|$3 imssmrsn}} ($2).",
@@ -662,8 +661,6 @@
 	"minoreditletter": "m",
 	"newpageletter": "N",
 	"boteditletter": "b",
-	"unpatrolledletter": "!",
-	"rc-change-size": "$1",
 	"rc-change-size-new": "$1 {{PLURAL:$1|byte|id byte}} dffir n usenfl",
 	"newsectionsummary": "/* $1 */ tigzmi tamaynut",
 	"rc-old-title": "Asnulfu anṣli \"$1\"",
@@ -1064,9 +1061,9 @@
 	"minutes-ago": "$1 {{PLURAL:$1|tusdidt|tusdidin}} aya",
 	"seconds-ago": "$1 {{PLURAL:$1|tsint|tsinin}} aya",
 	"bad_image_list": "zud ghikad :\n\nghir lhwayj n lista (stour libdounin s *) karaytyo7asab",
+	"variantname-shi": "Taclḥit",
 	"variantname-shi-tfng": "ⵜⴰⵛⵍⵃⵉⵜ",
 	"variantname-shi-latn": "Taclḥit",
-	"variantname-shi": "Taclḥit",
 	"metadata": "Metadata",
 	"metadata-help": "Yuma ufaylu ad umlan yaḍnin, lli d tfl takamirat tuṭunit nɣ d aṣfḍ ittusmrasn i usnflul nns.\nIɣ ibadl afaylu zɣ addad nns amzwaru, kra n ifruritn, ur ɣint ad gint d timkdant s ufaylu amiran.",
 	"metadata-expand": "Ml ifruriyn lluzzanin",
@@ -1124,7 +1121,7 @@
 	"fileduplicatesearch-submit": "siggl",
 	"specialpages": "Tasniwin timẓlatin",
 	"specialpages-group-other": "tiwriqin khassa yadnin",
-	"specialpages-group-login": "kcm / snulfu amiḍan",
+	"specialpages-group-login": "Aswuddu n umiḍan",
 	"specialpages-group-changes": "Isnfal inggura d tifriwin",
 	"specialpages-group-media": "taqarir n lmedia d upload",
 	"specialpages-group-users": "Inssmrasn d izrfan",

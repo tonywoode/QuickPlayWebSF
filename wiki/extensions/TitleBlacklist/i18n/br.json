@@ -17,5 +17,6 @@
 	"titleblacklist-invalid": "Direizh eo al {{PLURAL:$1|linenn|linennoù}} da-heul a gaver e roll an titloù difennet; \nreizhit {{PLURAL:$1|anezhi|anezho}} a-raok enrollañ :",
 	"titleblacklist-override": "Ober van eus roll an titloù difennet ma klot",
 	"right-tboverride": "Na ober van ouzh roll an titloù pe anvioù implijer difennet",
-	"right-tboverride-account": "Na ober van ouzh roll an anvioù implijer difennet"
+	"right-tboverride-account": "Na ober van ouzh roll an anvioù implijer difennet",
+	"right-titleblacklistlog": "Gwelout roll an titloù difennet"
 }

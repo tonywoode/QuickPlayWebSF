@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"TheAafi",
 			"Amire80",
+			"TheAafi",
 			"Muhammad Shuaib"
 		]
 	},
@@ -18,10 +18,12 @@
 	"apihelp-discussiontoolsedit-param-formtoken": "دوہری پوسٹنگ کو روکنے کے لیے کلائنٹ میں ایک آپشنل منفرد آئی ڈی تیار کی جاتی ہے۔",
 	"apihelp-discussiontoolsedit-param-html": "بطور ایچ۔ٹی۔ایم۔ال، ہوسٹ کرنے کے لیے مواد <var>ikitext\n</var> کے ساتھ ساتھ استعمال نہیں کیا جاسکتا۔",
 	"apihelp-discussiontoolsedit-param-sectiontitle": "{{int:apihelp-edit-param-sectiontitle}} صرف اسی صورت استعمال ہوتا ہے جب <var>paction</var> <var>addtopic</var> ہو۔",
+	"apihelp-discussiontoolsedit-param-allownosectiontitle": "عنوان کے بغیر نیا موضوع شروع کرنے کی اجازت۔",
 	"apihelp-discussiontoolsedit-param-wikitext": "بطور ویکی ٹیکسٹ، ہوسٹ کرنے کے لیے مواد <var>html</var> کے ساتھ ساتھ استعمال نہیں کیا جاسکتا۔",
 	"apihelp-discussiontoolsedit-paramvalue-paction-addcomment": "موجود تبصرے کے جواب میں ایک نیا تبصرہ شامل کریں۔",
 	"apihelp-discussiontoolsedit-paramvalue-paction-addtopic": "ایک نئی بحث کا خانہ اور اس میں پہلا تبصرہ شامل کریں۔",
 	"apihelp-discussiontoolsedit-summary": "تبادلۂ خیال صفحہ پر پیغام بھیجتا ہے۔",
+	"apihelp-discussiontoolsfindcomment-summary": "شناختی نمبر یا نام کی مدد سے تبصرہ تلاش کرتا ہے۔",
 	"apihelp-discussiontoolsgetsubscriptions-param-commentname": "پرکھنے کے لیے عنوانات کے نام",
 	"apihelp-discussiontoolsgetsubscriptions-summary": "دیے گئے موضوعات میں شرکت کی کیفیت معلوم کرتا ہے۔",
 	"apihelp-discussiontoolspageinfo-param-oldid": "استعمال کرنے کے لیے فرق کا نمبر (خودکار طور پر حالیہ فرق)",

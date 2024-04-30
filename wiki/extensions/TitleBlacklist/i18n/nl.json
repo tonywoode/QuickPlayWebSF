@@ -1,13 +1,13 @@
 {
 	"@metadata": {
 		"authors": [
+			"HanV",
 			"Mainframe98",
 			"McDutchie",
 			"SPQRobin",
 			"Siebrand",
 			"Sjoerddebruin",
-			"Southparkfan",
-			"HanV"
+			"Southparkfan"
 		]
 	},
 	"action-tboverride": "de lijst met verboden titels of gebruikersnamen te omzeilen",
@@ -29,5 +29,5 @@
 	"titleblacklist-warning": "<strong>Let op: Deze pagina kan alleen worden bewerkt door beheerders en andere gebruikers met het recht <code>tboverride</code> omdat ze overeenkomt met de volgende vermelding op de lijst met verboden titels:</strong><br /><code>$1</code>",
 	"right-tboverride": "De lijst met verboden titels of gebruikersnamen omzeilen",
 	"right-tboverride-account": "De lijst met verboden gebruikersnamen omzeilen",
-	"right-titleblacklistlog": "Het logboek over de lijst met verboden titels bekijken"
+	"right-titleblacklistlog": "Het logboek met verboden titels bekijken"
 }

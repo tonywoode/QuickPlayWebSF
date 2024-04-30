@@ -33,5 +33,6 @@
 	"echo-notification-alert-text-only": "Тӣдҍлаһтҍмуж",
 	"echo-notification-notice-text-only": "Тӣдҍхэмуж",
 	"echo-overlay-link": "Пугк тӣдҍхэмуж",
-	"echo-overlay-title": "<b>Тӣдҍхэмуж</b>"
+	"echo-overlay-title": "<b>Тӣдҍхэмуж</b>",
+	"echo-mark-all-as-read": "Тӣһтлэ {{PLURAL:$1|пукэтҍ}} гу ло̄гкма"
 }

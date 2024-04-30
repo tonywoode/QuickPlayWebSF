@@ -21,31 +21,33 @@
  * @ingroup SpecialPage
  */
 
+namespace MediaWiki\Specials;
+
+use HtmlArmor;
+use HTMLForm;
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\CommentFormatter\CommentFormatter;
-use MediaWiki\CommentStore\CommentStore;
+use MediaWiki\ChangeTags\ChangeTagsStore;
+use MediaWiki\CommentFormatter\RowCommentFormatter;
 use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\Feed\FeedItem;
 use MediaWiki\Html\FormOptions;
 use MediaWiki\Html\Html;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MainConfigNames;
+use MediaWiki\Pager\NewPagesPager;
 use MediaWiki\Permissions\GroupPermissionsLookup;
-use MediaWiki\Revision\MutableRevisionRecord;
 use MediaWiki\Revision\RevisionLookup;
-use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
+use MediaWiki\SpecialPage\IncludableSpecialPage;
+use MediaWiki\Title\NamespaceInfo;
 use MediaWiki\Title\Title;
-use MediaWiki\User\UserIdentityValue;
 use MediaWiki\User\UserOptionsLookup;
-use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * A special page that list newly created pages
  *
  * @ingroup SpecialPage
  */
-class SpecialNewpages extends IncludableSpecialPage {
+class SpecialNewPages extends IncludableSpecialPage {
 	/**
 	 * @var FormOptions
 	 */
@@ -55,65 +57,43 @@ class SpecialNewpages extends IncludableSpecialPage {
 
 	protected $showNavigation = false;
 
-	/** @var LinkBatchFactory */
-	private $linkBatchFactory;
-
-	/** @var CommentStore */
-	private $commentStore;
-
-	/** @var IContentHandlerFactory */
-	private $contentHandlerFactory;
-
-	/** @var GroupPermissionsLookup */
-	private $groupPermissionsLookup;
-
-	/** @var ILoadBalancer */
-	private $loadBalancer;
-
-	/** @var RevisionLookup */
-	private $revisionLookup;
-
-	/** @var NamespaceInfo */
-	private $namespaceInfo;
-
-	/** @var UserOptionsLookup */
-	private $userOptionsLookup;
-
-	/** @var CommentFormatter */
-	private $commentFormatter;
+	private LinkBatchFactory $linkBatchFactory;
+	private IContentHandlerFactory $contentHandlerFactory;
+	private GroupPermissionsLookup $groupPermissionsLookup;
+	private RevisionLookup $revisionLookup;
+	private NamespaceInfo $namespaceInfo;
+	private UserOptionsLookup $userOptionsLookup;
+	private RowCommentFormatter $rowCommentFormatter;
+	private ChangeTagsStore $changeTagsStore;
 
 	/**
 	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param CommentStore $commentStore
 	 * @param IContentHandlerFactory $contentHandlerFactory
 	 * @param GroupPermissionsLookup $groupPermissionsLookup
-	 * @param ILoadBalancer $loadBalancer
 	 * @param RevisionLookup $revisionLookup
 	 * @param NamespaceInfo $namespaceInfo
 	 * @param UserOptionsLookup $userOptionsLookup
-	 * @param CommentFormatter $commentFormatter
+	 * @param RowCommentFormatter $rowCommentFormatter
 	 */
 	public function __construct(
 		LinkBatchFactory $linkBatchFactory,
-		CommentStore $commentStore,
 		IContentHandlerFactory $contentHandlerFactory,
 		GroupPermissionsLookup $groupPermissionsLookup,
-		ILoadBalancer $loadBalancer,
 		RevisionLookup $revisionLookup,
 		NamespaceInfo $namespaceInfo,
 		UserOptionsLookup $userOptionsLookup,
-		CommentFormatter $commentFormatter
+		RowCommentFormatter $rowCommentFormatter,
+		ChangeTagsStore $changeTagsStore
 	) {
 		parent::__construct( 'Newpages' );
 		$this->linkBatchFactory = $linkBatchFactory;
-		$this->commentStore = $commentStore;
 		$this->contentHandlerFactory = $contentHandlerFactory;
 		$this->groupPermissionsLookup = $groupPermissionsLookup;
-		$this->loadBalancer = $loadBalancer;
 		$this->revisionLookup = $revisionLookup;
 		$this->namespaceInfo = $namespaceInfo;
 		$this->userOptionsLookup = $userOptionsLookup;
-		$this->commentFormatter = $commentFormatter;
+		$this->rowCommentFormatter = $rowCommentFormatter;
+		$this->changeTagsStore = $changeTagsStore;
 	}
 
 	/**
@@ -138,6 +118,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 		$opts->add( 'username', '' );
 		$opts->add( 'feed', '' );
 		$opts->add( 'tagfilter', '' );
+		$opts->add( 'tagInvert', false );
 		$opts->add( 'invert', false );
 		$opts->add( 'associated', false );
 		$opts->add( 'size-mode', 'max' );
@@ -164,38 +145,34 @@ class SpecialNewpages extends IncludableSpecialPage {
 	protected function parseParams( $par ) {
 		$bits = preg_split( '/\s*,\s*/', trim( $par ) );
 		foreach ( $bits as $bit ) {
+			$m = [];
 			if ( $bit === 'shownav' ) {
 				$this->showNavigation = true;
-			}
-			if ( $bit === 'hideliu' ) {
+			} elseif ( $bit === 'hideliu' ) {
 				$this->opts->setValue( 'hideliu', true );
-			}
-			if ( $bit === 'hidepatrolled' ) {
+			} elseif ( $bit === 'hidepatrolled' ) {
 				$this->opts->setValue( 'hidepatrolled', true );
-			}
-			if ( $bit === 'hidebots' ) {
+			} elseif ( $bit === 'hidebots' ) {
 				$this->opts->setValue( 'hidebots', true );
-			}
-			if ( $bit === 'showredirs' ) {
+			} elseif ( $bit === 'showredirs' ) {
 				$this->opts->setValue( 'hideredirs', false );
-			}
-			if ( is_numeric( $bit ) ) {
+			} elseif ( is_numeric( $bit ) ) {
 				$this->opts->setValue( 'limit', intval( $bit ) );
-			}
-
-			$m = [];
-			if ( preg_match( '/^limit=(\d+)$/', $bit, $m ) ) {
+			} elseif ( preg_match( '/^limit=(\d+)$/', $bit, $m ) ) {
 				$this->opts->setValue( 'limit', intval( $m[1] ) );
-			}
-			// PG offsets not just digits!
-			if ( preg_match( '/^offset=([^=]+)$/', $bit, $m ) ) {
+			} elseif ( preg_match( '/^offset=([^=]+)$/', $bit, $m ) ) {
+				// PG offsets not just digits!
 				$this->opts->setValue( 'offset', intval( $m[1] ) );
-			}
-			if ( preg_match( '/^username=(.*)$/', $bit, $m ) ) {
+			} elseif ( preg_match( '/^username=(.*)$/', $bit, $m ) ) {
 				$this->opts->setValue( 'username', $m[1] );
-			}
-			if ( preg_match( '/^namespace=(.*)$/', $bit, $m ) ) {
+			} elseif ( preg_match( '/^namespace=(.*)$/', $bit, $m ) ) {
 				$ns = $this->getLanguage()->getNsIndex( $m[1] );
+				if ( $ns !== false ) {
+					$this->opts->setValue( 'namespace', $ns );
+				}
+			} else {
+				// T62424 try to interpret unrecognized parameters as a namespace
+				$ns = $this->getLanguage()->getNsIndex( $bit );
 				if ( $ns !== false ) {
 					$this->opts->setValue( 'namespace', $ns );
 				}
@@ -313,6 +290,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 		$namespace = $this->opts->consumeValue( 'namespace' );
 		$username = $this->opts->consumeValue( 'username' );
 		$tagFilterVal = $this->opts->consumeValue( 'tagfilter' );
+		$tagInvertVal = $this->opts->consumeValue( 'tagInvert' );
 		$nsinvert = $this->opts->consumeValue( 'invert' );
 		$nsassociated = $this->opts->consumeValue( 'associated' );
 
@@ -349,6 +327,13 @@ class SpecialNewpages extends IncludableSpecialPage {
 				'name' => 'tagfilter',
 				'label-message' => 'tag-filter',
 				'default' => $tagFilterVal,
+			],
+			'tagInvert' => [
+				'type' => 'check',
+				'name' => 'tagInvert',
+				'label-message' => 'invert',
+				'hide-if' => [ '===', 'tagFilter', '' ],
+				'default' => $tagInvertVal,
 			],
 			'username' => [
 				'type' => 'user',
@@ -393,169 +378,19 @@ class SpecialNewpages extends IncludableSpecialPage {
 		$out->addModuleStyles( 'mediawiki.special' );
 	}
 
-	/**
-	 * @param stdClass $result Result row from recent changes
-	 * @param Title $title
-	 * @return RevisionRecord
-	 */
-	protected function revisionFromRcResult( stdClass $result, Title $title ): RevisionRecord {
-		$revRecord = new MutableRevisionRecord( $title );
-		$revRecord->setComment(
-			$this->commentStore->getComment( 'rc_comment', $result )
-		);
-		$revRecord->setVisibility( (int)$result->rc_deleted );
-
-		$user = new UserIdentityValue(
-			(int)$result->rc_user,
-			$result->rc_user_text
-		);
-		$revRecord->setUser( $user );
-
-		return $revRecord;
-	}
-
-	/**
-	 * Format a row, providing the timestamp, links to the page/history,
-	 * size, user links, and a comment
-	 *
-	 * @param stdClass $result Result row
-	 * @return string
-	 */
-	public function formatRow( $result ) {
-		$title = Title::newFromRow( $result );
-
-		// Revision deletion works on revisions,
-		// so cast our recent change row to a revision row.
-		$revRecord = $this->revisionFromRcResult( $result, $title );
-
-		$classes = [];
-		$attribs = [ 'data-mw-revid' => $result->rev_id ];
-
-		$lang = $this->getLanguage();
-		$dm = $lang->getDirMark();
-
-		$spanTime = Html::element( 'span', [ 'class' => 'mw-newpages-time' ],
-			$lang->userTimeAndDate( $result->rc_timestamp, $this->getUser() )
-		);
-		$linkRenderer = $this->getLinkRenderer();
-		$time = $linkRenderer->makeKnownLink(
-			$title,
-			new HtmlArmor( $spanTime ),
-			[],
-			[ 'oldid' => $result->rc_this_oldid ]
-		);
-
-		$query = $title->isRedirect() ? [ 'redirect' => 'no' ] : [];
-
-		$plink = $linkRenderer->makeKnownLink(
-			$title,
-			null,
-			[ 'class' => 'mw-newpages-pagename' ],
-			$query
-		);
-		$linkArr = [];
-		$linkArr[] = $linkRenderer->makeKnownLink(
-			$title,
-			$this->msg( 'hist' )->text(),
-			[ 'class' => 'mw-newpages-history' ],
-			[ 'action' => 'history' ]
-		);
-		if ( $this->contentHandlerFactory->getContentHandler( $title->getContentModel() )
-			->supportsDirectEditing()
-		) {
-			$linkArr[] = $linkRenderer->makeKnownLink(
-				$title,
-				$this->msg( 'editlink' )->text(),
-				[ 'class' => 'mw-newpages-edit' ],
-				[ 'action' => 'edit' ]
-			);
-		}
-		$links = $this->msg( 'parentheses' )->rawParams( $this->getLanguage()
-			->pipeList( $linkArr ) )->escaped();
-
-		$length = Html::rawElement(
-			'span',
-			[ 'class' => 'mw-newpages-length' ],
-			$this->msg( 'brackets' )->rawParams(
-				$this->msg( 'nbytes' )->numParams( $result->length )->escaped()
-			)->escaped()
-		);
-
-		$ulink = Linker::revUserTools( $revRecord );
-		$comment = $this->commentFormatter->formatRevision( $revRecord, $this->getAuthority() );
-
-		if ( $this->patrollable( $result ) ) {
-			$classes[] = 'not-patrolled';
-		}
-
-		# Add a class for zero byte pages
-		if ( $result->length == 0 ) {
-			$classes[] = 'mw-newpages-zero-byte-page';
-		}
-
-		# Tags, if any.
-		if ( isset( $result->ts_tags ) ) {
-			[ $tagDisplay, $newClasses ] = ChangeTags::formatSummaryRow(
-				$result->ts_tags,
-				'newpages',
-				$this->getContext()
-			);
-			$classes = array_merge( $classes, $newClasses );
-		} else {
-			$tagDisplay = '';
-		}
-
-		# Display the old title if the namespace/title has been changed
-		$oldTitleText = '';
-		$oldTitle = Title::makeTitle( $result->rc_namespace, $result->rc_title );
-
-		if ( !$title->equals( $oldTitle ) ) {
-			$oldTitleText = $oldTitle->getPrefixedText();
-			$oldTitleText = Html::rawElement(
-				'span',
-				[ 'class' => 'mw-newpages-oldtitle' ],
-				$this->msg( 'rc-old-title' )->params( $oldTitleText )->escaped()
-			);
-		}
-
-		$ret = "{$time} {$dm}{$plink} {$links} {$dm}{$length} {$dm}{$ulink} {$comment} "
-			. "{$tagDisplay} {$oldTitleText}";
-
-		// Let extensions add data
-		$this->getHookRunner()->onNewPagesLineEnding(
-			$this, $ret, $result, $classes, $attribs );
-		$attribs = array_filter( $attribs,
-			[ Sanitizer::class, 'isReservedDataAttribute' ],
-			ARRAY_FILTER_USE_KEY
-		);
-
-		if ( $classes ) {
-			$attribs['class'] = $classes;
-		}
-
-		return Html::rawElement( 'li', $attribs, $ret ) . "\n";
-	}
-
 	private function getNewPagesPager() {
 		return new NewPagesPager(
-			$this,
+			$this->getContext(),
+			$this->getLinkRenderer(),
 			$this->groupPermissionsLookup,
 			$this->getHookContainer(),
 			$this->linkBatchFactory,
-			$this->loadBalancer,
 			$this->namespaceInfo,
-			$this->opts
+			$this->changeTagsStore,
+			$this->rowCommentFormatter,
+			$this->contentHandlerFactory,
+			$this->opts,
 		);
-	}
-
-	/**
-	 * Should a specific result row provide "patrollable" links?
-	 *
-	 * @param stdClass $result Result row
-	 * @return bool
-	 */
-	protected function patrollable( $result ) {
-		return ( $this->getUser()->useNPPatrol() && !$result->rc_patrolled );
 	}
 
 	/**
@@ -597,7 +432,7 @@ class SpecialNewpages extends IncludableSpecialPage {
 	}
 
 	protected function feedTitle() {
-		$desc = $this->getDescription();
+		$desc = $this->getDescription()->text();
 		$code = $this->getConfig()->get( MainConfigNames::LanguageCode );
 		$sitename = $this->getConfig()->get( MainConfigNames::Sitename );
 
@@ -663,3 +498,9 @@ class SpecialNewpages extends IncludableSpecialPage {
 		return 60 * 5;
 	}
 }
+
+/**
+ * Retain the old class name for backwards compatibility.
+ * @deprecated since 1.41
+ */
+class_alias( SpecialNewPages::class, 'SpecialNewpages' );

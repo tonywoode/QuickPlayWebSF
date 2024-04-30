@@ -1,8 +1,10 @@
 {
 	"@metadata": {
 		"authors": [
+			"Func",
 			"Impersonator 1",
 			"Liangent",
+			"LittlePaw365",
 			"Liuxinyu970226",
 			"Mywood",
 			"Onecountry",
@@ -11,8 +13,6 @@
 			"Xzonn",
 			"Yfdyh000",
 			"飞小RAN",
-			"Func",
-			"LittlePaw365",
 			"阿南之人"
 		]
 	},
@@ -26,6 +26,7 @@
 	"replacetext_optionalfilters": "可选筛选：",
 	"replacetext_categorysearch": "只替换该分类内页面：",
 	"replacetext_prefixsearch": "只替换前缀为该文字的页面：",
+	"replacetext_pagelimit": "搜索返回的最大页面数：",
 	"replacetext_editpages": "替换页面内容内的文字",
 	"replacetext_movepages": "替换页面标题内的文字（当可以时）",
 	"replacetext_givetarget": "您必须指定要替换的字符串。",
@@ -34,6 +35,7 @@
 	"replacetext_choosepagesforedit": "把以下{{PLURAL:$3|页面}}文本内的“$1”替换为“$2”：",
 	"replacetext_choosepagesformove": "把{{PLURAL:$3|以下$3个页面标题}}内的“$1”替换为“$2”：",
 	"replacetext_cannotmove": "以下{{PLURAL:$1|$1个页面}}无法移动：",
+	"replacetext_cannotedit": "以下{{PLURAL:$1|$1个页面}}无法编辑：",
 	"replacetext_formovedpages": "对于移动的页面：",
 	"replacetext_savemovedpages": "把旧标题保留为新标题的重定向",
 	"replacetext_watchmovedpages": "监视这些页面",
@@ -47,7 +49,7 @@
 	"replacetext_warning": "'''警告：'''有{{PLURAL:$1|$1个页面已经含有}}替换字符串“$2”。如果您进行此次替换，您会无法区分您替换的文字和这些字符串。",
 	"replacetext_blankwarning": "'''警告：'''由于替换字符串为空，因此此操作不可逆转。",
 	"replacetext_continue": "继续",
-	"replacetext_announce": "通过$1和监视列表通知这些编辑",
+	"replacetext_botedit": "把更改标记为机器人编辑",
 	"replacetext_editsummary": "文字替换 -“$1”替换为“$2”",
 	"replacetext_reminder": "要同时修改其他页面内指向此页面的链接，请前往$1。",
 	"replacetext_cfg_error": "ReplaceText配置错误",

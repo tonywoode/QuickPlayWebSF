@@ -5,11 +5,11 @@
 			"DannyS712",
 			"FRANCIS5091",
 			"FRANELYA",
+			"Jilorisa",
 			"Macofe",
+			"Meqqal",
 			"Tofeiku",
 			"아라",
-			"Meqqal",
-			"Jilorisa",
 			"CorrelMoris38",
 			"Jjurieee"
 		]
@@ -58,6 +58,7 @@
 	"tog-prefershttps": "Toririmo do momoguno noputan di otingolig soira do sumuang",
 	"tog-showrollbackconfirmation": "Pokitono o prom pongokunan soira monodos pongoput popoguli",
 	"tog-requireemail": "Pootodon e-mel montok monginwagu ''password'' soira katahak o e-mel om ngaran momoguno.",
+	"tog-forcesafemode": "Ukabon kasari [[mw:Manual:Safemode|mode otinolig]]",
 	"underline-always": "Toririmo",
 	"underline-never": "Kada",
 	"underline-default": "Kourasai pogigihum sandad",
@@ -396,6 +397,7 @@
 	"nav-login-createaccount": "Sumuang log / pomonsoi  do takaun",
 	"logout": "Lumabus log",
 	"userlogout": "Lumabus log",
+	"templogout": "Soliwan mantad sesi",
 	"notloggedin": "Amu nokolog sumuang",
 	"userlogin-noaccount": "Ingaa poh takaun?",
 	"userlogin-joinproject": "Tanud {{SITENAME}}",
@@ -532,7 +534,7 @@
 	"missingcommentheader": "'''Panansarahan:''' Awu nu nokosuang ahal/tuluhon montok pason diti.\nNung todosonnu \"$1\" kawagu, kogompi niditannu nga ingaa aha//tuluhon.",
 	"summary-preview": "Pongitanan koinibaan:",
 	"blockedtitle": "Nantaban momoguno",
-	"blockedtext": "'''Ngaran momogunonu toi kinoyonon IP nantaban.'''\n\nNantaban di $1.\nSabab pinatahak ''$2''.\n\n* Tinimpuun nantaban: $8\n* Olimpupusan nantaban: $6\n* Koinggisaman tantob: $7\n\nMilo ko do tumurubung $1 toi [[{{MediaWiki:Grouppage-sysop}}|mandur]] suai do miboros kokomoi diti tantob.\nAwu ko milo do mongoguno kakamot 'ponurat-i montok momoguno diti' nung ingaa kinoyonon surat-i pointantu id [[Special:Preferences|takaunnu]] om awu ko nantaban do momoguno dilo.\nKinoyonon IPnu nopo nga $3, on ID nantaban nopo nga #$5.\nAlansan do potonudon oinsanan kointalangan id sawat montok nunu-nunu ponguhatannu.",
+	"blockedtext": "<strong>Ngaran momogunonu toi kinoyonon IP nantaban.<strong>\n\n{{int:blockedtext-made-by|$1}}\n{{int:blockedtext-reason-comment|$2}}.\n\n*{{int:blockedtext-start-time|$8}}\n*{{int:blockedtext-expiration-time|$6}}\n*{{int:blockedtext-intended-blockee|$7}}\n\n{{int:blockedtext-contact-blocker-admin|$1}}\nMilo ko momoguno do \"{{int:emailuser}}\" sokiro alamat emel sah pinatantu id suang do [[Special:Preferences|preferences]] om amu ko nantaban do momoguno.\n{{int:blockedtext-block-ip|$3}} {{int:blockedtext-block-id|$5}}\n{{int:blockedtext-include-details-queries}}",
 	"autoblockedtext": "Kinoyonon IPnu noporianan nantaban tu gunoon do momomoguno suai, it nantaban di $1.\nSabab pinatahak diti:\n\n:''$2''\n\n\n* Tinimpuun nantaban: $8\n* Olimpupusan nantaban: $6\n* Koinggisaman tantob: $7\n\nMilo ko do tumurubung $1 toi [[{{MediaWiki:Grouppage-sysop}}|mandur]] suai do miboros kokomoi diti tantob.\n\nAwu ko milo do mongoguno kakamot 'ponurat-i montok momoguno diti' nung ingaa kinoyonon surat-i pointantu id [[Special:Preferences|takaunnu]] om awu ko nantaban do momoguno dilo.\n\nKinoyonon IPnu nopo nga $3, on ID nantaban nopo nga #$5.\nAlansan do potonudon oinsanan kointalangan id sawat montok nunu-nunu ponguhatannu.",
 	"blockednoreason": "ingaa pinatahak sabab",
 	"whitelistedittext": "Mositi do $1 do mongidit bobolikon.",
@@ -717,6 +719,7 @@
 	"showhideselectedversions": "Pokitono/polisoko sinimakan nopili",
 	"editundo": "Potondulio kawagu",
 	"diff-empty": "(Aiso pisuayan)",
+	"diff-multi-sameuser": "({{PLURAL:$1|Iso ponorisidan pintangaan|$1 ponorisidan pintangaan}} maya {{GENDER:$3|momoguno\n}} i au pinokito)",
 	"diff-multi-otherusers": "({{PLURAL:$1|Iso ponorisidan pintangaan|$1 ponorisidan pintangaan}} maya {{PLURAL:$2|iso momoguno suai|$2 momoguno}} au pinokito)",
 	"searchresults": "Kootuson noihum",
 	"search-filter-title-prefix-reset": "Ihumo oinsanan bolikan",
@@ -1233,5 +1236,6 @@
 	"blockedtext-expiration-time": "Timpu aayi pagantaban: $1",
 	"blockedtext-intended-blockee": "Tulun di naantaban :$1",
 	"blockedtext-contact-blocker-admin": "Milo ko rumomut do $1 toi ko' suai [[{{MediaWiki:Grouppage-sysop}}|admin]] montok mibooboros kokomoi pangantaban.",
+	"blockedtext-block-ip": "Alamat IP dinondo nu nopo nga' $1.",
 	"blockedtext-include-details-queries": "Potonudo toinsanan butiran id sawat id suang do poguhatan di winonsoi nu."
 }

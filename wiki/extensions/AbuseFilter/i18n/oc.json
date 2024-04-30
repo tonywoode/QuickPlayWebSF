@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"Amire80",
 			"BrennodAloisi",
 			"Cedric31",
 			"Fitoschido",
@@ -8,7 +9,6 @@
 			"Matma Rex",
 			"Matěj Suchánek",
 			"Unuaiga",
-			"Amire80",
 			"Nicolas Eynaud"
 		]
 	},
@@ -403,5 +403,12 @@
 	"abusefilter-import-intro": "Podètz utilizar aquesta interfàcia per importar de filtres en provenéncia d’autres wikis.\nSul wiki d’origina, clicatz sus « {{int:abusefilter-edit-export}} » dins « {{int:abusefilter-edit-tools}} » dempuèi l’interfàcia d’edicion.\nCopiatz l'airal de tèxte que s’aficha e empegatz-lo dins aqueste airal de tèxte, puèi clicatz sus « {{int:abusefilter-import-submit}} »,",
 	"abusefilter-import-submit": "Importar de donadas",
 	"abusefilter-group-default": "Per defaut",
-	"abusefilter-http-error": "Una error HTTP s’es produsida : $1."
+	"abusefilter-http-error": "Una error HTTP s’es produsida : $1.",
+	"abusefilter-blocked-domains-notes": "Nòtas",
+	"abusefilter-blocked-domains-add-submit": "Mandar",
+	"abusefilter-blocked-domains-domain-header": "Domeni",
+	"abusefilter-blocked-domains-notes-header": "Nòtas",
+	"abusefilter-blocked-domains-actions-header": "Accions",
+	"abusefilter-blocked-domains-remove-reason": "Rason",
+	"abusefilter-blocked-domains-remove-submit": "Suprimir"
 }

@@ -1,13 +1,13 @@
 {
 	"@metadata": {
 		"authors": [
+			"Amire80",
 			"DannyS712",
 			"Matma Rex",
 			"Sasan700",
 			"Исмаил Садуев",
-			"Умар",
 			"Саид Мисарбиев",
-			"Amire80"
+			"Умар"
 		]
 	},
 	"abusefilter-desc": "Нисдарийн тӀе литтарш тоха йиш хуьлуьйту.",
@@ -133,7 +133,9 @@
 	"logentry-abusefilterprivatedetails-access": "$1 {{GENDER:$2|тӀекхачар}} долара хаамашна $3",
 	"logentry-rights-blockautopromote": "$1 {{GENDER:$2|блок тохар}} ханна $5 автохьалхадалар {{GENDER:$4|$3}}",
 	"logentry-rights-restoreautopromote": "$1 {{GENDER:$2|меттахӀотторан}} таро  автохьалхататтаран {{GENDER:$4|$3}}",
+	"logentry-abusefilterblockeddomainhit-hit": "$1 {{GENDER:$2|кхайкхина}} магийна йоцу хьажоргаш «$3» чохь $4 тӀетоха гӀоьртича.",
 	"abusefilterprivatedetails-log-name": "Конфиденциалан хаамашна тӀекхочу тептаран зуламийн литтар",
+	"log-name-abusefilterblockeddomainhit": "Блок тоьхна доменаш дӀайаздо тептар",
 	"abusefilter-list": "Дерриг литтарш",
 	"abusefilter-list-id": "Литтаран ID",
 	"abusefilter-list-pattern": "Паттерн",
@@ -515,6 +517,21 @@
 	"abusefilter-view-privatedetails-legend": "Шен хаамашка хьажар",
 	"abusefilter-view-privatedetails-reason": "Шен хаамийн тӀекхачаран бахьана:",
 	"abusefilter-log-details-id": "Тептаран ID",
+	"blockedexternaldomains": "Блоктоьхна йолу арахьара доменаш",
+	"abusefilter-blocked-domains-title": "Блоктоьхна йолу арахьара доменаш",
+	"abusefilter-blocked-domains-add-heading": "ТӀетоха блоктоьхна йолу керла домен",
+	"abusefilter-blocked-domains-domain": "Блоктохархьама домен, масала, wikipedia.org",
+	"abusefilter-blocked-domains-notes": "Билгалдахарш",
+	"abusefilter-blocked-domains-add-submit": "ДӀадахьийта",
+	"abusefilter-blocked-domains-domain-header": "Домен",
+	"abusefilter-blocked-domains-notes-header": "Билгалдахарш",
+	"abusefilter-blocked-domains-actions-header": "Ардамаш",
+	"abusefilter-blocked-domains-remove": "дӀайаккха",
+	"abusefilter-blocked-domains-remove-title": "ДӀайаккха блоктоьхна домен",
+	"abusefilter-blocked-domains-remove-explanation-initial": "ХӀокху агӀонгахь мега блоктоьхна йолу домен дӀайаккха",
+	"abusefilter-blocked-domains-remove-reason": "Бахьана",
+	"abusefilter-blocked-domains-remove-submit": "ДӀайаккха",
+	"abusefilter-blocked-domains-json-error": "JSON алсам хила йеза",
 	"abusefilter-log-ip-not-available": "ТӀекхочехь йац",
 	"tag-abusefilter-condition-limit": "доза тохар",
 	"tag-abusefilter-condition-limit-description": "Массо жигара [[Special:AbuseFilter|зуламан литтаршна]] далуш доцург ([[mw:Extension:AbuseFilter/Conditions|гӀо]]).",

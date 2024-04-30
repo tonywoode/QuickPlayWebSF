@@ -183,12 +183,12 @@ class TOTPKey implements IAuthKey {
 			}
 		}
 
-		// See if the user is using a recovery token
-		foreach ( $this->scratchTokens as $i => $recoveryToken ) {
-			if ( hash_equals( $token, $recoveryToken ) ) {
-				// If we used a recovery token, remove it from the scratch token list.
-				// This is saved below via OATHUserRepository::persist, TOTP::getDataFromUser.
-				array_splice( $this->recoveryTokens, $i, 1 );
+		// See if the user is using a recovery code
+		foreach ( $this->recoveryCodes as $i => $recoveryCode ) {
+			if ( hash_equals( $token, $recoveryCode ) ) {
+				// If we used a recovery code, remove it from the recovery code list.
+				// This is saved below via OATHUserRepository::persist
+				array_splice( $this->recoveryCodes, $i, 1 );
 
 				$logger->info( 'OATHAuth user {user} used a recovery token from {clientip}', [
 					'user' => $user->getAccount(),
@@ -200,8 +200,8 @@ class TOTPKey implements IAuthKey {
 
 				/** @var OATHUserRepository $userRepo */
 				$userRepo = MediaWikiServices::getInstance()->getService( 'OATHUserRepository' );
-				$user->addKey( $this );
-				$user->setModule( $module );
+				// TODO: support for multiple keys
+				$user->setKeys( [ $this ] );
 				$userRepo->persist( $user, $clientIP );
 
 				return true;

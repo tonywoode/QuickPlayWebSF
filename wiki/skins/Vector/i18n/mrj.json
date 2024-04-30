@@ -24,5 +24,7 @@
 	"vector-main-menu-label": "Тӹнг меню",
 	"vector-page-tools-label": "Хӓдӹрвлӓ",
 	"vector-page-tools-general-label": "Цымыр",
-	"vector-unpin-element-label": "шӹлтӓш"
+	"vector-unpin-element-label": "шӹлтӓш",
+	"vector-readability-survey-fontSize": "Шрифтӹн размержӹ",
+	"vector-readability-survey-paragraphSpacing": "Абзацвлӓ лошты интервал"
 }

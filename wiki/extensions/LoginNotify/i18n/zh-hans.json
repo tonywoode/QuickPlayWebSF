@@ -2,9 +2,9 @@
 	"@metadata": {
 		"authors": [
 			"A2093064",
+			"LittlePaw365",
 			"Liuxinyu970226",
-			"Xiplus",
-			"LittlePaw365"
+			"Xiplus"
 		]
 	},
 	"loginnotify-desc": "通知用户来自陌生设备和/或IP地址的可疑登录",

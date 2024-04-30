@@ -60,44 +60,37 @@ class ParsoidCachePrewarmJob extends Job {
 
 	/**
 	 * @param int $revisionId
-	 * @param int|PageRecord $page
+	 * @param PageRecord $page
 	 * @param array $params Additional options for the job. Known keys:
 	 * - causeAction: Indicate what action caused the job to be scheduled. Used for monitoring.
 	 * - options: Flags to be passed to ParsoidOutputAccess:getParserOutput.
-	 *   May be set to ParsoidOutputAccess::OPT_FORCE_PARSE to force a parsing even if there
+	 *   May be set to ParserOutputAccess::OPT_FORCE_PARSE to force a parsing even if there
 	 *   already is cached output.
 	 *
 	 * @return JobSpecification
 	 */
 	public static function newSpec(
 		int $revisionId,
-		$page,
+		PageRecord $page,
 		array $params = []
 	): JobSpecification {
-		if ( !is_int( $page ) && !( $page instanceof PageRecord ) ) {
-			throw new InvalidArgumentException(
-				'$page must be a int or a PageRecord object.' );
-		}
-
-		$pageId = is_int( $page ) ? $page : $page->getId();
+		$pageId = $page->getId();
+		$pageTouched = $page->getTouched();
 
 		$params += [ 'options' => 0 ];
 
-		$opts = [];
-		if ( $page instanceof PageRecord ) {
-			$pageTouched = $page->getTouched();
-			$params += self::newRootJobParams(
-				"parsoidCachePrewarm:$pageId:$revisionId:$pageTouched:{$params['options']}"
-			);
-			$params += [ 'page_touched' => $pageTouched ];
-			$opts = [ 'removeDuplicates' => true ];
-		}
+		$params += self::newRootJobParams(
+			"parsoidCachePrewarm:$pageId:$revisionId:$pageTouched:{$params['options']}"
+		);
+
+		$opts = [ 'removeDuplicates' => true ];
 
 		return new JobSpecification(
 			'parsoidCachePrewarm',
 			[
 				'revId' => $revisionId,
 				'pageId' => $pageId,
+				'page_touched' => $pageTouched,
 			] + $params,
 			$opts
 		);
@@ -142,12 +135,7 @@ class ParsoidCachePrewarmJob extends Job {
 		$options = $this->params['options'] ?? 0;
 
 		// getParserOutput() will write to ParserCache.
-		$status = $this->parsoidOutputAccess->getParserOutput(
-			$page,
-			$parserOpts,
-			$rev,
-			$options | ParsoidOutputAccess::OPT_LOG_LINT_DATA
-		);
+		$status = $this->parsoidOutputAccess->getParserOutput( $page, $parserOpts, $rev, $options );
 
 		if ( !$status->isOK() ) {
 			$this->logger->error( __METHOD__ . ': Parsoid error', [

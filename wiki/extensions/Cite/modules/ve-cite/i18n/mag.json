@@ -11,6 +11,8 @@
 	"cite-ve-citationneeded-button": "उद्धरण जोड़ी",
 	"cite-ve-citationneeded-reason": "कारण देल गेल :",
 	"cite-ve-citationneeded-title": "उद्धरणके आवश्यकता हे",
+	"cite-ve-dialog-reference-editing-extends": "ई एगो दुसर सन्दर्भके बिस्तार हे ।",
+	"cite-ve-dialog-reference-editing-extends-long": "ई एगो दुसर सन्दर्भ \"$1\" के बिस्तार हे ।",
 	"cite-ve-dialog-reference-options-group-label": "ई समूहके प्रयोग करी",
 	"cite-ve-dialog-reference-options-group-placeholder": "सामान्य सन्दर्भ",
 	"cite-ve-dialog-reference-options-name-label": "ई नामके पुनरुपयोग करी",
@@ -28,6 +30,7 @@
 	"cite-ve-dialogbutton-reference-tooltip": "मूलभूत",
 	"cite-ve-dialogbutton-referenceslist-tooltip": "सन्दर्भसूची",
 	"cite-ve-reference-input-placeholder": "बर्तमान उद्धरणमे खोजी",
+	"cite-ve-referenceslist-missingreflist": "ई सन्दर्भसूची एगो साँचासे उत्पन्न कैल गेलीहे ।",
 	"cite-ve-toolbar-group-label": "उद्धृत करी",
 	"cite-ve-othergroup-item": "$1 सन्दर्भ"
 }

@@ -21,8 +21,14 @@
  * @ingroup SpecialPage
  */
 
+namespace MediaWiki\Specials;
+
 use MediaWiki\Html\Html;
+use MediaWiki\Language\RawMessage;
 use MediaWiki\Parser\ParserOutputFlags;
+use MediaWiki\SpecialPage\UnlistedSpecialPage;
+use Parser;
+use ParserOutput;
 use Wikimedia\Parsoid\Core\SectionMetadata;
 use Wikimedia\Parsoid\Core\TOCData;
 
@@ -31,7 +37,7 @@ use Wikimedia\Parsoid\Core\TOCData;
  *
  * @ingroup SpecialPage
  */
-class SpecialSpecialpages extends UnlistedSpecialPage {
+class SpecialSpecialPages extends UnlistedSpecialPage {
 
 	public function __construct() {
 		parent::__construct( 'Specialpages' );
@@ -67,7 +73,12 @@ class SpecialSpecialpages extends UnlistedSpecialPage {
 		/** @var SpecialPage $page */
 		foreach ( $pages as $page ) {
 			$group = $page->getFinalGroupName();
-			$groups[$group][$page->getDescription()] = [
+			$desc = $page->getDescription();
+			if ( is_string( $desc ) ) { // T343849
+				wfDeprecated( 'string return from SpecialPage::getDescription()', '1.41' );
+				$desc = ( new RawMessage( '$1' ) )->rawParams( $desc );
+			}
+			$groups[$group][$desc->text()] = [
 				$page->getPageTitle(),
 				$page->isRestricted(),
 				$page->isCached()
@@ -124,9 +135,8 @@ class SpecialSpecialpages extends UnlistedSpecialPage {
 
 			$legend = Html::rawElement(
 				'div',
-				[ 'class' => [ 'mw-changeslist-legend', 'mw-collapsible', 'mw-specialpages-notes' ] ],
-				$legendHeading .
-					Html::rawElement( 'div', [ 'class' => 'mw-collapsible-content' ], implode( "\n", $notes ) )
+				[ 'class' => 'mw-changeslist-legend mw-specialpages-notes' ],
+				$legendHeading . implode( "\n", $notes )
 			);
 
 			$out->addHTML( $legend );
@@ -202,3 +212,9 @@ class SpecialSpecialpages extends UnlistedSpecialPage {
 		}
 	}
 }
+
+/**
+ * Retain the old class name for backwards compatibility.
+ * @deprecated since 1.41
+ */
+class_alias( SpecialSpecialPages::class, 'SpecialSpecialpages' );

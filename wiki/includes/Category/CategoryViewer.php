@@ -39,8 +39,8 @@ use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Title\Title;
+use MediaWiki\Title\TitleValue;
 use MWException;
-use TitleValue;
 use Wikimedia\Rdbms\SelectQueryBuilder;
 
 class CategoryViewer extends ContextSource {
@@ -122,8 +122,7 @@ class CategoryViewer extends ContextSource {
 			'title',
 			'1.37',
 			function (): Title {
-				// @phan-suppress-next-line PhanTypeMismatchReturnNullable castFrom does not return null here
-				return Title::castFromPageIdentity( $this->page );
+				return Title::newFromPageIdentity( $this->page );
 			},
 			function ( PageIdentity $page ) {
 				$this->page = $page;
@@ -260,8 +259,8 @@ class CategoryViewer extends ContextSource {
 	): string {
 		$link = null;
 		$legacyTitle = MediaWikiServices::getInstance()->getTitleFactory()
-			->castFromPageReference( $page );
-		// @phan-suppress-next-line PhanTypeMismatchArgument castFrom does not return null here
+			->newFromPageReference( $page );
+		// @phan-suppress-next-line PhanTypeMismatchArgument Type mismatch on pass-by-ref args
 		$this->getHookRunner()->onCategoryViewer__generateLink( $type, $legacyTitle, $html, $link );
 		if ( $link === null ) {
 			$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
@@ -317,14 +316,12 @@ class CategoryViewer extends ContextSource {
 		PageReference $page, string $sortkey, int $pageLength, bool $isRedirect = false
 	): void {
 		$title = MediaWikiServices::getInstance()->getTitleFactory()
-			->castFromPageReference( $page );
+			->newFromPageReference( $page );
 		if ( $this->showGallery ) {
 			$flip = $this->flip['file'];
 			if ( $flip ) {
-				// @phan-suppress-next-line PhanTypeMismatchArgumentNullable castFrom does not return null here
 				$this->gallery->insert( $title, '', '', '', [], ImageGalleryBase::LOADING_LAZY );
 			} else {
-				// @phan-suppress-next-line PhanTypeMismatchArgumentNullable castFrom does not return null here
 				$this->gallery->add( $title, '', '', '', [], ImageGalleryBase::LOADING_LAZY );
 			}
 		} else {
@@ -640,7 +637,7 @@ class CategoryViewer extends ContextSource {
 		}
 
 		$pageLang = MediaWikiServices::getInstance()->getTitleFactory()
-			->castFromPageIdentity( $this->page )
+			->newFromPageIdentity( $this->page )
 			->getPageLanguage();
 		$attribs = [ 'lang' => $pageLang->getHtmlCode(), 'dir' => $pageLang->getDir(),
 			'class' => 'mw-content-' . $pageLang->getDir() ];
@@ -838,4 +835,7 @@ class CategoryViewer extends ContextSource {
 	}
 }
 
+/**
+ * @deprecated since 1.40
+ */
 class_alias( CategoryViewer::class, 'CategoryViewer' );

@@ -1,40 +1,36 @@
 <?php
 
+namespace MediaWiki\Specials;
+
+use Language;
 use MediaWiki\Html\Html;
 use MediaWiki\Page\MovePageFactory;
 use MediaWiki\Permissions\PermissionManager;
 use MediaWiki\RenameUser\RenameuserSQL;
+use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Status\Status;
 use MediaWiki\Title\Title;
 use MediaWiki\Title\TitleFactory;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserNamePrefixSearch;
+use MediaWiki\User\UserNameUtils;
+use UserBlockedError;
 use Wikimedia\Rdbms\IConnectionProvider;
+use Xml;
 
 /**
  * Special page that allows authorised users to rename
  * user accounts
  */
-class SpecialRenameuser extends SpecialPage {
-	/** @var IConnectionProvider */
-	private $dbConns;
-
-	/** @var Language */
-	private $contentLanguage;
-
-	/** @var MovePageFactory */
-	private $movePageFactory;
-
-	/** @var PermissionManager */
-	private $permissionManager;
-
-	/** @var TitleFactory */
-	private $titleFactory;
-
-	/** @var UserFactory */
-	private $userFactory;
-
-	/** @var UserNamePrefixSearch */
-	private $userNamePrefixSearch;
+class SpecialRenameUser extends SpecialPage {
+	private IConnectionProvider $dbConns;
+	private Language $contentLanguage;
+	private MovePageFactory $movePageFactory;
+	private PermissionManager $permissionManager;
+	private TitleFactory $titleFactory;
+	private UserFactory $userFactory;
+	private UserNamePrefixSearch $userNamePrefixSearch;
+	private UserNameUtils $userNameUtils;
 
 	/**
 	 * @param IConnectionProvider $dbConns
@@ -44,6 +40,7 @@ class SpecialRenameuser extends SpecialPage {
 	 * @param TitleFactory $titleFactory
 	 * @param UserFactory $userFactory
 	 * @param UserNamePrefixSearch $userNamePrefixSearch
+	 * @param UserNameUtils $userNameUtils
 	 */
 	public function __construct(
 		IConnectionProvider $dbConns,
@@ -52,7 +49,8 @@ class SpecialRenameuser extends SpecialPage {
 		PermissionManager $permissionManager,
 		TitleFactory $titleFactory,
 		UserFactory $userFactory,
-		UserNamePrefixSearch $userNamePrefixSearch
+		UserNamePrefixSearch $userNamePrefixSearch,
+		UserNameUtils $userNameUtils
 	) {
 		parent::__construct( 'Renameuser', 'renameuser' );
 
@@ -63,6 +61,7 @@ class SpecialRenameuser extends SpecialPage {
 		$this->titleFactory = $titleFactory;
 		$this->userFactory = $userFactory;
 		$this->userNamePrefixSearch = $userNamePrefixSearch;
+		$this->userNameUtils = $userNameUtils;
 	}
 
 	public function doesWrites() {
@@ -142,6 +141,22 @@ class SpecialRenameuser extends SpecialPage {
 		} elseif ( $oldName === $newName ) {
 			$out->addHTML( Html::errorBox( $out->msg( 'renameuser-error-same-user' )->parse() ) );
 
+			return;
+		}
+
+		// Do not act on temp users
+		if ( $this->userNameUtils->isTemp( $oldName ) ) {
+			$out->addHTML( Html::errorBox(
+				$out->msg( 'renameuser-error-temp-user' )->plaintextParams( $oldName )->parse()
+			) );
+			return;
+		}
+		if ( $this->userNameUtils->isTemp( $newName ) ||
+			$this->userNameUtils->isTempReserved( $newName )
+		) {
+			$out->addHTML( Html::errorBox(
+				$out->msg( 'renameuser-error-temp-user-reserved' )->plaintextParams( $newName )->parse()
+			) );
 			return;
 		}
 
@@ -230,7 +245,7 @@ class SpecialRenameuser extends SpecialPage {
 			return;
 		}
 
-		// If this user is renaming his/herself, make sure that MovePage::move()
+		// If this user is renaming themself, make sure that MovePage::move()
 		// doesn't make a bunch of null move edits under the old name!
 		if ( $performer->getId() === $uid ) {
 			$performer->setName( $newTitle->getText() );
@@ -256,7 +271,7 @@ class SpecialRenameuser extends SpecialPage {
 	private function getWarnings( $oldName, $newName ) {
 		$warnings = [];
 		$oldUser = $this->userFactory->newFromName( $oldName, $this->userFactory::RIGOR_NONE );
-		if ( $oldUser && $oldUser->getBlock() ) {
+		if ( $oldUser && !$oldUser->isTemp() && $oldUser->getBlock() ) {
 			$warnings[] = [
 				'renameuser-warning-currentblock',
 				SpecialPage::getTitleFor( 'Log', 'block' )->getFullURL( [ 'page' => $oldName ] )
@@ -505,3 +520,9 @@ class SpecialRenameuser extends SpecialPage {
 		return 'users';
 	}
 }
+
+/**
+ * Retain the old class name for backwards compatibility.
+ * @deprecated since 1.41
+ */
+class_alias( SpecialRenameUser::class, 'SpecialRenameuser' );

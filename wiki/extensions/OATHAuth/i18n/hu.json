@@ -38,7 +38,7 @@
 	"action-oathauth-disable-for-user": "más felhasználók kétlépcsős azonosításának kikapcsolása",
 	"right-oathauth-verify-user": "Felhasználó kétlépcsős azonosítási státuszának lekérdezése",
 	"action-oathauth-verify-user": "más felhasználók kétlépcsős azonosítási státuszának lekérdezése",
-	"right-oathauth-view-log": "Kétlépcsős azonosítási napló megtekintése",
+	"right-oathauth-view-log": "A kétlépcsős azonosítási napló megtekintése",
 	"action-oathauth-view-log": "kétlépcsős azonosítási napló megtekintése",
 	"oathauth-disable-intro": "Nagy hatalommal nagy felelősség is jár",
 	"oathauth-enteruser": "Felhasználónév:",

@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"Amire80",
 			"Fohanno",
 			"Fulup",
 			"Gwendal",
@@ -8,7 +9,6 @@
 			"Matma Rex",
 			"VIGNERON",
 			"Y-M D",
-			"Amire80",
 			"Adriendelucca"
 		]
 	},
@@ -101,6 +101,7 @@
 	"abusefilter-log-entry-suppress": "$1 {{GENDER:$2|en|he}} deus kuzhet $3",
 	"abusefilter-log-entry-unsuppress": "$1 {{GENDER:$2|en|he}} deus diguzhet $3",
 	"logentry-abusefilter-hit": "$1 {{GENDER:$2|en|he}} deus lañset sil gwallimplij $4, e-kerzh an ober \"$5\" war $3. Oberoù graet : $6 ($7)",
+	"log-name-abusefilterblockeddomainhit": "Marilh tizhadennoù an domanioù stanket",
 	"abusefilter-list": "An holl siloù",
 	"abusefilter-list-id": "Niv. ar sil",
 	"abusefilter-list-pattern": "Patrom",
@@ -340,7 +341,7 @@
 	"abusefilter-history-filter": "Reolenn ar sil",
 	"abusefilter-history-comments": "Evezhiadennoù",
 	"abusefilter-history-actions": "Oberoù",
-	"abusefilter-history-backedit": "Distreiñ d'ar bajenn kemmañ ar sil",
+	"abusefilter-history-backedit": "Aozer siloù",
 	"abusefilter-history-deleted": "Diverket",
 	"abusefilter-history-filterid": "Sil",
 	"abusefilter-history-select-legend": "Spisaat ar c'hlask",
@@ -438,7 +439,7 @@
 	"abusefilter-diff-info": "Titouroù diazez",
 	"abusefilter-diff-pattern": "Amplegad ar sil",
 	"abusefilter-diff-invalid": "Ne c'haller ket adkavout ar stummoù goulennet",
-	"abusefilter-diff-backhistory": "Distreiñ da istor ar sil",
+	"abusefilter-diff-backhistory": "Istor ar sil",
 	"abusefilter-diff-prev": "Kemm koshoc'h",
 	"abusefilter-diff-next": "Kemm nevesoc'h",
 	"abusefilter-import-intro": "Gallout a rit implijout an etrefas-mañ evit enporzhiañ siloù diwar wikioù all.\nEr wiki orin, klikit war \"{{int:abusefilter-edit-export}}\" e-barzh \"{{int:abusefilter-edit-tools}}\" en etrefas aozañ.\nEilit an takad testenn a teu war-well, ha pegit anezhañ e-barzh an takad testenn-mañ, da heul klikit war \"{{int:abusefilter-import-submit}}\".",
@@ -446,8 +447,23 @@
 	"abusefilter-group-default": "Dre ziouer",
 	"abusefilter-http-error": "Ur fazi HTTP zo bet : $1",
 	"abusefilter-log-details-id": "ID ar marilh",
+	"blockedexternaldomains": "Domanioù diavaez stanket",
+	"abusefilter-blocked-domains-intro": "Stanket a vo al liammoù diavaez a glot gant ar roll-mañ pa vint ouzhpennet en ur bajenn. Enrollet eo an domani-mañ e [[MediaWiki:BlockedExternalDomains.json]].",
+	"abusefilter-blocked-domains-notes": "Notennoù",
+	"abusefilter-blocked-domains-add-submit": "Kas",
+	"abusefilter-blocked-domains-domain-header": "Domani",
+	"abusefilter-blocked-domains-notes-header": "Notennoù",
+	"abusefilter-blocked-domains-actions-header": "Oberoù",
+	"abusefilter-blocked-domains-remove": "lemel",
+	"abusefilter-blocked-domains-remove-title": "Dilemel un domani stanket",
+	"abusefilter-blocked-domains-remove-reason": "Abeg",
+	"abusefilter-blocked-domains-remove-submit": "Dilemel",
+	"abusefilter-blocked-domains-domain-added-comment": "Ouzhpennet domani diavaez stanket $1 gant notennoù: $2",
 	"abusefilter-log-ip-not-available": "N'eo ket da gaout",
 	"notification-header-throttle-filter-actions": "Ar sil a-enep ar gwallimplij ̯$2 kemmet {{GENDER:$1|ganeoc’h}} n’eus ket pell zo en deus bet ur feur uhel a dizhadennoù ha diweredekaet eo bet an {{PLURAL:$4|ober|oberoù}}-mañː $3.",
 	"notification-header-throttle-filter-no-actions": "Ar sil a-enep ar gwallimplij ̯$2 kemmet {{GENDER:$1|ganeoc’h}} n’eus ket pell zo en deus bet ur feur uhel a dizhadennoù met n’eo ket bet diweredekaet ober ebet.",
-	"notification-link-text-show-filter": "Diskouez ar sil"
+	"notification-link-text-show-filter": "Diskouez ar sil",
+	"right-abusefilter-modify-blocked-external-domains": "Krouiñ pe kemmañ pe domanioù diavaez a zo miret ouzh bezañ liammet war o zu",
+	"right-abusefilter-bypass-blocked-external-domains": "Korntroiañ domanioù diavaez stanket",
+	"abusefilter-blocked-domains-cannot-edit-directly": "Krouiñ pe kemmañ pe domanioù diavaez a zo miret ouzh bezañ liammet war o zu a rank bezañ graet dre [[Special:BlockedExternalDomains|ar bajenn a-ratozh]]."
 }

@@ -2,6 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"27christian11",
+			"Amire80",
+			"Bennylin",
 			"Daniel Harahap",
 			"Herryz",
 			"John Vandenberg",
@@ -17,9 +19,7 @@
 			"WBT004Togu",
 			"WBT006Hendra",
 			"WBT009Anju",
-			"아라",
-			"Bennylin",
-			"Amire80"
+			"아라"
 		]
 	},
 	"tog-underline": "Ondolhon panait",
@@ -311,7 +311,7 @@
 	"showdiff": "Patudu hamubaon",
 	"anoneditwarning": "<strong>'''Paminsangon:'''</strong> Ndang bongot tu log dope hamu.\nNa tarida do alamat IP-mi di tingki adong pangubaan sian hamu. Molo <strong>[$1 bongot tu log]</strong> manang <strong>[$2 mambahen akun]</strong>, totaanmi diatribuhon tu goar panghaseami, jala hagulsahon na asing.",
 	"missingcommenttext": "Alop pamasuk pandapot.",
-	"blockedtext": "<strong>Nunga diambati goar panghaseami manang alamat IP-mi</strong>\n\nDibahen $1 do pangambatonna.\nMarhitehite <em>$2</em>.\n\n*Mulamula diambati: $8\n*Ujung ni pangambaton: $6\n*Sipareakan pangambaton: $7\n\nBoi do hamu manghubungi $1 manang [[{{MediaWiki:Grouppage-sysop}}|parhalado]] na asingna, asa dihatahon do pangambatonna.\nBoi do hamu mamparhaseanghon pitur \"{{int:emailuser}}\" molo nunga dibongothon hamu do alamat surat elektronik na tangkas di [[Special:Preferences|pinillit akun]] jala ndang diambati tu mamparhaseanghonna.\nAlamat IP-mi saonari i ma $3, jala ID pangambaton i ma $5.\nDohothon sala sada manang dua inpormasi on di ganup panungkunan na dibahen hamu.",
+	"blockedtext": "<strong>Nunga dihurung goar spanghasea muna manang alamat IP muna</strong>\n\n{{int:blockedtext-made-by|$1}}\n{{int:blockedtext-reason-comment|$2}}.\n\n*{{int:blockedtext-start-time|$8}}\n*{{int:blockedtext-expiration-time|$6}}\n*{{int:blockedtext-intended-blockee|$7}}\n\n{{int:blockedtext-contact-blocker-admin|$1}}\nBoi do hamu mamparhaseanghon pitur \"{{int:emailuser}}\" molo nunga dibongothon hamu do alamat surat elektronik na tangkas di [[Special:Preferences|pinillit akun]] jala ndang dihurung tu mamparhaseanghonna.\n{{int:blockedtext-block-ip|$3}} {{int:blockedtext-block-id|$5}}\n{{int:blockedtext-include-details-queries}}",
 	"blockednoreason": "ndang adong alana na dilehon",
 	"loginreqlink": "bongot tu log",
 	"loginreqpagetext": "Ingkon $1 do hamu laho marnida alaman na asing.",
@@ -375,7 +375,7 @@
 	"compareselectedversions": "Patudos ragam na tarpillit",
 	"editundo": "paulak",
 	"diff-empty": "(Soada parasingan)",
-	"diff-multi-sameuser": "Ndang dipataridahon do ({{PLURAL:$1|Sada padengganan antara|$1 padengganan antara}} na dibahen)",
+	"diff-multi-sameuser": "(Ndang dipataridahon {{PLURAL:$1|Sada padengganan antara|$1 padengganan antara}} na dibahen {{GENDER:$3|sipanghaea}} na dos)",
 	"diff-multi-otherusers": "(Ndang dipataridahon do {{PLURAL:$1|Sada padengganan antara|$1 padengganan antara}} na dibahen {{PLURAL:$2|sada panghasea na asingna|$2 panghasea}})",
 	"searchresults": "Parbue ni siluluon",
 	"searchresults-title": "Parbue ni siluluon taringot tu \"$1\"",
@@ -783,5 +783,6 @@
 	"blockedtext-expiration-time": "Ujung ni hurungan: $1",
 	"blockedtext-intended-blockee": "Situjuon ni panghurungan: $1",
 	"blockedtext-contact-blocker-admin": "Boi di uhai hamu $1 manang [[{{MediaWiki:Grouppage-sysop}}|juara bagas]] na asing taringot tu hurungan i.",
+	"blockedtext-block-ip": "Alamat IP muna saonnari ima $1.",
 	"blockedtext-include-details-queries": "Padohot ma sude panorangion na di ginjang di sude sungkunsungkun sisungkunonmu."
 }

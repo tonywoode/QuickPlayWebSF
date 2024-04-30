@@ -2,6 +2,7 @@
 
 use MediaWiki\MainConfigNames;
 use MediaWiki\Request\FauxRequest;
+use MediaWiki\Specials\SpecialRecentChanges;
 use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
 use MediaWiki\Title\Title;
 use Wikimedia\TestingAccessWrapper;
@@ -11,17 +12,16 @@ use Wikimedia\TestingAccessWrapper;
  *
  * @group Database
  *
- * @covers SpecialRecentChanges
- * @covers ChangesListSpecialPage
+ * @covers \MediaWiki\Specials\SpecialRecentChanges
+ * @covers \MediaWiki\SpecialPage\ChangesListSpecialPage
  */
-class SpecialRecentchangesTest extends AbstractChangesListSpecialPageTestCase {
+class SpecialRecentChangesTest extends AbstractChangesListSpecialPageTestCase {
 	use MockAuthorityTrait;
 
 	protected function getPage(): SpecialRecentChanges {
 		return new SpecialRecentChanges(
 			$this->getServiceContainer()->getWatchedItemStore(),
 			$this->getServiceContainer()->getMessageCache(),
-			$this->getServiceContainer()->getDBLoadBalancer(),
 			$this->getServiceContainer()->getUserOptionsLookup()
 		);
 	}
@@ -96,15 +96,17 @@ class SpecialRecentchangesTest extends AbstractChangesListSpecialPageTestCase {
 		$this->assertStringContainsString( 'mw-changeslist-line-watched', $rc2->getOutput()->getHTML() );
 
 		// Force a past expiry date on the watchlist item.
-		$db = wfGetDB( DB_PRIMARY );
-		$queryConds = [ 'wl_namespace' => $testPage->getNamespace(), 'wl_title' => $testPage->getDBkey() ];
-		$watchedItemId = $db->selectField( 'watchlist', 'wl_id', $queryConds, __METHOD__ );
-		$db->update(
-			'watchlist_expiry',
-			[ 'we_expiry' => $db->timestamp( '20200101000000' ) ],
-			[ 'we_item' => $watchedItemId ],
-			__METHOD__
-		);
+		$db = $this->getDb();
+		$watchedItemId = $db->newSelectQueryBuilder()
+			->select( 'wl_id' )
+			->from( 'watchlist' )
+			->where( [ 'wl_namespace' => $testPage->getNamespace(), 'wl_title' => $testPage->getDBkey() ] )
+			->caller( __METHOD__ )->fetchField();
+		$db->newUpdateQueryBuilder()
+			->update( 'watchlist_expiry' )
+			->set( [ 'we_expiry' => $db->timestamp( '20200101000000' ) ] )
+			->where( [ 'we_item' => $watchedItemId ] )
+			->caller( __METHOD__ )->execute();
 
 		// Check that the page is still in RC, but that it's no longer watched.
 		$rc3 = $this->getPage();
@@ -213,7 +215,6 @@ class SpecialRecentchangesTest extends AbstractChangesListSpecialPageTestCase {
 			$dense,
 			$this->getServiceContainer()->getWatchedItemStore(),
 			$this->getServiceContainer()->getMessageCache(),
-			$this->getServiceContainer()->getDBLoadBalancer(),
 			$this->getServiceContainer()->getUserOptionsLookup()
 		)  extends SpecialRecentChanges {
 			private $dense;
@@ -221,11 +222,10 @@ class SpecialRecentchangesTest extends AbstractChangesListSpecialPageTestCase {
 			public function __construct(
 				$dense,
 				WatchedItemStoreInterface $watchedItemStore = null,
-				MessageCache $messageCache = null, \Wikimedia\Rdbms\ILoadBalancer $loadBalancer = null,
+				MessageCache $messageCache = null,
 				\MediaWiki\User\UserOptionsLookup $userOptionsLookup = null
 			) {
-				parent::__construct( $watchedItemStore, $messageCache, $loadBalancer,
-					$userOptionsLookup );
+				parent::__construct( $watchedItemStore, $messageCache, $userOptionsLookup );
 				$this->dense = $dense;
 			}
 

@@ -13,6 +13,7 @@
 	"vector-language-button-label": "{{PLURAL:$1|$1 íchi|$1 amí íchi}}",
 	"vector-no-language-button-label": "Dí amí ichí manwu",
 	"vector-no-language-button-aria-label": "Ola kí de yí ché de efí ichi kí deyi kété. Dí ola kí de yi dama kpaí amí ichi omone",
+	"vector-language-redirect-to-top": "Linki amí ichi kí de í até ogba",
 	"vector-action-addsection": "Dí óla manyu",
 	"vector-action-delete": "Dukwó",
 	"vector-action-move": "Tẹlo",
@@ -25,6 +26,8 @@
 	"vector-jumptosearch": "Lo ti ugbo ke neke téné énwu",
 	"vector-jumptocontent": "Lotí ogba ogbolo",
 	"vector-more-actions": "Mànyú",
+	"vector-client-preferences": "Égbí settingsi",
+	"vector-feature-custom-font-size-disabled-label": "Kéké",
 	"vector-searchsuggest-containing": "Téné amí ogbá kí gwonwú <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
 	"vector-toc-label": "Èyo ùkóló",
 	"vector-toc-beginning": "Uchane",
@@ -33,5 +36,10 @@
 	"vector-main-menu-tooltip": "Ogba ogbolo",
 	"vector-page-tools-label": "Amí ewñ ane",
 	"vector-page-tools-general-label": "Ochakadu",
-	"vector-unpin-element-label": "dúmája"
+	"vector-unpin-element-label": "dúmája",
+	"vector-page-tools-nav-label": "Amí eñwu ekwu ogba",
+	"vector-readability-survey-fontSize": "Unana",
+	"vector-readability-survey-lineHeight": "Ujiji lini",
+	"vector-readability-survey-reset": "Dabí tí akwobi",
+	"vector-readability-survey-share": "Ché tó gbaà lo"
 }

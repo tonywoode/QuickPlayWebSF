@@ -58,6 +58,7 @@
 	"abusefilter-edit-builder-vars-addedlines": "Немгдсн мөрмүд",
 	"abusefilter-edit-builder-vars-wiki-language": "Викиһин келнә код",
 	"abusefilter-history-user": "Кергләч",
+	"abusefilter-history-backedit": "Шүүх ясгч",
 	"abusefilter-history-filterid": "Шүүлтүр",
 	"abusefilter-history-select-user": "Кергләч:",
 	"abusefilter-history-select-filter": "Шүүлтүрин ID:",
@@ -76,5 +77,6 @@
 	"abusefilter-test-search-type-createaccount": "Бүрткл үүсклт",
 	"abusefilter-examine-submit": "Хәәх",
 	"abusefilter-topnav-home": "Нүр",
-	"abusefilter-diff-item": "Махбуд"
+	"abusefilter-diff-item": "Махбуд",
+	"abusefilter-diff-backhistory": "Шүүх түүк"
 }

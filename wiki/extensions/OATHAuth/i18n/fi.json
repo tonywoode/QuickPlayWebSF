@@ -1,6 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
+			"Kyykaarme",
 			"MITO",
 			"Mikahama",
 			"Nike",
@@ -8,8 +9,7 @@
 			"Pyscowicz",
 			"Silvonen",
 			"Stryn",
-			"Veikk0.ma",
-			"Kyykaarme"
+			"Veikk0.ma"
 		]
 	},
 	"disableoathforuser": "Poista käytöstä käyttäjän kaksivaiheinen tunnistautuminen",

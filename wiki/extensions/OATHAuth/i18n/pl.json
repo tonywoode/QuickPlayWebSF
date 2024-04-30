@@ -9,8 +9,8 @@
 			"Rail",
 			"Railfail536",
 			"WTM",
-			"Nux",
 			"WaldiSt",
+			"Nux",
 			"Msz2001"
 		]
 	},
@@ -43,7 +43,7 @@
 	"right-oathauth-verify-user": "Sprawdzanie, czy użytkownik ma włączone uwierzytelnianie dwuskładnikowe",
 	"action-oathauth-verify-user": "sprawdzania, czy użytkownik ma włączone uwierzytelnianie dwuskładnikowe",
 	"right-oathauth-view-log": "Dostęp do rejestru zmian uwierzytelniania dwuskładnikowego",
-	"action-oathauth-view-log": "przeglądania rejestru zmian uwierzytelniania dwuskładnikowego",
+	"action-oathauth-view-log": "dostęp do dziennika zmian uwierzytelniania dwuskładnikowego",
 	"oathauth-disable-intro": "Z wielką władzą wiąże się wielka odpowiedzialność",
 	"oathauth-enteruser": "Nazwa użytkownika:",
 	"oathauth-enterdisablereason": "Powód wyłączenia:",

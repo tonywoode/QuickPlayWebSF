@@ -1,7 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
+			"20kdc",
 			"Anna",
+			"Frzzl",
 			"Gtbot2007",
 			"Keenan Pepper",
 			"Kita",
@@ -16,8 +18,6 @@
 			"http://tokipona.wikia.com sysops",
 			"janTepo",
 			"שוקו מוקה",
-			"20kdc",
-			"Frzzl",
 			"Earldridge Jazzed Pineda",
 			"Juwan"
 		]
@@ -119,8 +119,6 @@
 	"category-article-count-limited": "kulupu ni la, {{PLURAL:$1|lipu}} ni li lon:",
 	"category-file-count": "{{PLURAL:$2|lipu ni taso li lon kulupu ni.|lipu $1 ni li lon kulupu ni. ale la lipu $2 li lon kulupu ni.}}",
 	"category-file-count-limited": "kulupu ni la, {{PLURAL:$1|ijo}} ni li lon:",
-	"categoryviewer-pagedlinks": "($1) ($2)",
-	"category-header-numerals": "$1–$2",
 	"about": "sona pi lipu ni",
 	"article": "lipu sona",
 	"newwindow": "(ona li open e lupa sin)",
@@ -328,6 +326,7 @@
 	"nav-login-createaccount": "o sijelo",
 	"logout": "o weka tan sijelo",
 	"userlogout": "sijelo weka",
+	"templogout": "o sijelo ala",
 	"notloggedin": "sina lon sijelo ala",
 	"userlogin-noaccount": "sina sijelo ala sijelo?",
 	"userlogin-joinproject": "o kama tawa lipu {{SITENAME}}",

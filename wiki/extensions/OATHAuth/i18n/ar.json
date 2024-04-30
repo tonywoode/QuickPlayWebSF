@@ -1,15 +1,15 @@
 {
 	"@metadata": {
 		"authors": [
+			"Alshamiri1",
 			"FiberAhmed",
 			"Meno25",
 			"MuratTheTurkish",
+			"أيوب",
 			"أَحمد",
 			"ديفيد",
 			"علاء",
-			"محمد أحمد عبد الفتاح",
-			"Alshamiri1",
-			"أيوب"
+			"محمد أحمد عبد الفتاح"
 		]
 	},
 	"oathauth-desc": "يوفر دعم المصادقة باستخدام كلمات مرور لمرة واحدة تستند إلى HMAC",
@@ -41,8 +41,8 @@
 	"action-oathauth-disable-for-user": "تعطيل التوثيق ذي العاملين لمستخدم",
 	"right-oathauth-verify-user": "تحقق مما إذا كان المستخدم قد تم تمكين المصادقة ذات العاملين",
 	"action-oathauth-verify-user": "تحقق مما إذا كان المستخدم قد تم تمكين المصادقة ذات العاملين",
-	"right-oathauth-view-log": "الوصول إلى سجل تغييرات التوثيق ذي العاملين",
-	"action-oathauth-view-log": "الوصول إلى سجل تغييرات التوثيق ذي العاملين",
+	"right-oathauth-view-log": "الوصول إلى سجل تغييرات المصادقة الثنائية",
+	"action-oathauth-view-log": "الوصول إلى سجل تغييرات المصادقة الثنائية",
 	"oathauth-disable-intro": "مع السلطة العظيمة، تأتي مسؤولية عظيمة",
 	"oathauth-enteruser": "اسم المستخدم:",
 	"oathauth-enterdisablereason": "سبب التعطيل:",

@@ -17,5 +17,6 @@
 	"discussiontools-topicsubscription-button-subscribe": "సభ్యత్వ కింట్",
 	"discussiontools-topicsubscription-button-subscribe-label": "సభ్యత్వ ఏతట్",
 	"discussiontools-topicsubscription-button-unsubscribe": "చందాను తెండాట్",
-	"discussiontools-topicsubscription-button-unsubscribe-label": "చందాను తెడ్సివటా"
+	"discussiontools-topicsubscription-button-unsubscribe-label": "చందాను తెడ్సివటా",
+	"discussiontools-topicsubscription-notify-unsubscribed-title": "{{లింగ్:|మీరు}}తర్సో మనంతంగ్ చందాతున్ తెన్డిసివట"
 }

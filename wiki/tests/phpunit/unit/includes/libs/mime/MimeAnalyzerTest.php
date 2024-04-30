@@ -15,7 +15,11 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->mimeAnalyzer = new MimeAnalyzer( [
+		$this->mimeAnalyzer = $this->createMimeAnalyzer();
+	}
+
+	private function createMimeAnalyzer() {
+		return new MimeAnalyzer( [
 			'infoFile' => MimeAnalyzer::USE_INTERNAL,
 			'typeFile' => MimeAnalyzer::USE_INTERNAL,
 			'xmlTypes' => [
@@ -46,7 +50,7 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 		$this->assertEquals( $expectedMime, $actualMime );
 	}
 
-	public function providerImproveTypeFromExtension() {
+	public static function providerImproveTypeFromExtension() {
 		return [
 			[ 'gif', 'image/gif', 'image/gif' ],
 			[ 'gif', 'unknown/unknown', 'unknown/unknown' ],
@@ -73,7 +77,7 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 		];
 	}
 
-	public function provideGetMediaType() {
+	public static function provideGetMediaType() {
 		// Make sure encoder=ffmpeg2theora don't trigger MEDIATYPE_VIDEO (T65584)
 		yield 'Recognize ogg' => [ 'say-test.ogg', 'application/ogg', MEDIATYPE_AUDIO ];
 
@@ -82,6 +86,8 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 
 		// Make sure mp3 files are detected as audio type
 		yield 'Recognize mp3' => [ 'say-test-with-id3.mp3', null, MEDIATYPE_AUDIO ];
+
+		yield 'Unknown Extension' => [ 'unknown_extension', null, MEDIATYPE_UNKNOWN ];
 	}
 
 	/**
@@ -95,7 +101,7 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 		);
 	}
 
-	public function provideDoGuessMimeType() {
+	public static function provideDoGuessMimeType() {
 		// Make sure MP3 with id3 tag is recognized
 		yield 'Recognize mp3 with id3' => [ 'say-test-with-id3.mp3', 'mp3', 'audio/mpeg' ];
 
@@ -141,6 +147,8 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 				'gifar.gif',
 				'application/java',
 			],
+
+			// todo : Add test case for ZIP file with .zip extension
 		];
 	}
 
@@ -157,7 +165,7 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 		);
 	}
 
-	public function providePngZipConfusion() {
+	public static function providePngZipConfusion() {
 		return [
 			[
 				'An invalid ZIP file due to the signature being too close to the ' .
@@ -192,7 +200,9 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 		];
 	}
 
-	/** @dataProvider providePngZipConfusion */
+	/**
+	 * @dataProvider providePngZipConfusion
+	 */
 	public function testPngZipConfusion( $description, $fileName, $expectedType ) {
 		$file = __DIR__ . '/../../../../data/media/' . $fileName;
 		$actualType = $this->doGuessMimeType( [ $file, 'png' ] );
@@ -206,10 +216,6 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 		$this->assertSame( [], $this->mimeAnalyzer->getExtensionsFromMimeType( '' ) );
 	}
 
-	/**
-	 * @covers MimeAnalyzer::addExtraTypes
-	 * @covers MimeAnalyzer::addExtraInfo
-	 */
 	public function testAddExtraTypes() {
 		$mime = new MimeAnalyzer( [
 			'infoFile' => MimeAnalyzer::USE_INTERNAL,
@@ -259,6 +265,7 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 		yield 'font/woff2 should output woff2 file extension' => [ 'font/woff2', [ 'woff2' ] ];
 		yield 'application/font-woff2 should output woff2 file extension' => [ 'application/font-woff2', [ 'woff2' ] ];
 		yield 'text/sgml should output sgml file extension' => [ 'text/sgml', [ 'sgml', 'sgm' ] ];
+		yield 'text/javascript should output js file extension' => [ 'text/javascript', [ 'js' ] ];
 	}
 
 	/**
@@ -283,11 +290,39 @@ class MimeAnalyzerTest extends PHPUnit\Framework\TestCase {
 		$this->assertNull( $this->mimeAnalyzer->getExtensionFromMimeTypeOrNull( 'fake/mime' ) );
 	}
 
+	public function testGetMediaTypes() {
+		$mimeAnalyzer = $this->createMimeAnalyzer();
+		$mediaTypes = $mimeAnalyzer->getMediaTypes();
+
+		$this->assertIsArray( $mediaTypes );
+		$this->assertNotEmpty( $mediaTypes );
+
+		$this->assertContains( 'BITMAP', $mediaTypes );
+	}
+
+	public function testGetMediaTypeForNullCase() {
+		$mimeAnalyzer = $this->createMimeAnalyzer();
+
+		// Test case when both $mime and $path are null
+		$this->assertEquals( MEDIATYPE_UNKNOWN, $mimeAnalyzer->getMediaType() );
+	}
+
+	public function testIsMatchingExtension() {
+		$analyzer = $this->createMimeAnalyzer();
+
+		// Passing an unknown MIME type
+		$this->assertNull( $analyzer->isMatchingExtension( 'application/x-custom', 'jpg' ) );
+	}
+
 	public function testIsValidMajorMimeTypeTrue() {
-		$this->assertTrue( $this->mimeAnalyzer->isValidMajorMimeType( 'image' ) );
+		$analyzer = $this->createMimeAnalyzer();
+
+		$this->assertTrue( $analyzer->isValidMajorMimeType( 'image' ) );
 	}
 
 	public function testIsValidMajorMimeTypeFalse() {
-		$this->assertFalse( $this->mimeAnalyzer->isValidMajorMimeType( 'font' ) );
+		$analyzer = $this->createMimeAnalyzer();
+
+		$this->assertFalse( $analyzer->isValidMajorMimeType( 'font' ) );
 	}
 }

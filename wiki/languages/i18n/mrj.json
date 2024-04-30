@@ -4,8 +4,8 @@
 			"Amdf",
 			"Amire80",
 			"Andrijko Z.",
-			"아라",
 			"Nadezhda",
+			"아라",
 			"Angelika"
 		]
 	},
@@ -258,6 +258,7 @@
 	"showdiff": "Вашталтмашвлӓм анжыкташ",
 	"anoneditwarning": "<strong>Шижтӓрӹмӓш:</strong> Тӹнь системӹш пырыделат. Махань-гӹнят вашталтмашым пыртет гынь, IP адресет цилӓлӓн кайшы лиэш. Тӹнь <strong>[$1 пырет]</strong> ӓли <strong>[$2 аккаунтым ӹштет] </strong> гӹнь, цилӓ вашталтмашет дӓ молыжат аккаунтет докы уштарымы лиэш.",
 	"summary-preview": "Сирӹмӹ лиэш:",
+	"blockedtext": "<strong>Тӹньӹн аккаунтэт ӓли IP адресэт цӓрӓлтӹн.</strong>\n\n{{int:blockedtext-made-by|$1}}\n{{int:blockedtext-reason-comment|$2}}.\n\n* {{int:blockedtext-start-time|$8}}\n* {{int:blockedtext-expiration-time|$6}}\n* {{int:blockedtext-intended-blockee|$7}}\n\n{{int:blockedtext-contact-blocker-admin|$1}}\nТӹнь [[Special:Preferences|ӹшке сарастарымаштэт]] тӧр электрон почты адресӹм анжыктымы дӓ тӹньӹн цӓрмӓш сирӹшӹм колташ агеш цӓрӹ гӹнь, тӹнь «{{int:emailuser}}» функцим кычылт кердат.\n{{int:blockedtext-block-ip|$3}}, {{int:blockedtext-block-id|$5}}\n{{int:blockedtext-include-details-queries}}",
 	"loginreqlink": "системӹш пыраш",
 	"newarticle": "(У)",
 	"newarticletext": "Ссылка доно эче ӹштӹдӹмӹ страницӓш вӓрештӹнӓт. Страницӓм ӹштӓш манын, ӱлнӹрӓк ылшы рамкыш сирӓш тӹнгӓл (шукырак информацим пӓлен нӓлаш [$1 палшыкын страницӓм] анжал).\nТишкӹ самынь вӓрештӹнӓт гӹнь, браузерӹштӹ <strong>шайыкы</strong> кнопкым темдӓл.",
@@ -307,6 +308,7 @@
 	"compareselectedversions": "Айырен нӓлмӹ версивлӓм тӓнгӓштӓрӹ",
 	"editundo": "цӓрӓш",
 	"diff-empty": "(Айыртем уке)",
+	"diff-multi-sameuser": "({{GENDER:$3| пользовательӹн}} {{PLURAL:$1|ик кӹдӓлӓш версим|$1 кӹдӓлӓш версим}} анжыктымы агыл)",
 	"diff-multi-otherusers": "{{PLURAL:$2|пользоватльӹн|$2 пользоватльӹн}} ({{PLURAL:$1|Ик кӹдӓлӓш версижӹм|$1 кӹдӓлӓш версижӹм}} анжыктымы агыл)",
 	"searchresults": "Кӹчӓлмӹн лӓктӹшыжӹ",
 	"searchresults-title": "$1 ядмашлан кӹчӓлмӹ лӓктӹш",
@@ -337,6 +339,7 @@
 	"powersearch-ns": "Кымдецвлӓштӹ лӹмвлӓм кӹчӓлмӓш:",
 	"preferences": "Настройкывлӓ",
 	"mypreferences": "Настройкывлӓ",
+	"prefs-common-config": "Цилӓ скинвлӓлӓн цымыр CSS/JavaScript:",
 	"group-bot": "Ботвлӓ",
 	"group-sysop": "Администраторвлӓ",
 	"grouppage-bot": "{{ns:project}}:Ботвлӓ",
@@ -654,5 +657,6 @@
 	"blockedtext-expiration-time": "Питӹрӹмӓшӹн мычашыжы: $1",
 	"blockedtext-intended-blockee": "Питӹрӹмӓшӹн цельжӹ: $1",
 	"blockedtext-contact-blocker-admin": "Цӓрӹмӓш гишӓн попаш манын $1 ӓли вес [[{{MediaWiki:Grouppage-sysop}}|администратор]] доно кӹлдӓлт кердӓт.",
+	"blockedtext-block-ip": "Тӹньӹн кӹзӹтшӹ IP адресэт — $1.",
 	"blockedtext-include-details-queries": "Пожалуйста, хоть-махань ӹшке ядмашыштет цилӓ тидӹ сведеним анжыкты."
 }

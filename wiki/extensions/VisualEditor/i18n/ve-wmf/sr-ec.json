@@ -10,6 +10,9 @@
 			"Сербијана"
 		]
 	},
+	"tag-editcheck-newcontent-description": "EditCheck мисли да је нов садржај додат страници",
+	"tag-editcheck-newreference-description": "Референца је додата на страницу",
+	"tag-editcheck-references-description": "EditCheck мисли да је потребна референца",
 	"tag-visualeditor": "[[{{MediaWiki:visualeditor-descriptionpagelink}}|Визуелно уређивање]]",
 	"tag-visualeditor-description": "Измена начињена [[{{MediaWiki:visualeditor-descriptionpagelink}}|Визуелним уређивачем]]",
 	"tag-visualeditor-needcheck": "[[{{MediaWiki:visualeditor-descriptionpagelink}}|Визуелни уређивач: проверити]]",

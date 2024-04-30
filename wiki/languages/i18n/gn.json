@@ -1,13 +1,13 @@
 {
 	"@metadata": {
 		"authors": [
+			"Amire80",
 			"Fitoschido",
 			"Guillermo2149",
 			"Hugo.arg",
 			"P. S. F. Freitas",
 			"Perla",
-			"아라",
-			"Amire80"
+			"아라"
 		]
 	},
 	"tog-underline": "Joajuha haiguývaː",
@@ -54,6 +54,7 @@
 	"tog-prefershttps": "Akóinte eipuru peteĩ joajuha isegúrova reike aja",
 	"tog-showrollbackconfirmation": "Ehechauka peteĩ ñe'ẽmondo moañeterã ejopy jave peteĩ joajuha omboguevíva rehe",
 	"tog-requireemail": "Emondo korréo rupive ñe'ẽñemi ñembopyahu oñeme'ẽ jave añoite mokõive ñe'ẽveve ha puruhára réra.",
+	"tog-forcesafemode": "Akóinte emboguata [[mw:Manual:Safemode|tekorosã reko]]",
 	"underline-always": "Akói",
 	"underline-never": "Araka'eve",
 	"underline-default": "Mba'erechaka térã kundahára ñepyrũrã",
@@ -451,6 +452,7 @@
 	"revdelete-hide-image": "Eñomi marandurenda retepy",
 	"lineno": "Jehai $1:",
 	"editundo": "emboguevi",
+	"diff-inline-tooltip-ins": "Oñembojoapy marandu",
 	"searchresults": "Ojejuhúva jeheka",
 	"searchresults-title": "Mba'e ojehekáva $1 rehegua",
 	"prevn": "{{PLURAL:$1|$1}} mboyvegua",
@@ -466,7 +468,6 @@
 	"search-interwiki-more-results": "hetave mba'e rehekáva",
 	"search-thumbnail-alt": "$1 michĩháicha",
 	"searchall": "opaite",
-	"showingresults": "Abajo se muestran hasta '''$1''' resultados empezando por el nº '''$2'''.",
 	"search-nonefound": "Ndaipóri mba'e ojejuhúva ojoajúva mba'e ojehekáva rehe.",
 	"powersearch-togglenone": "Ndaipóri",
 	"preferences": "Poravorã",
@@ -490,6 +491,7 @@
 	"servertime": "Mohendahavusu aravo:",
 	"allowemail": "Eheja ambue puruhárape tomondo chéve korréo",
 	"default": "oimeháicha",
+	"prefs-custom-cssjs-safemode": "CSS/JavaScript jeporupyre ndojeguerekói ko'ãgaite oñembohapégui tekorosã reko. Emboguemína [[#mw-input-wpforcesafemode|tekorosã reko]] eipuru hag̃ua CSS/JavaScript jeporupyre.",
 	"prefs-common-config": "CSS/JSON/JavaScript oñembojaꞌovaꞌekue opaite mba'erechaka rehegua:",
 	"youremail": "Ñe'ẽveveː",
 	"yourlanguage": "Ñe’ẽ:",
@@ -501,7 +503,6 @@
 	"prefs-signature": "Teraguapy",
 	"prefs-signature-error-details": "Eikuaave",
 	"prefs-advancedediting": "Poravorã opaichagua",
-	"userrights-lookup-user": "Configurar grupos de usuarios",
 	"userrights-user-editname": "Ehaimi peteĩ puruhára réra:",
 	"editusergroup": "Modificar grupos de usuarios",
 	"editinguser": "Ojehaihína '''[[User:$1|$1]]''' ([[User talk:$1|{{int:talkpagelinktext}}]] | [[Special:Contributions/$1|{{int:contribslink}}]])",
@@ -802,6 +803,8 @@
 	"tooltip-pt-preferences": "{{GENDER:|Ne}} mba'e poravorã",
 	"tooltip-pt-mycontris": "Ehecha opamba'e {{GENDER:|nde}} rehaiva'ekue",
 	"tooltip-ca-talk": "Ko kuatia ñemongeta",
+	"tooltip-ca-edit-local": "Emoambue hendaitegua ñemombe'u kuatia",
+	"tooltip-ca-create-local": "Ejapo hendaitegua ñemombe'u kuatia",
 	"tooltip-ca-move": "Guerova kuatiarogue",
 	"tooltip-search": "Eheka {{SITENAME}} rendápe",
 	"tooltip-search-fulltext": "Tojeheka kuatiaroguépe ko jehaipy",

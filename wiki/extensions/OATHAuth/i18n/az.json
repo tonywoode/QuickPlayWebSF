@@ -37,7 +37,7 @@
 	"action-oathauth-disable-for-user": "iki faktorlu autentifikasiyanı istifadəçi üçün deaktiv etmək",
 	"right-oathauth-verify-user": "İstifadəçinin iki faktorlu autentifikasiyanı açıb-açmadığını yoxla",
 	"action-oathauth-verify-user": "istifadəçinin iki faktorlu autentifikasiyanı açıb-açmadığını yoxlamaq",
-	"right-oathauth-view-log": "İki faktorlu autentifikasiya dəyişiklikləri jurnalına giriş",
+	"right-oathauth-view-log": "iki faktorlu autentifikasiya dəyişiklikləri jurnalına giriş",
 	"action-oathauth-view-log": "iki faktorlu autentifikasiya dəyişiklikləri jurnalına giriş",
 	"oathauth-disable-intro": "Böyük güc, böyük məsuliyyətlə gəlir",
 	"oathauth-enteruser": "İstifadəçi adı:",

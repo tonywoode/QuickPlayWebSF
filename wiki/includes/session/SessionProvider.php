@@ -23,15 +23,15 @@
 
 namespace MediaWiki\Session;
 
-use Config;
 use Language;
+use MediaWiki\Config\Config;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\MainConfigNames;
+use MediaWiki\Request\WebRequest;
+use MediaWiki\User\User;
 use MediaWiki\User\UserNameUtils;
 use Psr\Log\LoggerInterface;
-use User;
-use WebRequest;
 
 /**
  * A SessionProvider provides SessionInfo and support for Session
@@ -528,17 +528,14 @@ abstract class SessionProvider implements SessionProviderInterface {
 	 *
 	 * The return value is such that someone could theoretically do this:
 	 * @code
-	 * foreach ( $provider->getVaryHeaders() as $header => $options ) {
-	 *   $outputPage->addVaryHeader( $header, $options );
+	 * foreach ( $provider->getVaryHeaders() as $header => $_ ) {
+	 *   $outputPage->addVaryHeader( $header );
 	 * }
 	 * @endcode
 	 *
-	 * Note that the $options parameter to addVaryHeader has been deprecated
-	 * since 1.34, and should be `null` or an empty array.
-	 *
 	 * @stable to override
 	 * @note For use by \MediaWiki\Session\SessionManager only
-	 * @return array
+	 * @return array<string,null>
 	 */
 	public function getVaryHeaders() {
 		return [];
