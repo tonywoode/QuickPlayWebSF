@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Script to generate distorted text images for a captcha system.
 #
@@ -32,24 +32,31 @@ from optparse import OptionParser
 import os
 import sys
 import re
+import multiprocessing
 
 try:
-	import Image
-	import ImageFont
-	import ImageDraw
-	import ImageEnhance
-	import ImageOps
+	from PIL import Image
+	from PIL import ImageFont
+	from PIL import ImageDraw
+	from PIL import ImageEnhance
+	from PIL import ImageOps
+	from PIL import ImageMath
 except:
 	sys.exit("This script requires the Python Imaging Library - http://www.pythonware.com/products/pil/")
 
 nonalpha = re.compile('[^a-z]') # regex to test for suitability of words
+
+# Pillow 9.2 added getbbox to replace getsize, and getsize() was removed in Pillow 10
+# https://pillow.readthedocs.io/en/stable/releasenotes/10.0.0.html#font-size-and-offset-methods
+# We don't have a requirements.txt, and therefore don't declare any specific supported or min version...
+IMAGEFONT_HAS_GETBBOX = hasattr(ImageFont.ImageFont, "getbbox")
 
 # Does X-axis wobbly copy, sandwiched between two rotates
 def wobbly_copy(src, wob, col, scale, ang):
 	x, y = src.size
 	f = random.uniform(4*scale, 5*scale)
 	p = random.uniform(0, math.pi*2)
-	rr = ang+random.uniform(-30, 30) # vary, but not too much
+	rr = ang+random.uniform(-10, 10) # vary, but not too much
 	int_d = Image.new('RGB', src.size, 0) # a black rectangle
 	rot = src.rotate(rr, Image.BILINEAR)
 	# Do a cheap bounding-box op here to try to limit work below
@@ -75,10 +82,15 @@ def gen_captcha(text, fontname, fontsize, file_name):
 	# white text on a black background
 	bgcolor = 0x0
 	fgcolor = 0xffffff
-	# create a font object 
+	# create a font object
 	font = ImageFont.truetype(fontname,fontsize)
+
 	# determine dimensions of the text
-	dim = font.getsize(text)
+	if IMAGEFONT_HAS_GETBBOX:
+		dim = font.getbbox(text)[2:]
+	else:
+		dim = font.getsize(text)
+
 	# create a new image significantly larger that the text
 	edge = max(dim[0], dim[1]) + 2*min(dim[0], dim[1])
 	im = Image.new('RGB', (edge, edge), bgcolor)
@@ -86,8 +98,8 @@ def gen_captcha(text, fontname, fontsize, file_name):
 	x, y = im.size
 	# add the text to the image
 	d.text((x/2-dim[0]/2, y/2-dim[1]/2), text, font=font, fill=fgcolor)
-	k = 3
-	wob = 0.20*dim[1]/k
+	k = 2
+	wob = 0.09*dim[1]
 	rot = 45
 	# Apply lots of small stirring operations, rather than a few large ones
 	# in order to get some uniformity of treatment, whilst
@@ -97,14 +109,30 @@ def gen_captcha(text, fontname, fontsize, file_name):
 		im = wobbly_copy(im, wob, bgcolor, i*2+1, rot+45)
 		im = wobbly_copy(im, wob, bgcolor, i*2+2, rot+90)
 		rot += 30
-	
+
 	# now get the bounding box of the nonzero parts of the image
 	bbox = im.getbbox()
 	bord = min(dim[0], dim[1])/4 # a bit of a border
 	im = im.crop((bbox[0]-bord, bbox[1]-bord, bbox[2]+bord, bbox[3]+bord))
+
+	# Create noise
+	nblock = 4
+	nsize = (im.size[0] // nblock, im.size[1] // nblock)
+	noise = Image.new('L', nsize, bgcolor)
+	data = noise.load()
+	for x in range(nsize[0]):
+		for y in range(nsize[1]):
+			r = random.randint(0, 65)
+			gradient = 70 * x // nsize[0]
+			data[x, y] = r + gradient
+	# Turn speckles into blobs
+	noise = noise.resize(im.size, Image.BILINEAR)
+	# Add to the image
+	im = ImageMath.eval('convert(convert(a, "L") / 3 + b, "RGB")', a=im, b=noise)
+
 	# and turn into black on white
 	im = ImageOps.invert(im)
-		
+
 	# save the image, in format determined from filename
 	im.save(file_name)
 
@@ -124,7 +152,7 @@ def gen_subdir(basedir, md5hash, levels):
 			os.mkdir(fulldir)
 	return subdir
 
-def try_pick_word(words, blacklist, verbose, nwords, min_length, max_length):
+def try_pick_word(words, badwordlist, verbose, nwords, min_length, max_length):
 	if words is not None:
 		word = words[random.randint(0,len(words)-1)]
 		while nwords > 1:
@@ -138,33 +166,33 @@ def try_pick_word(words, blacklist, verbose, nwords, min_length, max_length):
 			word = word + chr(97 + random.randint(0,25))
 
 	if verbose:
-		print "word is %s" % word
+		print("word is %s" % word)
 
 	if len(word) < min_length:
 		if verbose:
-			print "skipping word pair '%s' because it has fewer than %d characters" % (word, min_length)
+			print("skipping word pair '%s' because it has fewer than %d characters" % (word, min_length))
 		return None
 
 	if max_length > 0 and len(word) > max_length:
 		if verbose:
-			print "skipping word pair '%s' because it has more than %d characters" % (word, max_length)
+			print("skipping word pair '%s' because it has more than %d characters" % (word, max_length))
 		return None
 
 	if nonalpha.search(word):
 		if verbose:
-			print "skipping word pair '%s' because it contains non-alphabetic characters" % word
+			print("skipping word pair '%s' because it contains non-alphabetic characters" % word)
 		return None
 
-	for naughty in blacklist:
+	for naughty in badwordlist:
 		if naughty in word:
 			if verbose:
-				print "skipping word pair '%s' because it contains blacklisted word '%s'" % (word, naughty)
+				print("skipping word pair '%s' because it contains word '%s'" % (word, naughty))
 			return None
 	return word
 
-def pick_word(words, blacklist, verbose, nwords, min_length, max_length):
+def pick_word(words, badwordlist, verbose, nwords, min_length, max_length):
 	for x in range(1000): # If we can't find a valid combination in 1000 tries, just give up
-		word = try_pick_word(words, blacklist, verbose, nwords, min_length, max_length)
+		word = try_pick_word(words, badwordlist, verbose, nwords, min_length, max_length)
 		if word:
 			return word
 	sys.exit("Unable to find valid word combinations")
@@ -175,31 +203,54 @@ def read_wordlist(filename):
 	f.close()
 	return words
 
+def run_in_thread(object):
+	count = object[0]
+	words = object[1]
+	badwordlist = object[2]
+	opts = object[3]
+	font = object[4]
+	fontsize = object[5]
+
+	for i in range(count):
+		word = pick_word(words, badwordlist, opts.verbose, opts.number_words, opts.min_length, opts.max_length)
+		salt = "%08x" % random.randrange(2**32)
+		# 64 bits of hash is plenty for this purpose
+		md5hash = hashlib.md5((key+salt+word+key+salt).encode('utf-8')).hexdigest()[:16]
+		filename = "image_%s_%s.png" % (salt, md5hash)
+		if opts.dirs:
+			subdir = gen_subdir(opts.output, md5hash, opts.dirs)
+			filename = os.path.join(subdir, filename)
+		if opts.verbose:
+			print(filename)
+		gen_captcha(word, font, fontsize, os.path.join(opts.output, filename))
+
 if __name__ == '__main__':
 	"""This grabs random words from the dictionary 'words' (one
 	word per line) and generates a captcha image for each one,
 	with a keyed salted hash of the correct answer in the filename.
-	
+
 	To check a reply, hash it in the same way with the same salt and
 	secret key, then compare with the hash value given.
 	"""
 	script_dir = os.path.dirname(os.path.realpath(__file__))
 	parser = OptionParser()
 	parser.add_option("--wordlist", help="A list of words (required)", metavar="WORDS.txt")
-	parser.add_option("--random", help="Use random charcters instead of a wordlist", action="store_true")
+	parser.add_option("--random", help="Use random characters instead of a wordlist", action="store_true")
 	parser.add_option("--key", help="The passphrase set as $wgCaptchaSecret (required)", metavar="KEY")
 	parser.add_option("--output", help="The directory to put the images in - $wgCaptchaDirectory (required)", metavar="DIR")
 	parser.add_option("--font", help="The font to use (required)", metavar="FONT.ttf")
 	parser.add_option("--font-size", help="The font size (default 40)", metavar="N", type='int', default=40)
 	parser.add_option("--count", help="The maximum number of images to make (default 20)", metavar="N", type='int', default=20)
-	parser.add_option("--blacklist", help="A blacklist of words that should not be used", metavar="FILE", default=os.path.join(script_dir, "blacklist"))
+	parser.add_option("--badwordlist", help="A list of words that should not be used", metavar="FILE", default=os.path.join(script_dir, "badwordlist"))
+	parser.add_option("--blacklist", help="DEPRECATED: list of words that should not be used", metavar="FILE", default=os.path.join(script_dir, "blacklist"))
 	parser.add_option("--fill", help="Fill the output directory to contain N files, overrides count, cannot be used with --dirs", metavar="N", type='int')
 	parser.add_option("--dirs", help="Put the images into subdirectories N levels deep - $wgCaptchaDirectoryLevels", metavar="N", type='int')
 	parser.add_option("--verbose", "-v", help="Show debugging information", action='store_true')
 	parser.add_option("--number-words", help="Number of words from the wordlist which make a captcha challenge (default 2)", type='int', default=2)
 	parser.add_option("--min-length", help="Minimum length for a captcha challenge", type='int', default=1)
 	parser.add_option("--max-length", help="Maximum length for a captcha challenge", type='int', default=-1)
-	
+	parser.add_option("--threads", help="Maximum number of threads to be used to generate captchas.", type='int', default=1)
+
 	opts, args = parser.parse_args()
 
 	if opts.wordlist:
@@ -221,12 +272,11 @@ if __name__ == '__main__':
 	else:
 		sys.exit("Need to specify the location of a font")
 
-	blacklist = read_wordlist(opts.blacklist)
+	badwordlist = read_wordlist(opts.blacklist) + read_wordlist(opts.badwordlist)
 	count = opts.count
 	fill = opts.fill
-	dirs = opts.dirs
-	verbose = opts.verbose
 	fontsize = opts.font_size
+	threads = opts.threads
 
 	if fill:
 		count = max(0, fill - len(os.listdir(output)))
@@ -238,16 +288,19 @@ if __name__ == '__main__':
 			if len(x) in (4,5) and x[0] != "f"
 			and x[0] != x[1] and x[-1] != x[-2]]
 
-	for i in range(count):
-		word = pick_word(words, blacklist, verbose, opts.number_words, opts.min_length, opts.max_length)
-		salt = "%08x" % random.randrange(2**32)
-		# 64 bits of hash is plenty for this purpose
-		md5hash = hashlib.md5(key+salt+word+key+salt).hexdigest()[:16]
-		filename = "image_%s_%s.png" % (salt, md5hash)
-		if dirs:
-			subdir = gen_subdir(output, md5hash, dirs)
-			filename = os.path.join(subdir, filename)
-		if verbose:
-			print filename
-		gen_captcha(word, font, fontsize, os.path.join(output, filename))
+	if count == 0:
+		sys.exit("No need to generate CAPTCHA images.")
 
+	if count < threads:
+		chunks = 1
+		threads = 1
+	else:
+		chunks = (count // threads)
+
+	p = multiprocessing.Pool(threads)
+	data = []
+	print("Generating %s CAPTCHA images separated in %s image(s) per chunk run by %s threads..." % (count, chunks, threads))
+	for i in range(0, threads):
+		data.append([chunks, words, badwordlist, opts, font, fontsize])
+
+	p.map(run_in_thread, data)

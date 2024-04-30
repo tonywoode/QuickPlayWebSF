@@ -1,7 +1,9 @@
 {
-    "@metadata": {
-        "authors": []
-    },
-    "searchfulltext": "Ricerca testu cumplettu",
-    "createarticle": "Creà l'articulu"
+	"@metadata": {
+		"authors": [
+			"Jun Misugi"
+		]
+	},
+	"inputbox-searchfulltext": "Ricerca testu cumplettu",
+	"inputbox-createarticle": "Creà a pàgina"
 }

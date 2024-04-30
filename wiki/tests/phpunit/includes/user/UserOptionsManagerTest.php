@@ -7,6 +7,7 @@ use MediaWiki\User\UserOptionsLookup;
 use MediaWiki\User\UserOptionsManager;
 use Psr\Log\NullLogger;
 use Wikimedia\Rdbms\DBConnRef;
+use Wikimedia\Rdbms\FakeResultWrapper;
 use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 
@@ -48,7 +49,8 @@ class UserOptionsManagerTest extends UserOptionsLookupTest {
 			$overrides['lb'] ?? $services->getDBLoadBalancer(),
 			new NullLogger(),
 			$overrides['hookContainer'] ?? $services->getHookContainer(),
-			$services->getUserFactory()
+			$services->getUserFactory(),
+			$services->getContentLanguage()
 		);
 	}
 

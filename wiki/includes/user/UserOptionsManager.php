@@ -26,11 +26,13 @@ use HTMLFormField;
 use HTMLMultiSelectField;
 use IContextSource;
 use InvalidArgumentException;
+use Language;
 use LanguageCode;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\Languages\LanguageConverterFactory;
+use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 use Psr\Log\LoggerInterface;
 use Wikimedia\Rdbms\IDatabase;
@@ -46,9 +48,14 @@ class UserOptionsManager extends UserOptionsLookup {
 	 * @internal For use by ServiceWiring
 	 */
 	public const CONSTRUCTOR_OPTIONS = [
-		'HiddenPrefs',
-		'LocalTZoffset',
+		MainConfigNames::HiddenPrefs,
+		MainConfigNames::LocalTZoffset,
 	];
+
+	/**
+	 * @since 1.39.5, 1.40
+	 */
+	public const MAX_BYTES_OPTION_VALUE = 65530;
 
 	/** @var ServiceOptions */
 	private $serviceOptions;
@@ -64,6 +71,9 @@ class UserOptionsManager extends UserOptionsLookup {
 
 	/** @var UserFactory */
 	private $userFactory;
+
+	/** @var Language */
+	private $contentLanguage;
 
 	/** @var LoggerInterface */
 	private $logger;
@@ -98,6 +108,7 @@ class UserOptionsManager extends UserOptionsLookup {
 	 * @param LoggerInterface $logger
 	 * @param HookContainer $hookContainer
 	 * @param UserFactory $userFactory
+	 * @param Language $contentLanguage
 	 */
 	public function __construct(
 		ServiceOptions $options,
@@ -106,7 +117,8 @@ class UserOptionsManager extends UserOptionsLookup {
 		ILoadBalancer $loadBalancer,
 		LoggerInterface $logger,
 		HookContainer $hookContainer,
-		UserFactory $userFactory
+		UserFactory $userFactory,
+		Language $contentLanguage
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->serviceOptions = $options;
@@ -116,6 +128,7 @@ class UserOptionsManager extends UserOptionsLookup {
 		$this->logger = $logger;
 		$this->hookRunner = new HookRunner( $hookContainer );
 		$this->userFactory = $userFactory;
+		$this->contentLanguage = $contentLanguage;
 	}
 
 	/**
@@ -140,7 +153,7 @@ class UserOptionsManager extends UserOptionsLookup {
 		# set it, and then it was disabled removing their ability to change it).  But
 		# we don't want to erase the preferences in the database in case the preference
 		# is re-enabled again.  So don't touch $mOptions, just override the returned value
-		if ( !$ignoreHidden && in_array( $oname, $this->serviceOptions->get( 'HiddenPrefs' ) ) ) {
+		if ( !$ignoreHidden && in_array( $oname, $this->serviceOptions->get( MainConfigNames::HiddenPrefs ) ) ) {
 			return $this->defaultOptionsLookup->getDefaultOption( $oname );
 		}
 
@@ -166,7 +179,7 @@ class UserOptionsManager extends UserOptionsLookup {
 		# set it, and then it was disabled removing their ability to change it).  But
 		# we don't want to erase the preferences in the database in case the preference
 		# is re-enabled again.  So don't touch $mOptions, just override the returned value
-		foreach ( $this->serviceOptions->get( 'HiddenPrefs' ) as $pref ) {
+		foreach ( $this->serviceOptions->get( MainConfigNames::HiddenPrefs ) as $pref ) {
 			$default = $this->defaultOptionsLookup->getDefaultOption( $pref );
 			if ( $default !== null ) {
 				$options[$pref] = $default;
@@ -436,7 +449,7 @@ class UserOptionsManager extends UserOptionsLookup {
 				$rowsToInsert[] = [
 					'up_user' => $user->getId(),
 					'up_property' => $key,
-					'up_value' => $value,
+					'up_value' => $this->contentLanguage->truncateForDatabase( $value, self::MAX_BYTES_OPTION_VALUE ),
 				];
 				if ( $oldValue !== null ) {
 					$keysToDelete[] = $key;
@@ -622,7 +635,7 @@ class UserOptionsManager extends UserOptionsLookup {
 			$options['timecorrection'] = ( new UserTimeCorrection(
 				$options['timecorrection'],
 				null,
-				$this->serviceOptions->get( 'LocalTZoffset' )
+				$this->serviceOptions->get( MainConfigNames::LocalTZoffset )
 			) )->toString();
 		}
 

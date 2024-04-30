@@ -21,6 +21,7 @@
  * @ingroup Installer
  */
 
+use MediaWiki\MediaWikiServices;
 use Wikimedia\AtEase\AtEase;
 use Wikimedia\Rdbms\Database;
 use Wikimedia\Rdbms\DatabaseSqlite;
@@ -61,7 +62,7 @@ class SqliteInstaller extends DatabaseInstaller {
 	public function checkPrerequisites() {
 		// Bail out if SQLite is too old
 		$db = DatabaseSqlite::newStandaloneInstance( ':memory:' );
-		$result = static::meetsMinimumRequirement( $db->getServerVersion() );
+		$result = static::meetsMinimumRequirement( $db );
 		// Check for FTS3 full-text search module
 		if ( DatabaseSqlite::getFulltextSearchModule() != 'FTS3' ) {
 			$result->warning( 'config-no-fts3' );
@@ -182,7 +183,7 @@ class SqliteInstaller extends DatabaseInstaller {
 			}
 		}
 		# Put a .htaccess file in case the user didn't take our advice
-		file_put_contents( "$dir/.htaccess", "Deny from all\n" );
+		file_put_contents( "$dir/.htaccess", "Require all denied\n" );
 		return Status::newGood();
 	}
 
@@ -194,8 +195,9 @@ class SqliteInstaller extends DatabaseInstaller {
 		$dir = $this->getVar( 'wgSQLiteDataDir' );
 		$dbName = $this->getVar( 'wgDBname' );
 		try {
-			# @todo FIXME: Need more sensible constructor parameters, e.g. single associative array
-			$db = Database::factory( 'sqlite', [ 'dbname' => $dbName, 'dbDirectory' => $dir ] );
+			$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create(
+				'sqlite', [ 'dbname' => $dbName, 'dbDirectory' => $dir ]
+			);
 			$status->value = $db;
 		} catch ( DBConnectionError $e ) {
 			$status->fatal( 'config-sqlite-connection-error', $e->getMessage() );
@@ -404,6 +406,10 @@ EOT;
 		'flags' => 0
 	]
 ];
+\$wgObjectCaches['db-replicated'] = [
+	'factory' => 'Wikimedia\ObjectFactory\ObjectFactory::getObjectFromSpec',
+	'args' => [ [ 'factory' => 'ObjectCache::getInstance', 'args' => [ CACHE_DB ] ] ]
+];
 \$wgLocalisationCacheConf['storeServer'] = [
 	'type' => 'sqlite',
 	'dbname' => \"{\$wgDBname}_l10n_cache\",
@@ -425,6 +431,7 @@ EOT;
 		'trxMode' => 'IMMEDIATE',
 		'flags' => 0
 	]
-];";
+];
+\$wgResourceLoaderUseObjectCacheForDeps = true;";
 	}
 }

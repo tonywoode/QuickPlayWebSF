@@ -5,15 +5,15 @@
 			"Andrijko Z.",
 			"Bïerne",
 			"DannyS712",
+			"Inaths",
+			"Keu",
 			"M.M.S.",
+			"SkPäiviö",
 			"TMg",
 			"Tok Pisin",
 			"Trondtr",
 			"Urhixidur",
 			"아라",
-			"Inaths",
-			"Keu",
-			"SkPäiviö",
 			"Yupik"
 		]
 	},
@@ -401,7 +401,7 @@
 	"emailsent": "E-påaste seedtedh",
 	"watchlist": "Mov sïektjedhlästoe",
 	"mywatchlist": "Mov sïektjedhlästoe",
-	"removedwatchtext": "Bielie \"[[:$1]]\" lea sihkojuvvon raejeste [[Special:Watchlist|dov sïektjedhlästoe]].",
+	"removedwatchtext": "Bielie \"[[:$1]]\" lea sihkojuvvon raejeste dov sïektjedhlästoe.",
 	"watch": "Sïektjedh",
 	"watchthispage": "Sïektjedh dïhte bielie",
 	"unwatch": "Ov-sïektjedh",
@@ -479,7 +479,6 @@
 	"unblocklink": "ov-tjöödtjehtidh",
 	"contribslink": "dåarjoeh",
 	"blocklogpage": "Tjöödtjehtidh logge",
-	"blocklogentry": "blåhkedidh \"[[$1]]\" $2 $3",
 	"lockdb": "Tjuevtedh daatabaase",
 	"lockbtn": "Tjuevtedh daatabaase",
 	"databasenotlocked": "Daatabaase lea ijje tjuevtedh.",
@@ -588,5 +587,6 @@
 	"version": "Låhkoe",
 	"specialpages": "Sjïere sæjroeh",
 	"deletepage": "Tjåegkedh bielie",
-	"pagelang-language": "Gïele"
+	"pagelang-language": "Gïele",
+	"pagelang-select-lang": "Veeljh gïelem"
 }

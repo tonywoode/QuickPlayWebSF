@@ -49,7 +49,7 @@ class PPFrame_Hash implements PPFrame {
 	/**
 	 * Hashtable listing templates which are disallowed for expansion in this frame,
 	 * having been encountered previously in parent frames.
-	 * @var string[]
+	 * @var true[]
 	 */
 	public $loopCheckHash;
 
@@ -148,7 +148,6 @@ class PPFrame_Hash implements PPFrame {
 				}
 			}
 		}
-		// @phan-suppress-next-line SecurityCheck-XSS taint track for keys in named args, false positive
 		return new PPTemplateFrame_Hash( $this->preprocessor, $this, $numberedArgs, $namedArgs, $title );
 	}
 
@@ -350,7 +349,8 @@ class PPFrame_Hash implements PPFrame {
 					}
 					$out .= $s;
 				} else {
-					$out .= $this->parser->extensionSubstitution( $bits, $this );
+					$out .= $this->parser->extensionSubstitution( $bits, $this,
+						(bool)( $flags & PPFrame::PROCESS_NOWIKI ) );
 				}
 			} elseif ( $contextName === 'h' ) {
 				# Heading

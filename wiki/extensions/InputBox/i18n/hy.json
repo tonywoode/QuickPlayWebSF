@@ -1,8 +1,10 @@
 {
-    "@metadata": {
-        "authors": [
-            "Xelgen"
-        ]
-    },
-    "createarticle": "Ստեղծել էջ"
+	"@metadata": {
+		"authors": [
+			"Vahe Gharakhanyan",
+			"Xelgen"
+		]
+	},
+	"inputbox-tryexact": "Փնտրել լիովին համընկնում",
+	"inputbox-createarticle": "Ստեղծել էջ"
 }

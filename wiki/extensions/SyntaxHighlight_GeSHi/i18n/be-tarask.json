@@ -2,13 +2,17 @@
 	"@metadata": {
 		"authors": [
 			"EugeneZelenko",
-			"Jim-by"
+			"Jim-by",
+			"Red Winged Duck",
+			"Renessaince"
 		]
 	},
-	"syntaxhighlight-desc": "Дазваляе выкарыстоўваць тэг  <code>&lt;syntaxhighlight&gt;</code> для падсьветкі сынтаксісу з дапамогай [http://qbnz.com/highlighter/ GeSHi Highlighter]",
-	"syntaxhighlight-specify": "Вам неабходна пазначыць мову наступным чынам:",
-	"syntaxhighlight-supported": "Мовы, якія падтрымліваюцца для праверкі сынтаксісу:",
-	"syntaxhighlight-err-loading": "(памылка загрузкі сьпісу моваў)",
-	"syntaxhighlight-err-language": "Мова не падтрымліваецца.",
-	"geshi.css": "/* CSS, разьмешчаны тут, будзе выкарыстоўвацца для падсьветкі сынтаксісу GeSHi */"
+	"syntaxhighlight-desc": "Дазваляе выкарыстоўваць тэг  <code>&lt;syntaxhighlight&gt;</code> для падсьветкі сынтаксісу з дапамогай [http://pygments.org/ Pygments]",
+	"syntaxhighlight-error-category": "Старонкі з памылкамі падсьветкі сынтаксісу",
+	"syntaxhighlight-error-category-desc": "Адбылася памылка пры спробе вылучыць код на старонцы.",
+	"syntaxhighlight-enclose-category": "Старонкі з састарэлымі атрыбутамі „enclose“",
+	"syntaxhighlight-enclose-category-desc": "Падсьвечваньне сынтаксу на старонцы выкарыстоўвае састарэлы сынтакс „enclose“.",
+	"syntaxhighlight-source-category": "Старонкі з састарэлымі тэгамі source",
+	"syntaxhighlight-source-category-desc": "Падсьвечваньне сынтаксу на старонцы выкарыстоўвае састарэлыя тэгі „source“.",
+	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-title": "Блёк коду"
 }

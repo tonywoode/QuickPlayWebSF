@@ -1,6 +1,9 @@
 {
-    "@metadata": {
-        "authors": []
-    },
-    "createarticle": "نئون مضمون لکو"
+	"@metadata": {
+		"authors": [
+			"Mehtab ahmed"
+		]
+	},
+	"inputbox-tryexact": "بلڪل ساڳي مشابھت آزمايو",
+	"inputbox-createarticle": "صفحو سرجيو"
 }

@@ -109,6 +109,7 @@ class AutoloadGenerator {
 	 * autoloader entry when the namespace matches the path.
 	 *
 	 * @since 1.32
+	 * @deprecated since 1.40 - PSR-4 classes are now included in the generated classmap
 	 * @param string[] $namespaces Associative array mapping namespace to path
 	 */
 	public function setPsr4Namespaces( array $namespaces ) {
@@ -147,11 +148,10 @@ class AutoloadGenerator {
 		if ( !$path ) {
 			throw new \Exception( "Invalid path: $inputPath" );
 		}
-		$len = strlen( $this->basepath );
-		if ( substr( $path, 0, $len ) !== $this->basepath ) {
+		if ( !str_starts_with( $path, $this->basepath ) ) {
 			throw new \Exception( "Path is not within basepath: $inputPath" );
 		}
-		$shortpath = substr( $path, $len );
+		$shortpath = substr( $path, strlen( $this->basepath ) );
 		$this->overrides[$fqcn] = $shortpath;
 	}
 
@@ -161,11 +161,11 @@ class AutoloadGenerator {
 	 */
 	public function readFile( $inputPath ) {
 		// NOTE: do NOT expand $inputPath using realpath(). It is perfectly
-		// reasonable for LocalSettings.php and similiar files to be symlinks
+		// reasonable for LocalSettings.php and similar files to be symlinks
 		// to files that are outside of $this->basepath.
 		$inputPath = self::normalizePathSeparator( $inputPath );
 		$len = strlen( $this->basepath );
-		if ( substr( $inputPath, 0, $len ) !== $this->basepath ) {
+		if ( !str_starts_with( $inputPath, $this->basepath ) ) {
 			throw new \Exception( "Path is not within basepath: $inputPath" );
 		}
 		if ( $this->shouldExclude( $inputPath ) ) {
@@ -187,24 +187,6 @@ class AutoloadGenerator {
 		}
 
 		$result = $this->collector->getClasses( $fileContents );
-
-		// Filter out classes that will be found by PSR4
-		$result = array_filter( $result, function ( $class ) use ( $inputPath ) {
-			$parts = explode( '\\', $class );
-			for ( $i = count( $parts ) - 1; $i > 0; $i-- ) {
-				$ns = implode( '\\', array_slice( $parts, 0, $i ) ) . '\\';
-				if ( isset( $this->psr4Namespaces[$ns] ) ) {
-					$expectedPath = $this->psr4Namespaces[$ns] . '/'
-						. implode( '/', array_slice( $parts, $i ) )
-						. '.php';
-					if ( $inputPath === $expectedPath ) {
-						return false;
-					}
-				}
-			}
-
-			return true;
-		} );
 
 		if ( $result ) {
 			$shortpath = substr( $inputPath, $len );

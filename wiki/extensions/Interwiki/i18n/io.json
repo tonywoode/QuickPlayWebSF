@@ -1,8 +1,13 @@
 {
-    "@metadata": {
-        "authors": [
-            "Malafaya"
-        ]
-    },
-    "interwiki_1": "yes"
+	"@metadata": {
+		"authors": [
+			"Joao Xavier",
+			"Malafaya"
+		]
+	},
+	"interwiki_1": "yes",
+	"interwiki_0": "no",
+	"interwiki_edit": "Redaktar",
+	"interwiki_reasonfield": "Motivo:",
+	"interwiki_addbutton": "Adjuntar"
 }

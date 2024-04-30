@@ -5,16 +5,16 @@
 			"Dim Grits",
 			"Eleferen",
 			"Facenapalm",
+			"Fenixs-ru",
 			"Kaganer",
 			"Kareyac",
 			"Lemondoge",
 			"MaxBioHazard",
 			"MaxSem",
 			"Okras",
+			"Pacha Tchernof",
 			"Putnik",
-			"Александр Сигачёв",
-			"Fenixs-ru",
-			"Pacha Tchernof"
+			"Александр Сигачёв"
 		]
 	},
 	"exif-imagewidth": "Ширина",
@@ -210,6 +210,8 @@
 	"exif-photometricinterpretation-5": "Разделены (вероятно CMYK)",
 	"exif-photometricinterpretation-9": "CIE L*a*b* (ICC-кодирование)",
 	"exif-photometricinterpretation-10": "CIE L*a*b* (ITU-кодирование)",
+	"exif-photometricinterpretation-32803": "Массив цветных фильтров",
+	"exif-photometricinterpretation-34892": "Линейный RAW",
 	"exif-unknowndate": "Неизвестная дата",
 	"exif-orientation-1": "Нормальная",
 	"exif-orientation-2": "Отражено по горизонтали",

@@ -78,11 +78,12 @@ abstract class DatabaseInstaller {
 	/**
 	 * Whether the provided version meets the necessary requirements for this type
 	 *
-	 * @param string $serverVersion Output of Database::getServerVersion()
+	 * @param IDatabase $conn
 	 * @return Status
 	 * @since 1.30
 	 */
-	public static function meetsMinimumRequirement( $serverVersion ) {
+	public static function meetsMinimumRequirement( IDatabase $conn ) {
+		$serverVersion = $conn->getServerVersion();
 		if ( version_compare( $serverVersion, static::$minimumVersion ) < 0 ) {
 			return Status::newFatal(
 				static::$notMinimumVersionMessage, static::$minimumVersion, $serverVersion
@@ -226,10 +227,9 @@ abstract class DatabaseInstaller {
 			return $status;
 		}
 
-		$this->db->setFlag( DBO_DDLMODE ); // For Oracle's handling of schema files
+		$this->db->setFlag( DBO_DDLMODE );
 		$this->db->begin( __METHOD__ );
 
-		// @phan-suppress-next-line SecurityCheck-PathTraversal False positive
 		$error = $this->db->sourceFile(
 			call_user_func( [ $this, $sourceFileMethod ], $this->db )
 		);
@@ -425,6 +425,7 @@ abstract class DatabaseInstaller {
 			$up->doUpdates();
 			$up->purgeCache();
 		} catch ( MWException $e ) {
+			// TODO: Remove special casing in favour of MWExceptionRenderer
 			echo "\nAn error occurred:\n";
 			echo $e->getText();
 			$ret = false;

@@ -359,7 +359,7 @@ class LanguageConverterFactoryTest extends MediaWikiLangTestCase {
 		yield 'shi' => [
 			'shi', 'ShiConverter',
 			[ 'shi', 'shi-tfng', 'shi-latn' ],
-			[ 'shi' => 'shi-tfng','shi-tfng' => 'shi','shi-latn' => 'shi' ],
+			[ 'shi' => [ 'shi-latn', 'shi-tfng' ],'shi-tfng' => 'shi','shi-latn' => 'shi' ],
 			[], [],
 			[
 				'shi' => 'bidirectional',
@@ -449,11 +449,11 @@ class LanguageConverterFactoryTest extends MediaWikiLangTestCase {
 			'zh-hans' => [ 'zh-cn', 'zh-sg', 'zh-my' ],
 			'zh-hant' => [ 'zh-tw', 'zh-hk', 'zh-mo' ],
 			'zh-cn' => [ 'zh-hans', 'zh-sg', 'zh-my' ],
-			'zh-sg' => [ 'zh-hans', 'zh-cn', 'zh-my' ],
-			'zh-my' => [ 'zh-hans', 'zh-sg', 'zh-cn' ],
+			'zh-sg' => [ 'zh-my', 'zh-hans', 'zh-cn' ],
+			'zh-my' => [ 'zh-sg', 'zh-hans', 'zh-cn' ],
 			'zh-tw' => [ 'zh-hant', 'zh-hk', 'zh-mo' ],
-			'zh-hk' => [ 'zh-hant', 'zh-mo', 'zh-tw' ],
-			'zh-mo' => [ 'zh-hant', 'zh-hk', 'zh-tw' ],
+			'zh-hk' => [ 'zh-mo', 'zh-hant', 'zh-tw' ],
+			'zh-mo' => [ 'zh-hk', 'zh-hant', 'zh-tw' ],
 		];
 		$zh_ml = [
 			'zh' => 'disable',

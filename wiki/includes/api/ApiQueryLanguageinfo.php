@@ -22,6 +22,7 @@ use MediaWiki\Languages\LanguageConverterFactory;
 use MediaWiki\Languages\LanguageFactory;
 use MediaWiki\Languages\LanguageFallback;
 use MediaWiki\Languages\LanguageNameUtils;
+use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 
 /**
@@ -40,7 +41,7 @@ class ApiQueryLanguageinfo extends ApiQueryBase {
 	 * not yield more than a handful of languages before the time is exceeded
 	 * and continuation is applied, if one of the expensive props is requested.
 	 */
-	private const MAX_EXECUTE_SECONDS = 2;
+	private const MAX_EXECUTE_SECONDS = 3;
 
 	/** @var LanguageFactory */
 	private $languageFactory;
@@ -216,9 +217,9 @@ class ApiQueryLanguageinfo extends ApiQueryBase {
 	public function getAllowedParams() {
 		return [
 			'prop' => [
-				self::PARAM_DFLT => 'code',
-				self::PARAM_ISMULTI => true,
-				self::PARAM_TYPE => [
+				ParamValidator::PARAM_DEFAULT => 'code',
+				ParamValidator::PARAM_ISMULTI => true,
+				ParamValidator::PARAM_TYPE => [
 					'code',
 					'bcp47',
 					'dir',
@@ -230,8 +231,8 @@ class ApiQueryLanguageinfo extends ApiQueryBase {
 				self::PARAM_HELP_MSG_PER_VALUE => [],
 			],
 			'code' => [
-				self::PARAM_DFLT => '*',
-				self::PARAM_ISMULTI => true,
+				ParamValidator::PARAM_DEFAULT => '*',
+				ParamValidator::PARAM_ISMULTI => true,
 			],
 			'continue' => [
 				self::PARAM_HELP_MSG => 'api-help-param-continue',

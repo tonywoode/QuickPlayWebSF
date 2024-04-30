@@ -1,15 +1,21 @@
 {
-    "@metadata": {
-        "authors": [
-            "Assele",
-            "Haqmar"
-        ]
-    },
-    "inputbox-desc": "Алдан билдәләнгән HTML формаларҙы индереү мөмкинлеген бирә",
-    "inputbox-error-no-type": "Һеҙ булдырыла торған юлдың төрөн күрһәтмәгеҙ.",
-    "inputbox-error-bad-type": "\"$1\" юл төрө танылмаған.\nЗинһар, \"create\", \"comment\", \"search\", \"search2\" йәки \"fulltext\" төрөнөң береһен күрһәтегеҙ.",
-    "tryexact": "Теүәл тура килеү буйынса эҙләү",
-    "searchfulltext": "Тулы текст буйынса эҙләү",
-    "createarticle": "Яңы бит яһарға",
-    "inputbox-ns-main": "Төп"
+	"@metadata": {
+		"authors": [
+			"Assele",
+			"Haqmar",
+			"Лилиә",
+			"Янмурза Баки",
+			"З. ӘЙЛЕ"
+		]
+	},
+	"inputbox-desc": "Алдан билдәләнгән HTML-формаларҙы индереүҙе рөхсәт итә",
+	"inputbox-error-no-type": "Булдырыласаҡ индереү ҡырының төрөн күрһәтмәнегеҙ.",
+	"inputbox-error-bad-type": "Мәғлүмәт индереү ҡырының \"$1\" билдәһеҙ төрө.\nЗинһар, рөхсәт ителгән \"create\", \"comment\", \"search\", \"search2\" йәки \"fulltext\" төрөнөң береһен күрһәтегеҙ.",
+	"inputbox-tryexact": "Теүәл тура килеү буйынса эҙләү",
+	"inputbox-searchfulltext": "Тулы тексты эҙләү",
+	"inputbox-createarticle": "Яңы бит яһарға",
+	"inputbox-movearticle": "Битте икенсе урынға күсерергә",
+	"inputbox-postcomment": "Яңы бүлек",
+	"inputbox-postcommenttitle": "Яңы бүлек",
+	"inputbox-ns-main": "Төп"
 }

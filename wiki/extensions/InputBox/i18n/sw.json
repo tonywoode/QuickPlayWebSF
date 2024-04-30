@@ -1,9 +1,11 @@
 {
-    "@metadata": {
-        "authors": [
-            "Lloffiwr"
-        ]
-    },
-    "createarticle": "Anzisha ukurasa",
-    "inputbox-ns-main": "Kuu"
+	"@metadata": {
+		"authors": [
+			"Lloffiwr",
+			"Wangombe"
+		]
+	},
+	"inputbox-tryexact": "Jaribu kufanana kabisa",
+	"inputbox-createarticle": "Anzisha ukurasa",
+	"inputbox-ns-main": "Kuu"
 }

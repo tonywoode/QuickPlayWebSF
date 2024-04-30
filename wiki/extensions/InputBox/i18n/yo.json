@@ -1,8 +1,10 @@
 {
-    "@metadata": {
-        "authors": [
-            "Demmy"
-        ]
-    },
-    "createarticle": "Dá ojúewé"
+	"@metadata": {
+		"authors": [
+			"Demmy",
+			"Wikicology"
+		]
+	},
+	"inputbox-tryexact": "Gbìyànjú èyí tó ṣe dédé",
+	"inputbox-createarticle": "Dá ojúewé"
 }

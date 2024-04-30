@@ -1,6 +1,7 @@
 <?php
 
 use MediaWiki\Content\Renderer\ContentParseParams;
+use MediaWiki\MainConfigNames;
 use MediaWiki\Page\PageIdentity;
 
 /**
@@ -14,9 +15,7 @@ class ExportTest extends MediaWikiLangTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->setMwGlobals( [
-			'wgCapitalLinks' => true,
-		] );
+		$this->overrideConfigValue( MainConfigNames::CapitalLinks, true );
 	}
 
 	/**

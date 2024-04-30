@@ -30,9 +30,7 @@ class ApiOptionsTest extends MediaWikiLangTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->mUserMock = $this->getMockBuilder( User::class )
-			->disableOriginalConstructor()
-			->getMock();
+		$this->mUserMock = $this->createMock( User::class );
 
 		// No actual DB data
 		$this->mUserMock->method( 'getInstanceForUpdate' )->willReturn( $this->mUserMock );
@@ -427,6 +425,19 @@ class ApiOptionsTest extends MediaWikiLangTestCase {
 				[ [ 'name', null ] ],
 				null,
 				'Resetting options via optionname without optionvalue',
+			],
+			[
+				[ 'optionname' => 'name', 'optionvalue' => str_repeat( '测试', 16383 ) ],
+				[],
+				[
+					'options' => 'success',
+					'warnings' => [
+						'options' => [
+							'warnings' => 'Validation error for "name": value too long (no more than 65,530 bytes allowed).'
+						],
+					],
+				],
+				'Options with too long value should be rejected',
 			],
 		];
 	}

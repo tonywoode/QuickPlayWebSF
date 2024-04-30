@@ -122,7 +122,6 @@ class UploadFromChunks extends UploadFromFile {
 		$this->getChunkStatus();
 
 		$metadata = $this->stash->getMetadata( $key );
-		// @phan-suppress-next-line SecurityCheckMulti,SecurityCheck-PathTraversal
 		$this->initializePathInfo( $name,
 			$this->getRealPath( $metadata['us_path'] ),
 			$metadata['us_size'],
@@ -196,6 +195,7 @@ class UploadFromChunks extends UploadFromFile {
 		}
 
 		$tAmount = microtime( true ) - $tStart;
+		// @phan-suppress-next-line PhanTypeMismatchArgumentNullable tmpFile is set when tmpPath is set here
 		$this->mStashFile->setLocalReference( $tmpFile ); // reuse (e.g. for getImageInfo())
 		wfDebugLog( 'fileconcatenate', "Stashed combined file ($i chunks) in $tAmount seconds." );
 

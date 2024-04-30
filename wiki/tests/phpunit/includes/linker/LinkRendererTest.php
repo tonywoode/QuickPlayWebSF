@@ -3,6 +3,8 @@
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\Linker\LinkRendererFactory;
+use MediaWiki\Linker\LinkTarget;
+use MediaWiki\MainConfigNames;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageReferenceValue;
 
@@ -19,12 +21,12 @@ class LinkRendererTest extends MediaWikiLangTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->setMwGlobals( [
-			'wgArticlePath' => '/wiki/$1',
-			'wgServer' => '//example.org',
-			'wgCanonicalServer' => 'http://example.org',
-			'wgScriptPath' => '/w',
-			'wgScript' => '/w/index.php',
+		$this->overrideConfigValues( [
+			MainConfigNames::ArticlePath => '/wiki/$1',
+			MainConfigNames::Server => '//example.org',
+			MainConfigNames::CanonicalServer => 'http://example.org',
+			MainConfigNames::ScriptPath => '/w',
+			MainConfigNames::Script => '/w/index.php',
 		] );
 		$this->factory = $this->getServiceContainer()->getLinkRendererFactory();
 	}
@@ -131,7 +133,7 @@ class LinkRendererTest extends MediaWikiLangTestCase {
 		// fragment stripped
 		if ( $target instanceof LinkTarget ) {
 			$this->assertEquals(
-				'<a href="/w/index.php?title=Foobar&amp;action=foobar" class="new" '
+				'<a href="/w/index.php?title=Foobar&amp;action=edit&amp;redlink=1" class="new" '
 				. 'title="Foobar (page does not exist)">Foobar</a>',
 				$linkRenderer->makeBrokenLink( $target->createFragmentTarget( 'foobar' ) )
 			);

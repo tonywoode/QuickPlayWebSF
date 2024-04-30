@@ -1083,7 +1083,7 @@ class SwiftFileBackend extends FileBackendStore {
 					'mtime'  => $this->convertSwiftDate( $object->last_modified, TS_MW ),
 					'size'   => (int)$object->bytes,
 					'sha1'   => null,
-					// Note: manifiest ETags are not an MD5 of the file
+					// Note: manifest ETags are not an MD5 of the file
 					'md5'    => ctype_xdigit( $object->hash ) ? $object->hash : null,
 					'latest' => false // eventually consistent
 				];
@@ -1740,7 +1740,7 @@ class SwiftFileBackend extends FileBackendStore {
 			// Empty objects actually return no content-length header in Ceph
 			'size'  => isset( $rhdrs['content-length'] ) ? (int)$rhdrs['content-length'] : 0,
 			'sha1'  => $metadata['sha1base36'] ?? null,
-			// Note: manifiest ETags are not an MD5 of the file
+			// Note: manifest ETags are not an MD5 of the file
 			'md5'   => ctype_xdigit( $rhdrs['etag'] ) ? $rhdrs['etag'] : null,
 			'xattr' => [ 'metadata' => $metadata, 'headers' => $headers ]
 		];
@@ -1816,10 +1816,10 @@ class SwiftFileBackend extends FileBackendStore {
 	 */
 	protected function storageUrl( array $creds, $container = null, $object = null ) {
 		$parts = [ $creds['storage_url'] ];
-		if ( strlen( $container ) ) {
+		if ( strlen( $container ?? '' ) ) {
 			$parts[] = rawurlencode( $container );
 		}
-		if ( strlen( $object ) ) {
+		if ( strlen( $object ?? '' ) ) {
 			$parts[] = str_replace( "%2F", "/", rawurlencode( $object ) );
 		}
 

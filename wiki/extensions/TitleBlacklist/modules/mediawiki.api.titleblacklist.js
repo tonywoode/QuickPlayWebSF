@@ -1,18 +1,19 @@
 /**
  * @class mw.Api.plugin.titleblacklist
  */
-( function ( mw, $ ) {
+( function () {
 
 	$.extend( mw.Api.prototype, {
 		/**
-		 * Convinience method for `action=titleblacklist`.
+		 * Convenience method for `action=titleblacklist`.
 		 *
 		 * @param {mw.Title|string} title
 		 * @param {Function} [ok] Success callback (deprecated)
 		 * @param {Function} [err] Error callback (deprecated)
 		 * @return {jQuery.Promise}
 		 * @return {Function} return.done
-		 * @return {Object|boolean} return.done.result False if title wasn't blacklisted, an object with 'reason', 'line'
+		 * @return {Object|boolean} return.done.result False if title wasn't blacklisted, an object
+		 *  with 'reason', 'line'
 		 *  and 'message' properties if title was blacklisted.
 		 */
 		isBlacklisted: function ( title, ok, err ) {
@@ -22,10 +23,10 @@
 			d.fail( err );
 
 			this.get( {
-					action: 'titleblacklist',
-					tbaction: 'create',
-					tbtitle: title.toString()
-				} )
+				action: 'titleblacklist',
+				tbaction: 'create',
+				tbtitle: title.toString()
+			} )
 				.done( function ( data ) {
 					var result;
 
@@ -64,4 +65,4 @@
 	 * @mixins mw.Api.plugin.titleblacklist
 	 */
 
-}( mediaWiki, jQuery ) );
+}() );

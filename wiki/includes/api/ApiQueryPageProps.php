@@ -20,6 +20,8 @@
  * @file
  */
 
+use Wikimedia\ParamValidator\ParamValidator;
+
 /**
  * A query module to show basic page information.
  *
@@ -112,14 +114,17 @@ class ApiQueryPageProps extends ApiQueryBase {
 				ApiBase::PARAM_HELP_MSG => 'api-help-param-continue',
 			],
 			'prop' => [
-				ApiBase::PARAM_ISMULTI => true,
+				ParamValidator::PARAM_ISMULTI => true,
 			],
 		];
 	}
 
 	protected function getExamplesMessages() {
+		$title = Title::newMainPage()->getPrefixedText();
+		$mp = rawurlencode( $title );
+
 		return [
-			'action=query&prop=pageprops&titles=Main%20Page|MediaWiki'
+			"action=query&prop=pageprops&titles={$mp}|MediaWiki"
 				=> 'apihelp-query+pageprops-example-simple',
 		];
 	}

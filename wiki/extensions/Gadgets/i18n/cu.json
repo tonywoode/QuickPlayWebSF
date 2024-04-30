@@ -1,8 +1,10 @@
 {
-    "@metadata": {
-        "authors": [
-            "ОйЛ"
-        ]
-    },
-    "gadgets-title": "доплънитєл҄ьнꙑ орѫдиꙗ"
+	"@metadata": {
+		"authors": [
+			"ОйЛ"
+		]
+	},
+	"gadgetusage-usercount": "польꙃєватєлъ число",
+	"gadgets-title": "доплънитєл҄ьнꙑ орѫдиꙗ",
+	"gadgets-export-download": "поѩтиѥ"
 }

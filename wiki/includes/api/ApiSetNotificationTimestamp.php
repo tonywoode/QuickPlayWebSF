@@ -24,6 +24,7 @@
  */
 
 use MediaWiki\Revision\RevisionStore;
+use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
@@ -90,7 +91,7 @@ class ApiSetNotificationTimestamp extends ApiBase {
 			);
 		}
 
-		$dbw = $this->loadBalancer->getConnectionRef( DB_PRIMARY, 'api' );
+		$dbw = $this->loadBalancer->getConnectionRef( DB_PRIMARY );
 
 		$timestamp = null;
 		if ( isset( $params['timestamp'] ) ) {
@@ -202,7 +203,9 @@ class ApiSetNotificationTimestamp extends ApiBase {
 							$r['known'] = true;
 						}
 					}
-					if ( isset( $timestamps[$ns] ) && array_key_exists( $dbkey, $timestamps[$ns] ) ) {
+					if ( isset( $timestamps[$ns] ) && array_key_exists( $dbkey, $timestamps[$ns] )
+						&& $timestamps[$ns][$dbkey] !== false
+					) {
 						$r['notificationtimestamp'] = '';
 						if ( $timestamps[$ns][$dbkey] !== null ) {
 							$r['notificationtimestamp'] = wfTimestamp( TS_ISO_8601, $timestamps[$ns][$dbkey] );
@@ -249,16 +252,16 @@ class ApiSetNotificationTimestamp extends ApiBase {
 	public function getAllowedParams( $flags = 0 ) {
 		$result = [
 			'entirewatchlist' => [
-				ApiBase::PARAM_TYPE => 'boolean'
+				ParamValidator::PARAM_TYPE => 'boolean'
 			],
 			'timestamp' => [
-				ApiBase::PARAM_TYPE => 'timestamp'
+				ParamValidator::PARAM_TYPE => 'timestamp'
 			],
 			'torevid' => [
-				ApiBase::PARAM_TYPE => 'integer'
+				ParamValidator::PARAM_TYPE => 'integer'
 			],
 			'newerthanrevid' => [
-				ApiBase::PARAM_TYPE => 'integer'
+				ParamValidator::PARAM_TYPE => 'integer'
 			],
 			'continue' => [
 				ApiBase::PARAM_HELP_MSG => 'api-help-param-continue',
@@ -272,12 +275,15 @@ class ApiSetNotificationTimestamp extends ApiBase {
 	}
 
 	protected function getExamplesMessages() {
+		$title = Title::newMainPage()->getPrefixedText();
+		$mp = rawurlencode( $title );
+
 		return [
 			'action=setnotificationtimestamp&entirewatchlist=&token=123ABC'
 				=> 'apihelp-setnotificationtimestamp-example-all',
-			'action=setnotificationtimestamp&titles=Main_page&token=123ABC'
+			"action=setnotificationtimestamp&titles={$mp}&token=123ABC"
 				=> 'apihelp-setnotificationtimestamp-example-page',
-			'action=setnotificationtimestamp&titles=Main_page&' .
+			"action=setnotificationtimestamp&titles={$mp}&" .
 				'timestamp=2012-01-01T00:00:00Z&token=123ABC'
 				=> 'apihelp-setnotificationtimestamp-example-pagetimestamp',
 			'action=setnotificationtimestamp&generator=allpages&gapnamespace=2&token=123ABC'

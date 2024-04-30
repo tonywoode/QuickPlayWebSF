@@ -1,8 +1,10 @@
 {
-    "@metadata": {
-        "authors": [
-            "Better"
-        ]
-    },
-    "renameuser-page-moved": "S´á moviu la páhina $1 a $2."
+	"@metadata": {
+		"authors": [
+			"Better",
+			"Fitoschido",
+			"Julio Nepote"
+		]
+	},
+	"renameuser-page-moved": "S'á movíu la página $1 a $2."
 }

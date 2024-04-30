@@ -3,10 +3,12 @@
 namespace Wikimedia\Rdbms;
 
 /**
- * @stable to extend. Note that none of the methods in this class are stable to override.
+ * Note that none of the methods in this class are stable to override.
  * The goal of extending this class is creating specialized query builders,
  * like {@link \MediaWiki\Page\PageSelectQueryBuilder}
- * @package Wikimedia\Rdbms
+ *
+ * @stable to extend
+ * @ingroup Database
  */
 class SelectQueryBuilder extends JoinGroupBase {
 
@@ -259,6 +261,7 @@ class SelectQueryBuilder extends JoinGroupBase {
 				if ( is_int( $key ) ) {
 					$this->conds[] = $cond;
 				} elseif ( isset( $this->conds[$key] ) ) {
+					// @phan-suppress-previous-line PhanTypeMismatchDimFetch
 					// T288882
 					$this->conds[] = $this->db->makeList(
 						[ $key => $cond ], IDatabase::LIST_AND );

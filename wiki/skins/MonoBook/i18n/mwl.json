@@ -1,4 +1,10 @@
 {
-	"@metadata": [],
-	"skinname-monobook": "Lhibro"
+	"@metadata": {
+		"authors": [
+			"Athena in Wonderland",
+			"MokaAkashiyaPT"
+		]
+	},
+	"skinname-monobook": "MonoLhibro",
+	"monobook-view-history": "Stórico"
 }

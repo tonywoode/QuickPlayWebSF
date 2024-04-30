@@ -22,6 +22,7 @@
 
 use HtmlFormatter\HtmlFormatter;
 use MediaWiki\ExtensionInfo;
+use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\ParamValidator\ParamValidator;
 
@@ -65,6 +66,7 @@ class ApiHelp extends ApiBase {
 		$out = new OutputPage( $context );
 		$out->setRobotPolicy( 'noindex,nofollow' );
 		$out->setCopyrightUrl( 'https://www.mediawiki.org/wiki/Special:MyLanguage/Copyright' );
+		$out->disallowUserJs();
 		$context->setOutput( $out );
 
 		self::getHelp( $context, $modules, $params );
@@ -146,7 +148,7 @@ class ApiHelp extends ApiBase {
 			$options['recursivesubmodules'] &&
 			$context->getLanguage()->equals( $services->getContentLanguage() )
 		) {
-			$cacheHelpTimeout = $context->getConfig()->get( 'APICacheHelpTimeout' );
+			$cacheHelpTimeout = $context->getConfig()->get( MainConfigNames::APICacheHelpTimeout );
 			if ( $cacheHelpTimeout > 0 ) {
 				// Get help text from cache if present
 				$cacheKey = $cache->makeKey( 'apihelp', $modules[0]->getModulePath(),
@@ -190,6 +192,7 @@ class ApiHelp extends ApiBase {
 		$out->addHTML( $html );
 
 		if ( $cacheKey !== null ) {
+			// @phan-suppress-next-line PhanPossiblyUndeclaredVariable $cacheHelpTimeout declared when $cacheKey is set
 			$cache->set( $cacheKey, $out->getHTML(), $cacheHelpTimeout );
 		}
 	}
@@ -309,7 +312,7 @@ class ApiHelp extends ApiBase {
 					// so English language and direction must be set explicitly,
 					// otherwise parentheses will get broken in RTL wikis
 					$headerAttr = [
-						'class' => 'apihelp-header apihelp-module-name',
+						'class' => [ 'apihelp-header', 'apihelp-module-name' ],
 						'dir' => 'ltr',
 						'lang' => 'en',
 					];
@@ -368,7 +371,7 @@ class ApiHelp extends ApiBase {
 
 			$flags = $module->getHelpFlags();
 			$help['flags'] .= Html::openElement( 'div',
-				[ 'class' => 'apihelp-block apihelp-flags' ] );
+				[ 'class' => [ 'apihelp-block', 'apihelp-flags' ] ] );
 			$msg = $context->msg( 'api-help-flags' );
 			if ( !$msg->isDisabled() ) {
 				$help['flags'] .= self::wrap(
@@ -437,7 +440,7 @@ class ApiHelp extends ApiBase {
 					$urls = [ $urls ];
 				}
 				$help['help-urls'] .= Html::openElement( 'div',
-					[ 'class' => 'apihelp-block apihelp-help-urls' ]
+					[ 'class' => [ 'apihelp-block', 'apihelp-help-urls' ] ]
 				);
 				$msg = $context->msg( 'api-help-help-urls' );
 				if ( !$msg->isDisabled() ) {
@@ -460,13 +463,19 @@ class ApiHelp extends ApiBase {
 			$groups = [];
 			if ( $params || $dynamicParams !== null ) {
 				$help['parameters'] .= Html::openElement( 'div',
-					[ 'class' => 'apihelp-block apihelp-parameters' ]
+					[ 'class' => [ 'apihelp-block', 'apihelp-parameters' ] ]
 				);
 				$msg = $context->msg( 'api-help-parameters' );
 				if ( !$msg->isDisabled() ) {
 					$help['parameters'] .= self::wrap(
 						$msg->numParams( count( $params ) ), 'apihelp-block-head', 'div'
 					);
+					if ( !$module->isMain() ) {
+						// Add a note explaining that other parameters may exist.
+						$help['parameters'] .= self::wrap(
+							$context->msg( 'api-help-parameters-note' ), 'apihelp-block-header', 'div'
+						);
+					}
 				}
 				$help['parameters'] .= Html::openElement( 'dl' );
 
@@ -475,7 +484,7 @@ class ApiHelp extends ApiBase {
 				foreach ( $params as $name => $settings ) {
 					$settings = $paramValidator->normalizeSettings( $settings );
 
-					if ( $settings[ApiBase::PARAM_TYPE] === 'submodule' ) {
+					if ( $settings[ParamValidator::PARAM_TYPE] === 'submodule' ) {
 						$groups[] = $name;
 					}
 
@@ -499,7 +508,7 @@ class ApiHelp extends ApiBase {
 					}
 
 					// Add "deprecated" flag
-					if ( !empty( $settings[ApiBase::PARAM_DEPRECATED] ) ) {
+					if ( !empty( $settings[ParamValidator::PARAM_DEPRECATED] ) ) {
 						$help['parameters'] .= Html::openElement( 'dd',
 							[ 'class' => 'info' ] );
 						$help['parameters'] .= self::wrap(
@@ -583,7 +592,7 @@ class ApiHelp extends ApiBase {
 			$examples = $module->getExamplesMessages();
 			if ( $examples ) {
 				$help['examples'] .= Html::openElement( 'div',
-					[ 'class' => 'apihelp-block apihelp-examples' ] );
+					[ 'class' => [ 'apihelp-block', 'apihelp-examples' ] ] );
 				$msg = $context->msg( 'api-help-examples' );
 				if ( !$msg->isDisabled() ) {
 					$help['examples'] .= self::wrap(
@@ -625,6 +634,7 @@ class ApiHelp extends ApiBase {
 				'noheader' => false,
 			] + $options;
 
+			// @phan-suppress-next-line PhanTypePossiblyInvalidDimOffset False positive
 			if ( $options['submodules'] && $module->getModuleManager() ) {
 				$manager = $module->getModuleManager();
 				$submodules = [];
@@ -676,8 +686,8 @@ class ApiHelp extends ApiBase {
 	public function getAllowedParams() {
 		return [
 			'modules' => [
-				ApiBase::PARAM_DFLT => 'main',
-				ApiBase::PARAM_ISMULTI => true,
+				ParamValidator::PARAM_DEFAULT => 'main',
+				ParamValidator::PARAM_ISMULTI => true,
 			],
 			'submodules' => false,
 			'recursivesubmodules' => false,

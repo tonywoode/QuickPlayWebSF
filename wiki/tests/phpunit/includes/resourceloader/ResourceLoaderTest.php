@@ -1,17 +1,36 @@
 <?php
 
-use MediaWiki\User\StaticUserOptionsLookup;
-use Wikimedia\TestingAccessWrapper;
+namespace MediaWiki\Tests\ResourceLoader;
 
+use EmptyResourceLoader;
+use Exception;
+use ExtensionRegistry;
+use FauxRequest;
+use InvalidArgumentException;
+use MediaWiki\MainConfigNames;
+use MediaWiki\ResourceLoader\Context;
+use MediaWiki\ResourceLoader\FileModule;
+use MediaWiki\ResourceLoader\ResourceLoader;
+use MediaWiki\ResourceLoader\SkinModule;
+use MediaWiki\ResourceLoader\StartUpModule;
+use MediaWiki\User\StaticUserOptionsLookup;
+use NullStatsdDataFactory;
+use ResourceLoaderTestCase;
+use ResourceLoaderTestModule;
+use RuntimeException;
+use UnexpectedValueException;
+use Wikimedia\TestingAccessWrapper;
+use XmlJsCode;
+
+/**
+ * @covers \MediaWiki\ResourceLoader\ResourceLoader
+ */
 class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->setMwGlobals( [
-			'wgSkinLessVariablesImportPaths' => [],
-			'wgShowExceptionDetails' => true,
-		] );
+		$this->overrideConfigValue( MainConfigNames::ShowExceptionDetails, true );
 	}
 
 	/**
@@ -20,13 +39,12 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 	 */
 	public function testServiceWiring() {
 		$ranHook = 0;
-		$this->setMwGlobals( 'wgHooks', [
-			'ResourceLoaderRegisterModules' => [
-				static function ( &$resourceLoader ) use ( &$ranHook ) {
-					$ranHook++;
-				}
-			]
-		] );
+		$this->setTemporaryHook(
+			'ResourceLoaderRegisterModules',
+			static function ( &$resourceLoader ) use ( &$ranHook ) {
+				$ranHook++;
+			}
+		);
 
 		$this->getServiceContainer()->getResourceLoader();
 
@@ -55,7 +73,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider provideInvalidModuleName
-	 * @covers ResourceLoader
 	 */
 	public function testIsValidModuleName_invalid( $name ) {
 		$this->assertFalse( ResourceLoader::isValidModuleName( $name ) );
@@ -63,16 +80,11 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider provideValidModuleName
-	 * @covers ResourceLoader
 	 */
 	public function testIsValidModuleName_valid( $name ) {
 		$this->assertTrue( ResourceLoader::isValidModuleName( $name ) );
 	}
 
-	/**
-	 * @covers ResourceLoader::register
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testRegisterValidArray() {
 		$resourceLoader = new EmptyResourceLoader();
 		// Covers case of register() setting $rl->moduleInfos,
@@ -85,7 +97,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 	}
 
 	/**
-	 * @covers ResourceLoader::register
 	 * @group medium
 	 */
 	public function testRegisterEmptyString() {
@@ -98,7 +109,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 	}
 
 	/**
-	 * @covers ResourceLoader::register
 	 * @group medium
 	 */
 	public function testRegisterInvalidName() {
@@ -108,9 +118,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		$resourceLoader->register( 'test!invalid', [] );
 	}
 
-	/**
-	 * @covers ResourceLoader::register
-	 */
 	public function testRegisterInvalidType() {
 		$resourceLoader = new EmptyResourceLoader();
 		$this->expectException( InvalidArgumentException::class );
@@ -118,27 +125,21 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		$resourceLoader->register( [ 'test' => (object)[] ] );
 	}
 
-	/**
-	 * @covers ResourceLoader::register
-	 */
 	public function testRegisterDuplicate() {
-		$logger = $this->getMockBuilder( Psr\Log\LoggerInterface::class )->getMock();
+		$logger = $this->createMock( \Psr\Log\LoggerInterface::class );
 		$logger->expects( $this->once() )
 			->method( 'warning' );
 		$resourceLoader = new EmptyResourceLoader( null, $logger );
 
-		$resourceLoader->register( 'test', [ 'class' => ResourceLoaderSkinModule::class ] );
-		$resourceLoader->register( 'test', [ 'class' => ResourceLoaderStartUpModule::class ] );
+		$resourceLoader->register( 'test', [ 'class' => SkinModule::class ] );
+		$resourceLoader->register( 'test', [ 'class' => StartUpModule::class ] );
 		$this->assertInstanceOf(
-			ResourceLoaderStartUpModule::class,
+			StartUpModule::class,
 			$resourceLoader->getModule( 'test' ),
 			'last one wins'
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::getModuleNames
-	 */
 	public function testGetModuleNames() {
 		// Use an empty one so that core and extension modules don't get in.
 		$resourceLoader = new EmptyResourceLoader();
@@ -150,9 +151,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::isModuleRegistered
-	 */
 	public function testIsModuleRegistered() {
 		$rl = new EmptyResourceLoader();
 		$rl->register( 'test', [] );
@@ -160,17 +158,11 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		$this->assertFalse( $rl->isModuleRegistered( 'test.unknown' ) );
 	}
 
-	/**
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testGetModuleUnknown() {
 		$rl = new EmptyResourceLoader();
 		$this->assertSame( null, $rl->getModule( 'test' ) );
 	}
 
-	/**
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testGetModuleClass() {
 		$rl = new EmptyResourceLoader();
 		$rl->register( 'test', [ 'class' => ResourceLoaderTestModule::class ] );
@@ -180,12 +172,10 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testGetModuleFactory() {
 		$factory = function ( array $info ) {
 			$this->assertArrayHasKey( 'kitten', $info );
+			unset( $info['kitten'] );
 			return new ResourceLoaderTestModule( $info );
 		};
 
@@ -197,22 +187,16 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testGetModuleClassDefault() {
 		$rl = new EmptyResourceLoader();
 		$rl->register( 'test', [] );
 		$this->assertInstanceOf(
-			ResourceLoaderFileModule::class,
+			FileModule::class,
 			$rl->getModule( 'test' ),
 			'Array-style module registrations default to FileModule'
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::makeHash
-	 */
 	public function testGetVersionHash_length() {
 		$hash = ResourceLoader::makeHash(
 			'Anything you do could have serious repercussions on future events.'
@@ -221,9 +205,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		$this->assertSame( ResourceLoader::HASH_LENGTH, strlen( $hash ), 'Hash length' );
 	}
 
-	/**
-	 * @covers ResourceLoader::getLessCompiler
-	 */
 	public function testLessImportDirs() {
 		$rl = new EmptyResourceLoader();
 		$lc = $rl->getLessCompiler( [ 'foo'  => '2px', 'Foo' => '#eeeeee' ] );
@@ -246,8 +227,8 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 			],
 			[
 				'config' => [
-					'wgValidSkinNames' => [
-						// Required to make ResourceLoaderContext::getSkin work
+					MainConfigNames::ValidSkinNames => [
+						// Required to make Context::getSkin work
 						'example' => 'Example',
 					],
 				],
@@ -262,17 +243,13 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider provideMediaWikiVariablesCases
-	 * @covers ResourceLoader::getLessCompiler
-	 * @covers ResourceLoaderFileModule::compileLessFile
 	 */
 	public function testMediawikiVariablesDefault( array $config, array $importPaths, $skin, $expectedFile ) {
-		$this->setMwGlobals( $config );
+		$this->overrideConfigValues( $config );
 		$reset = ExtensionRegistry::getInstance()->setAttributeForTest( 'SkinLessImportPaths', $importPaths );
-		// Reset Skin::getSkinNames for ResourceLoaderContext
-		$this->getServiceContainer()->resetServiceForTesting( 'SkinFactory' );
 
 		$context = $this->getResourceLoaderContext( [ 'skin' => $skin ] );
-		$module = new ResourceLoaderFileModule( [
+		$module = new FileModule( [
 			'localBasePath' => __DIR__ . '/../../data/less',
 			'styles' => [ 'use-variables.less' ],
 		] );
@@ -314,7 +291,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider providePackedModules
-	 * @covers ResourceLoader::makePackedModulesString
 	 */
 	public function testMakePackedModulesString( $desc, $modules, $packed ) {
 		$this->assertEquals( $packed, ResourceLoader::makePackedModulesString( $modules ), $desc );
@@ -322,7 +298,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider providePackedModules
-	 * @covers ResourceLoader::expandModuleNames
 	 */
 	public function testExpandModuleNames( $desc, $modules, $packed, $unpacked = null ) {
 		$this->assertEquals(
@@ -349,8 +324,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider provideAddSource
-	 * @covers ResourceLoader::addSource
-	 * @covers ResourceLoader::getSources
 	 */
 	public function testAddSource( $name, $info, $expected ) {
 		$rl = new EmptyResourceLoader;
@@ -364,9 +337,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		}
 	}
 
-	/**
-	 * @covers ResourceLoader::addSource
-	 */
 	public function testAddSourceDupe() {
 		$rl = new EmptyResourceLoader;
 		$this->expectException( RuntimeException::class );
@@ -375,9 +345,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		$rl->addSource( 'foo', 'https://example.com/w/load.php' );
 	}
 
-	/**
-	 * @covers ResourceLoader::addSource
-	 */
 	public function testAddSourceInvalid() {
 		$rl = new EmptyResourceLoader;
 		$this->expectException( InvalidArgumentException::class );
@@ -546,8 +513,6 @@ END
 
 	/**
 	 * @dataProvider provideLoaderImplement
-	 * @covers ResourceLoader::makeLoaderImplementScript
-	 * @covers ResourceLoader::trimArray
 	 */
 	public function testMakeLoaderImplementScript( $case ) {
 		$case += [
@@ -558,7 +523,7 @@ END
 			'packageFiles' => [],
 		];
 		$rl = TestingAccessWrapper::newFromClass( ResourceLoader::class );
-		$context = new ResourceLoaderContext( new EmptyResourceLoader(), new FauxRequest( [
+		$context = new Context( new EmptyResourceLoader(), new FauxRequest( [
 			'debug' => 'true',
 		] ) );
 		$this->assertEquals(
@@ -577,14 +542,11 @@ END
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::makeLoaderImplementScript
-	 */
 	public function testMakeLoaderImplementScriptInvalid() {
 		$this->expectException( InvalidArgumentException::class );
 		$this->expectExceptionMessage( 'Script must be a' );
 		$rl = TestingAccessWrapper::newFromClass( ResourceLoader::class );
-		$context = new ResourceLoaderContext( new EmptyResourceLoader(), new FauxRequest() );
+		$context = new Context( new EmptyResourceLoader(), new FauxRequest() );
 		$rl->makeLoaderImplementScript(
 			$context,
 			'test', // name
@@ -596,11 +558,8 @@ END
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::makeLoaderRegisterScript
-	 */
 	public function testMakeLoaderRegisterScript() {
-		$context = new ResourceLoaderContext( new EmptyResourceLoader(), new FauxRequest( [
+		$context = new Context( new EmptyResourceLoader(), new FauxRequest( [
 			'debug' => 'true',
 		] ) );
 		$this->assertEquals(
@@ -656,11 +615,8 @@ END
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::makeLoaderSourcesScript
-	 */
 	public function testMakeLoaderSourcesScript() {
-		$context = new ResourceLoaderContext( new EmptyResourceLoader(), new FauxRequest( [
+		$context = new Context( new EmptyResourceLoader(), new FauxRequest( [
 			'debug' => 'true',
 		] ) );
 		$this->assertEquals(
@@ -698,9 +654,6 @@ END
 		];
 	}
 
-	/**
-	 * @covers ResourceLoader::getLoadScript
-	 */
 	public function testGetLoadScript() {
 		$rl = new EmptyResourceLoader();
 		$sources = self::fakeSources();
@@ -742,9 +695,6 @@ END
 		return $mock;
 	}
 
-	/**
-	 * @covers ResourceLoader::getCombinedVersion
-	 */
 	public function testGetCombinedVersion() {
 		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
 			// Disable log from outputErrorAndLog
@@ -838,7 +788,6 @@ END
 	 * Verify how multiple scripts and mw.loader.state() calls are concatenated.
 	 *
 	 * @dataProvider provideMakeModuleResponseConcat
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseConcat( $scripts, $expected, $debug, $message = null ) {
 		$rl = new EmptyResourceLoader();
@@ -860,9 +809,6 @@ END
 		$this->assertEquals( $expected, $response, $message ?: 'Response' );
 	}
 
-	/**
-	 * @covers ResourceLoader::makeModuleResponse
-	 */
 	public function testMakeModuleResponseEmpty() {
 		$rl = new EmptyResourceLoader();
 		$context = $this->getResourceLoaderContext(
@@ -879,8 +825,6 @@ END
 	 * Verify that when building module content in a load.php response,
 	 * an exception from one module will not break script output from
 	 * other modules.
-	 *
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseError() {
 		$modules = [
@@ -898,7 +842,7 @@ END
 		);
 
 		// Disable log from makeModuleResponse via outputErrorAndLog
-		$this->setLogger( 'exception', new Psr\Log\NullLogger() );
+		$this->setLogger( 'exception', new \Psr\Log\NullLogger() );
 
 		$response = $rl->makeModuleResponse( $context, $modules );
 		$errors = $rl->getErrors();
@@ -918,8 +862,6 @@ END
 	/**
 	 * Verify that exceptions in PHP for one module will not break others
 	 * (stylesheet response).
-	 *
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseErrorCSS() {
 		$modules = [
@@ -938,7 +880,7 @@ END
 		);
 
 		// Disable log from makeModuleResponse via outputErrorAndLog
-		$this->setLogger( 'exception', new Psr\Log\NullLogger() );
+		$this->setLogger( 'exception', new \Psr\Log\NullLogger() );
 
 		$response = $rl->makeModuleResponse( $context, $modules );
 		$errors = $rl->getErrors();
@@ -956,8 +898,6 @@ END
 	 * Verify that when building the startup module response,
 	 * an exception from one module class will not break the entire
 	 * startup module response. See T152266.
-	 *
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseStartupError() {
 		// This is an integration test that uses a lot of MediaWiki state,
@@ -991,7 +931,7 @@ END
 		);
 
 		// Disable log from makeModuleResponse via outputErrorAndLog
-		$this->setLogger( 'exception', new Psr\Log\NullLogger() );
+		$this->setLogger( 'exception', new \Psr\Log\NullLogger() );
 
 		$modules = [ 'startup' => $rl->getModule( 'startup' ) ];
 		$response = $rl->makeModuleResponse( $context, $modules );
@@ -1018,10 +958,6 @@ END
 
 	/**
 	 * Integration test for modules sending extra HTTP response headers.
-	 *
-	 * @covers ResourceLoaderModule::getHeaders
-	 * @covers ResourceLoaderModule::buildContent
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseExtraHeaders() {
 		$module = $this->getMockBuilder( ResourceLoaderTestModule::class )
@@ -1050,11 +986,6 @@ END
 		);
 	}
 
-	/**
-	 * @covers ResourceLoaderModule::getHeaders
-	 * @covers ResourceLoaderModule::buildContent
-	 * @covers ResourceLoader::makeModuleResponse
-	 */
 	public function testMakeModuleResponseExtraHeadersMulti() {
 		$foo = $this->getMockBuilder( ResourceLoaderTestModule::class )
 			->onlyMethods( [ 'getPreloadLinks', 'getName' ] )->getMock();
@@ -1090,9 +1021,6 @@ END
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::respond
-	 */
 	public function testRespondEmpty() {
 		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
 			->onlyMethods( [
@@ -1109,9 +1037,6 @@ END
 		$rl->respond( $context );
 	}
 
-	/**
-	 * @covers ResourceLoader::respond
-	 */
 	public function testRespondSimple() {
 		$module = new ResourceLoaderTestModule( [ 'script' => 'foo();' ] );
 		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
@@ -1140,10 +1065,26 @@ END
 		$rl->respond( $context );
 	}
 
+	public function testRespondMissingModule() {
+		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
+			->onlyMethods( [
+				'measureResponseTime',
+				'tryRespondNotModified',
+				'sendResponseHeaders',
+			] )
+			->getMock();
+		$context = $this->getResourceLoaderContext(
+			[ 'modules' => 'unknown', 'only' => null ],
+			$rl
+		);
+
+		$this->expectOutputRegex( '/mw\.loader\.state.*"unknown": "missing"/s' );
+
+		$rl->respond( $context );
+	}
+
 	/**
 	 * Refuse requests for private modules.
-	 *
-	 * @covers ResourceLoader::respond
 	 */
 	public function testRespondErrorPrivate() {
 		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
@@ -1166,16 +1107,18 @@ END
 		$rl->respond( $context );
 	}
 
-	/**
-	 * @covers ResourceLoader::respond
-	 */
 	public function testRespondInternalFailures() {
-		$module = new ResourceLoaderTestModule( [ 'script' => 'foo();' ] );
+		$module = $this->getMockBuilder( ResourceLoaderTestModule::class )
+			->onlyMethods( [ 'getDefinitionSummary', 'enableModuleContentVersion' ] )
+			->getMock();
+		$module->method( 'enableModuleContentVersion' )
+			->willReturn( false );
+		$module->method( 'getDefinitionSummary' )
+			->willThrowException( new Exception( 'Version error' ) );
 		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
 			->onlyMethods( [
 				'measureResponseTime',
 				'preloadModuleInfo',
-				'getCombinedVersion',
 				'tryRespondNotModified',
 				'makeModuleResponse',
 				'sendResponseHeaders',
@@ -1186,14 +1129,15 @@ END
 				return $module;
 			}
 		] );
-		$context = $this->getResourceLoaderContext( [ 'modules' => 'test' ], $rl );
+		$context = $this->getResourceLoaderContext(
+			[ 'modules' => 'test', 'debug' => 'false' ],
+			$rl
+		);
 		// Disable logging from outputErrorAndLog
-		$this->setLogger( 'exception', new Psr\Log\NullLogger() );
+		$this->setLogger( 'exception', new \Psr\Log\NullLogger() );
 
 		$rl->expects( $this->once() )->method( 'preloadModuleInfo' )
 			->willThrowException( new Exception( 'Preload error' ) );
-		$rl->expects( $this->once() )->method( 'getCombinedVersion' )
-			->willThrowException( new Exception( 'Version error' ) );
 		$rl->expects( $this->once() )->method( 'makeModuleResponse' )
 			->with( $context, [ 'test' => $module ] )
 			->willReturn( 'foo;' );
@@ -1203,9 +1147,6 @@ END
 		$rl->respond( $context );
 	}
 
-	/**
-	 * @covers ResourceLoader::measureResponseTime
-	 */
 	public function testMeasureResponseTime() {
 		$stats = $this->getMockBuilder( NullStatsdDataFactory::class )
 			->onlyMethods( [ 'timing' ] )->getMock();
@@ -1218,9 +1159,6 @@ END
 		$rl->measureResponseTime();
 	}
 
-	/**
-	 * @covers ResourceLoader::getUserDefaults
-	 */
 	public function testGetUserDefaults() {
 		$this->setService( 'UserOptionsLookup', new StaticUserOptionsLookup(
 			[],
@@ -1229,16 +1167,20 @@ END
 				'exclude' => 1,
 			]
 		) );
-		$ctx = $this->createStub( ResourceLoaderContext::class );
+		$ctx = $this->createStub( Context::class );
 		$this->setTemporaryHook( 'ResourceLoaderExcludeUserOptions', function (
 			array &$keysToExclude,
-			ResourceLoaderContext $context
+			Context $context
 		) use ( $ctx ): void {
 			$this->assertSame( $ctx, $context );
 			$keysToExclude[] = 'exclude';
 		}, true );
 
-		$defaults = ResourceLoader::getUserDefaults( $ctx );
+		$defaults = ResourceLoader::getUserDefaults(
+			$ctx,
+			$this->getServiceContainer()->getHookContainer(),
+			$this->getServiceContainer()->getUserOptionsLookup()
+		);
 		$this->assertSame( [ 'include' => 1 ], $defaults );
 	}
 }

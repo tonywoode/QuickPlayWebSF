@@ -1,6 +1,9 @@
 {
-    "@metadata": {
-        "authors": []
-    },
-    "createarticle": "Çĕнĕ статья çыр"
+	"@metadata": {
+		"authors": [
+			"Astahar"
+		]
+	},
+	"inputbox-tryexact": "Пӗрешкеллисем",
+	"inputbox-createarticle": "Çĕнĕ статья çыр"
 }

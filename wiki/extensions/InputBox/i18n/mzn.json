@@ -1,10 +1,11 @@
 {
-    "@metadata": {
-        "authors": [
-            "Mehdi",
-            "Spacebirdy",
-            "محک"
-        ]
-    },
-    "createarticle": "صفحه بساتن"
+	"@metadata": {
+		"authors": [
+			"Mehdi",
+			"Spacebirdy",
+			"محک"
+		]
+	},
+	"inputbox-tryexact": "کلمه-کلمه مطابقت ره چک هاکن",
+	"inputbox-createarticle": "صفحه بساتن"
 }

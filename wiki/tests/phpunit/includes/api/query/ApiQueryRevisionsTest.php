@@ -1,6 +1,6 @@
 <?php
 
-use MediaWiki\Storage\SlotRecord;
+use MediaWiki\Revision\SlotRecord;
 
 /**
  * @group API
@@ -46,6 +46,60 @@ class ApiQueryRevisionsTest extends ApiTestCase {
 	}
 
 	/**
+	 * @group medium
+	 */
+	public function testResolvesPrevNextInDiffto() {
+		$pageName = 'Help:' . __METHOD__;
+		$page = $this->getExistingTestPage( $pageName );
+		$user = $this->getTestUser()->getUser();
+
+		$revRecord = $page->newPageUpdater( $user )
+			->setContent( SlotRecord::MAIN, new WikitextContent( 'Some text' ) )
+			->saveRevision( CommentStoreComment::newUnsavedComment( 'inserting more content' ) );
+
+		[ $rvDiffToPrev ] = $this->doApiRequest( [
+			'action' => 'query',
+			'prop' => 'revisions',
+			'titles' => $pageName,
+			'rvdiffto' => 'prev',
+		] );
+
+		$this->assertSame(
+			$revRecord->getId(),
+			$rvDiffToPrev['query']['pages'][$page->getId()]['revisions'][0]['revid']
+		);
+		$this->assertSame(
+			$revRecord->getId(),
+			$rvDiffToPrev['query']['pages'][$page->getId()]['revisions'][0]['diff']['to']
+		);
+		$this->assertSame(
+			$revRecord->getParentId(),
+			$rvDiffToPrev['query']['pages'][$page->getId()]['revisions'][0]['diff']['from']
+		);
+
+		[ $rvDiffToNext ] = $this->doApiRequest( [
+			'action' => 'query',
+			'prop' => 'revisions',
+			'titles' => $pageName,
+			'rvdiffto' => 'next',
+			'rvdir' => 'newer'
+		] );
+
+		$this->assertSame(
+			$revRecord->getParentId(),
+			$rvDiffToNext['query']['pages'][$page->getId()]['revisions'][0]['revid']
+		);
+		$this->assertSame(
+			$revRecord->getId(),
+			$rvDiffToNext['query']['pages'][$page->getId()]['revisions'][0]['diff']['to']
+		);
+		$this->assertSame(
+			$revRecord->getParentId(),
+			$rvDiffToNext['query']['pages'][$page->getId()]['revisions'][0]['diff']['from']
+		);
+	}
+
+	/**
 	 * @dataProvider provideSectionNewTestCases
 	 * @param string $pageContent
 	 * @param string $expectedSectionContent
@@ -62,21 +116,18 @@ class ApiQueryRevisionsTest extends ApiTestCase {
 			->setContent( SlotRecord::MAIN, new WikitextContent( $pageContent ) )
 			->saveRevision( CommentStoreComment::newUnsavedComment( 'inserting content' ) );
 
-		$response = $this->doApiRequest( [
+		[ $response ] = $this->doApiRequest( [
 			'action' => 'query',
 			'prop' => 'revisions',
-			'titles' => $pageName,
-			'rvprop' => 'content',
+			'revids' => $revRecord->getId(),
+			'rvprop' => 'content|ids',
 			'rvslots' => 'main',
 			'rvsection' => 'new'
 		] );
 
-		$this->assertArrayHasKey( 'query', $response[0] );
-		$this->assertArrayHasKey( 'pages', $response[0]['query'] );
-
 		$this->assertSame(
 			$expectedSectionContent,
-			$response[0]['query']['pages'][$page->getId()]['revisions'][0]['slots']['main']['content']
+			$response['query']['pages'][$page->getId()]['revisions'][0]['slots']['main']['content']
 		);
 	}
 

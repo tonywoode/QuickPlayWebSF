@@ -57,6 +57,10 @@ class UpdateMediaWiki extends Maintenance {
 			'skip-external-dependencies',
 			'Skips checking whether external dependencies are up to date, mostly for developers'
 		);
+		$this->addOption(
+			'skip-config-validation',
+			'Skips checking whether the existing configuration is valid'
+		);
 	}
 
 	public function getDbType() {
@@ -77,8 +81,18 @@ class UpdateMediaWiki extends Maintenance {
 		}
 	}
 
+	public function setup() {
+		global $wgMessagesDirs;
+
+		parent::setup();
+
+		// T206765: We need to load the installer i18n files as some of errors come installer/updater code
+		// T310378: We have to ensure we do this before execute()
+		$wgMessagesDirs['MediawikiInstaller'] = dirname( __DIR__ ) . '/includes/installer/i18n';
+	}
+
 	public function execute() {
-		global $wgLang, $wgAllowSchemaUpdates, $wgMessagesDirs;
+		global $wgLang, $wgAllowSchemaUpdates;
 
 		if ( !$wgAllowSchemaUpdates
 			&& !( $this->hasOption( 'force' )
@@ -104,8 +118,10 @@ class UpdateMediaWiki extends Maintenance {
 			}
 		}
 
-		// T206765: We need to load the installer i18n files as some of errors come installer/updater code
-		$wgMessagesDirs['MediawikiInstaller'] = dirname( __DIR__ ) . '/includes/installer/i18n';
+		// Check for warnings about settings, and abort if there are any.
+		if ( !$this->hasOption( 'skip-config-validation' ) ) {
+			$this->validateSettings();
+		}
 
 		$lang = MediaWikiServices::getInstance()->getLanguageFactory()->getLanguage( 'en' );
 		// Set global language to ensure localised errors are in English (T22633)
@@ -144,7 +160,7 @@ class UpdateMediaWiki extends Maintenance {
 		# Check to see whether the database server meets the minimum requirements
 		/** @var DatabaseInstaller $dbInstallerClass */
 		$dbInstallerClass = Installer::getDBInstallerClass( $db->getType() );
-		$status = $dbInstallerClass::meetsMinimumRequirement( $db->getServerVersion() );
+		$status = $dbInstallerClass::meetsMinimumRequirement( $db );
 		if ( !$status->isOK() ) {
 			// This might output some wikitext like <strong> but it should be comprehensible
 			$text = $status->getWikiText();
@@ -180,13 +196,13 @@ class UpdateMediaWiki extends Maintenance {
 
 		$updater = DatabaseUpdater::newForDB( $db, $shared, $this );
 
-		// Avoid upgrading from versions older than 1.29
-		// Using an implicit marker (ct_id field didn't exist until 1.29)
+		// Avoid upgrading from versions older than 1.31
+		// Using an implicit marker (slots table didn't exist until 1.31)
 		// TODO: Use an explicit marker
 		// See T259771
-		if ( !$updater->getDB()->fieldExists( 'change_tag', 'ct_id' ) ) {
+		if ( !$updater->tableExists( 'slots' ) ) {
 			$this->fatalError(
-				"Can not upgrade from versions older than 1.29, please upgrade to that version or later first."
+				"Can not upgrade from versions older than 1.31, please upgrade to that version or later first."
 			);
 		}
 
@@ -257,6 +273,45 @@ class UpdateMediaWiki extends Maintenance {
 		}
 
 		parent::validateParamsAndArgs();
+	}
+
+	private function formatWarnings( array $warnings ) {
+		$text = '';
+		foreach ( $warnings as $warning ) {
+			$warning = wordwrap( $warning, 75, "\n  " );
+			$text .= "* $warning\n";
+		}
+		return $text;
+	}
+
+	private function validateSettings() {
+		global $wgSettings;
+
+		$warnings = [];
+		if ( $wgSettings->getWarnings() ) {
+			$warnings = $wgSettings->getWarnings();
+		}
+
+		$status = $wgSettings->validate();
+		if ( !$status->isOk() ) {
+			foreach ( $status->getErrorsByType( 'error' ) as $msg ) {
+				$msg = wfMessage( $msg['message'], ...$msg['params'] );
+				$warnings[] = $msg->text();
+			}
+		}
+
+		$deprecations = $wgSettings->detectDeprecatedConfig();
+		foreach ( $deprecations as $key => $msg ) {
+			$warnings[] = "$key is deprecated: $msg";
+		}
+
+		if ( $warnings ) {
+			$this->fatalError( "Some of your configuration settings caused a warning:\n\n"
+				. $this->formatWarnings( $warnings ) . "\n"
+				. "Please correct the issue before running update.php again.\n"
+				. "If you know what you are doing, you can bypass this check\n"
+				. "using --skip-config-validation.\n" );
+		}
 	}
 }
 

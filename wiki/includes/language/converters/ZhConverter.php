@@ -1,7 +1,5 @@
 <?php
 /**
- * Chinese specific code.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -18,11 +16,12 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @ingroup Language
  */
 
 /**
- * @ingroup Language
+ * Chinese converter routine.
+ *
+ * @ingroup Languages
  */
 class ZhConverter extends LanguageConverter {
 
@@ -77,11 +76,11 @@ class ZhConverter extends LanguageConverter {
 			'zh-hans' => [ 'zh-cn', 'zh-sg', 'zh-my' ],
 			'zh-hant' => [ 'zh-tw', 'zh-hk', 'zh-mo' ],
 			'zh-cn' => [ 'zh-hans', 'zh-sg', 'zh-my' ],
-			'zh-sg' => [ 'zh-hans', 'zh-cn', 'zh-my' ],
-			'zh-my' => [ 'zh-hans', 'zh-sg', 'zh-cn' ],
+			'zh-sg' => [ 'zh-my', 'zh-hans', 'zh-cn' ],
+			'zh-my' => [ 'zh-sg', 'zh-hans', 'zh-cn' ],
 			'zh-tw' => [ 'zh-hant', 'zh-hk', 'zh-mo' ],
-			'zh-hk' => [ 'zh-hant', 'zh-mo', 'zh-tw' ],
-			'zh-mo' => [ 'zh-hant', 'zh-hk', 'zh-tw' ],
+			'zh-hk' => [ 'zh-mo', 'zh-hant', 'zh-tw' ],
+			'zh-mo' => [ 'zh-hk', 'zh-hant', 'zh-tw' ],
 		];
 	}
 

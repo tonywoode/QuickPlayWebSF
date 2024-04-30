@@ -114,7 +114,7 @@ class Status extends StatusValue {
 
 	/**
 	 * Makes this Status object use the given localizer instead of the global one.
-	 * If it is an IContextSource or a ResourceLoaderContext, it will also be used to
+	 * If it is an IContextSource or a ResourceLoader Context, it will also be used to
 	 * determine the interface language.
 	 * @note This setting does not survive serialization. That's usually for the best
 	 *   (there's no guarantee we'll still have the same localization settings after
@@ -351,6 +351,7 @@ class Status extends StatusValue {
 	 *
 	 * @return array[] A list in which each entry is an array with a message key as its first element.
 	 *         The remaining array elements are the message parameters.
+	 * @phan-return non-empty-array[]
 	 * @deprecated since 1.25
 	 */
 	public function getErrorsArray() {
@@ -362,6 +363,7 @@ class Status extends StatusValue {
 	 *
 	 * @return array[] A list in which each entry is an array with a message key as its first element.
 	 *         The remaining array elements are the message parameters.
+	 * @phan-return non-empty-array[]
 	 * @deprecated since 1.25
 	 */
 	public function getWarningsArray() {

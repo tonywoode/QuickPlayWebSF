@@ -2,13 +2,20 @@
 	"@metadata": {
 		"authors": [
 			"MaxSem",
-			"Michaello"
+			"Michaello",
+			"Prevodim"
 		]
 	},
-	"syntaxhighlight-desc": "Omogućava vizuelno označavanje sintakse <code>&lt;syntaxhighlight&gt;</code> korišćenjem [http://qbnz.com/highlighter/ GeSHi hajlajtera].",
-	"syntaxhighlight-specify": "Potrebno je odrediti jezik kao ovaj:",
-	"syntaxhighlight-supported": "Podržani jezici u vizuelom označavanju sintakse:",
-	"syntaxhighlight-err-loading": "(greška pri učitavanju podržanih jezika)",
-	"syntaxhighlight-err-language": "Nepodoban jezik",
-	"geshi.css": "/* CSS postavljen ovde biće primenjen na vizuelno označavanje sintkse GeSHi */"
+	"syntaxhighlight-desc": "Omogućava isticanje sintakse <code>&lt;syntaxhighlight&gt;</code> korišćenjem alatke [http://pygments.org/ Pygments — Pajton isticač sintakse]",
+	"syntaxhighlight-error-category": "Stranice s greškama u isticanju sintakse",
+	"syntaxhighlight-error-category-desc": "Došlo je do greške pri pokušaju isticanja koda koji je uključen na stranici.",
+	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-code": "Kôd",
+	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-language": "Jezik",
+	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-none": "(nijedan)",
+	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-showlines": "Brojevi redova",
+	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-startingline": "Broj početnog reda",
+	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-title": "Računarski kod",
+	"syntaxhighlight-error-pygments-invocation-failure": "Nisam uspeo da pozovem Pygments",
+	"syntaxhighlight-error-unknown-language": "Nepoznat jezik „$1“",
+	"syntaxhighlight-error-exceeds-size-limit": "Trenutna veličina koda  ($1 {{PLURAL:$1|bajt|bajta|bajtova}}) prekoračava gornju granicu od $2 {{PLURAL:$1|bajt|bajta|bajtova}}"
 }

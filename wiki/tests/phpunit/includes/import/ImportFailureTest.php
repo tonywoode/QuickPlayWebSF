@@ -8,7 +8,7 @@
  */
 class ImportFailureTest extends MediaWikiLangTestCase {
 
-	public function setUp(): void {
+	protected function setUp(): void {
 		parent::setUp();
 
 		$slotRoleRegistry = $this->getServiceContainer()->getSlotRoleRegistry();
@@ -89,7 +89,7 @@ class ImportFailureTest extends MediaWikiLangTestCase {
 
 	public function provideImportFailure() {
 		yield [ 'BadXML', 'warning', '/^XMLReader::read\(\): .*$/' ];
-		yield [ 'MissingMediaWikiTag', MWException::class, '/^Expected <mediawiki> tag, got .*$/' ];
+		yield [ 'MissingMediaWikiTag', MWException::class, "/^Expected '<mediawiki>' tag, got .*$/" ];
 		yield [ 'MissingMainTextField', MWException::class, '/^Missing text field in import.$/' ];
 		yield [ 'MissingSlotTextField', MWException::class, '/^Missing text field in import.$/' ];
 		yield [ 'MissingSlotRole', MWException::class, '/^Missing role for imported slot.$/' ];
