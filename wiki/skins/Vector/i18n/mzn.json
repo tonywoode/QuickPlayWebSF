@@ -22,5 +22,9 @@
 	"vector-more-actions": "ویشته",
 	"vector-searchsuggest-containing": "<strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong> دار صفحه‌ئون دله چرخه‌تو هکردن",
 	"vector-toc-beginning": "لید",
-	"vector-main-menu-tooltip": "اصلی رج"
+	"vector-main-menu-tooltip": "اصلی رج",
+	"vector-main-menu-label": "اصلی رج",
+	"vector-page-tools-label": "ابزارون",
+	"vector-page-tools-general-label": "عمومی",
+	"vector-unpin-element-label": "پیتی"
 }

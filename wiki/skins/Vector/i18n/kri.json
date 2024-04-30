@@ -18,5 +18,10 @@
 	"vector-view-view": "Rid",
 	"vector-view-viewsource": "Luk dhi sòrs",
 	"vector-more-actions": "Mòr",
-	"vector-searchsuggest-containing": "Sɔch fɔ pej dɛn we gɛt<strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>"
+	"vector-searchsuggest-containing": "Sɔch fɔ pej dɛn we gɛt<strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
+	"vector-toc-label": "Kòntèntdèm",
+	"vector-main-menu-label": "Men mɛnyu",
+	"vector-page-tools-label": "Tul dɛn",
+	"vector-page-tools-general-label": "Jeneral",
+	"vector-unpin-element-label": "haid"
 }

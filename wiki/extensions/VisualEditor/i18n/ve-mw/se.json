@@ -2,9 +2,9 @@
 	"@metadata": {
 		"authors": [
 			"Jon Harald Søby (WMNO)",
+			"Kimberli Mäkäräinen (WMNO)",
 			"Trondtr",
 			"Yupik",
-			"Kimberli Mäkäräinen (WMNO)",
 			"Ante75",
 			"Lea-Christine Sara"
 		]
@@ -122,6 +122,7 @@
 	"visualeditor-dialog-transclusion-add-param-placeholder": "Paramehternamma",
 	"visualeditor-dialog-transclusion-add-param-save": "Lasit",
 	"visualeditor-dialog-transclusion-add-template": "Lasit málle",
+	"visualeditor-dialog-transclusion-add-template-button": "Lasit málle",
 	"visualeditor-dialog-transclusion-add-template-save": "Lasit",
 	"visualeditor-dialog-transclusion-collapse-options": "Čiega ásahusaid",
 	"visualeditor-dialog-transclusion-confirmation-discard": "Healbat rievdadusaid",

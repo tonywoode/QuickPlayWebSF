@@ -12,10 +12,10 @@
 			"Rancher",
 			"Srdjan m",
 			"Srđan",
+			"Zenfiric",
 			"Zoranzoki21",
 			"Милан Јелисавчић",
-			"Сербијана",
-			"Zenfiric"
+			"Сербијана"
 		]
 	},
 	"collabpad-doctitle": "CollabPad: $1",
@@ -160,6 +160,7 @@
 	"visualeditor-dialog-transclusion-add-param-placeholder": "Назив параметра",
 	"visualeditor-dialog-transclusion-add-param-save": "Додај",
 	"visualeditor-dialog-transclusion-add-template": "Додај шаблон",
+	"visualeditor-dialog-transclusion-add-template-button": "Додај шаблон",
 	"visualeditor-dialog-transclusion-add-template-save": "Додај",
 	"visualeditor-dialog-transclusion-add-undocumented-param": "Додај недокументован параметар",
 	"visualeditor-dialog-transclusion-back-confirmation-prompt": "Назад на претрагу? Ваше измене ће бити изгубљене, и ово не може бити опозвано.",
@@ -183,7 +184,7 @@
 	"visualeditor-dialog-transclusion-param-default": "Подразумевано: $1",
 	"visualeditor-dialog-transclusion-param-example-long": "Пример: $1",
 	"visualeditor-dialog-transclusion-param-selection-aria-label": "Параметри у $1",
-	"visualeditor-dialog-transclusion-placeholder": "Додавање шаблона",
+	"visualeditor-dialog-transclusion-param-undocumented": "(недокументован параметар)",
 	"visualeditor-dialog-transclusion-placeholder-input-placeholder": "Претражите шаблоне",
 	"visualeditor-dialog-transclusion-required-parameter": "Обавезно поље",
 	"visualeditor-dialog-transclusion-required-parameter-description": "Поље је обавезно.",

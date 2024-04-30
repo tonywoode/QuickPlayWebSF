@@ -11,6 +11,7 @@ const MW_EXPERIMENT_PARAM = {
 	}
 };
 
+// eslint-disable-next-line jsdoc/require-returns
 /**
  * @param {Object} props
  */

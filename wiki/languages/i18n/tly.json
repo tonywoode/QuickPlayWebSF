@@ -7,12 +7,12 @@
 			"Eldarado",
 			"Erdemaslancan",
 			"Ganbarzada",
+			"Patriot Kor",
 			"Patriot Kur",
 			"QeneralĞasım",
 			"Tuzkozbir",
 			"Гусейн",
-			"아라",
-			"Patriot Kor"
+			"아라"
 		]
 	},
 	"tog-underline": "Linki žintono rijə bykəš:",
@@ -167,6 +167,7 @@
 	"permalink": "hežo mandə link",
 	"print": "Cap",
 	"view": "Təmšo bykə",
+	"viewcontribs": "Dijəkə bə tohfə",
 	"skin-view-view": "Byhand",
 	"skin-view-foreign": "Dijəkə sajtədə $1",
 	"edit": "Sərost bykə",
@@ -403,7 +404,7 @@
 	"anontalkpagetext": "----\n<em>Ym ce ənənomə ištirokəkə nom-nyšonə səhifəje, kom hələ akaunti soxtəš ni ja oko dojdəni əj.</em>\nƏve ki, əmə məčburimon bo əj identifikasijə kardejro sifrə IP adresi oko doj.\nYm adresi bəzynen oko doj kali gylə okoədə.\nƏgəm šymə ənənomə okoədəjon ijən žygo zyndəjon ki səjone ǧədəǧon komon bə šymə aid nin, zəhmət nybu, [[Special:CreateAccount|akaunt bysoxtən]] ja [[Special:UserLogin|yštəni edaštən]], bydə vəomədə šyməni čo ənənomə okoydonku vinde bybu.",
 	"noarticletext": "Ysət by səhifədə mətn ni.\nŠymə bəznejon [[Special:Search/{{PAGENAME}}|pəjdo karde končo ym nom heste]] čo səhifədə, <span class=\"plainlinks\">[{{fullurl:{{#Special:Log}}|page={{FULLPAGENAMEE}}}} žurnalonədə ujǧun omə nyvyštəjon pəjdo karde],\nja [{{fullurl:{{FULLPAGENAME}}|action=edit}} ym səhifə soxte]</span>.",
 	"noarticletext-nopermission": "Ysət by səhifədə mətn ni.\nŠymə bəznejon [[Special:Search/{{PAGENAME}}|pəjdo karde končo ym nom heste]] bə čo səhifədə, <span class=\"plainlinks\">[{{fullurl:{{#Special:Log}}|page={{FULLPAGENAMEE}}}} search the related logs] bə žurnalon ujǧunə nyvyštəjon pəjdo karde, ja [{{fullurl:{{FULLPAGENAME}}|action=edit}} ym səhifə soxte]</span>.",
-	"userpage-userdoesnotexist-view": "Жыго аккаунт ғејд быәни «$1».",
+	"userpage-userdoesnotexist-view": "Žygo akkaunt «$1» by vikijədə ǧejd byəni.",
 	"clearyourcache": "<strong>Ғејд.</strong> Бәзне бе пеш огәте шымә бәпе ыштә браузери кеши бымолән бо овахтијон винде горнә.\n* <strong>Firefox / Safari:</strong> Егәтәдыгмә гәтејәдә <em>Shift</em>, егәтән һәнијән <em>Nuyə karde</em> ја гәтән <em>Ctrl-F5</em> ја <em>Ctrl-R</em> (<em>⌘-R</em> на Mac)\n* <strong>Google Chrome:</strong> Егәтән <em>Ctrl-Shift-R</em> (<em>⌘-Shift-R</em> Макисә)\n* <strong>Internet Explorer / Edge:</strong> Егәтејәдә <em>Ctrl</em>, егәтән <em>Нујә карде</em> ја егәтән <em>Ctrl-F5</em>\n* <strong>Opera:</strong> Егәтән <em>Ctrl-F5</em>.",
 	"previewnote": "<strong>Virədə ogətən ym hələ ki syftənə nišo doje.</strong>\nŠymə ovaxtə cijon ogətə byəninǃ",
 	"continue-editing": "Sərost karde dəvomkə",
@@ -902,7 +903,7 @@
 	"variantname-tly": "tlš",
 	"metadata": "Metəməlumot",
 	"metadata-help": "Fajl zijodə məlumotyš heste, komon əlovə bedən de sifrə kameron ja skaneron. Əgəm fajl əlovə karde bəpeštə sərost kardə byə, bəvədə kali səbəro bə ysətnə šikili bəznen ujǧun nybe.",
-	"metadata-fields": "Кејнә шикили сәһифәдә метадата ҹәдвәл гырдә кардә быә бәвәдә бы сијоһијәдә гылә-гылә ашмардә быә метадата шикили мәрон виндеј бәбе. \nӘмандәј мәрон нијони бәманден.\n* make\n* model\n* datetimeoriginal\n* exposuretime\n* fnumber\n* isospeedratings\n* focallength\n* artist\n* copyright\n* imagedescription\n* gpslatitude\n* gpslongitude\n* gpsaltitude",
+	"metadata-fields": "Kejnə šikili səhifədə metadata čədvəl gyrdə kardə byə bəvədə by sijohijədə gylə-gylə ašmardə byə metadata šikili məron vindej bəbe.\nƏmandəj məron nijoni bəmanden.\n\n* make\n* model\n* datetimeoriginal\n* exposuretime\n* fnumber\n* isospeedratings\n* focallength\n* artist\n* copyright\n* imagedescription\n* gpslatitude\n* gpslongitude\n* gpsaltitude\n* dc-rights\n* copyrightowner\n* usageterms\n* webstatement\n* licenseurl\n* attributionurl\n* preferredattributionname\n* credit\n* jpegfilecomment\n* pngfilecomment\n* giffilecomment\n* usercomment\n* citydest\n* citycreated\n* headline\n* source\n* locationdest\n* dc-contributor\n* dc-coverage\n* dc-publisher\n* dc-relation\n* label\n* nickname\n* personinimage\n* disclaimer\n* event\n* objectname",
 	"namespacesall": "həmə",
 	"monthsall": "həmmə",
 	"confirm-watch-button-expiry": "Diyəkə",
@@ -978,5 +979,12 @@
 	"skin-action-protect": "Mıdofiə karde",
 	"skin-action-undelete": "Бәрпо кардеј",
 	"skin-action-delete": "Mole",
-	"skin-action-move": "Kuç kardə"
+	"skin-action-move": "Kuç kardə",
+	"blockedtext-made-by": "$1 mudir dəbastəše.",
+	"blockedtext-reason-comment": "Dəbaste səbəb: <em>$1</em>",
+	"blockedtext-start-time": "Dəbaste bino byə<em>$1</em>",
+	"blockedtext-expiration-time": "Dəbaste obərəxe: $1",
+	"blockedtext-intended-blockee": "Dəbaste məǧsəd: $1",
+	"blockedtext-contact-blocker-admin": "Šymə bəzynejon de $1 əloǧə gəte ja de čo [[{{MediaWiki:Grouppage-sysop}}|mudiri]], dəbaste barədə no-pegət karde.",
+	"blockedtext-include-details-queries": "Zəhmət nybu həmmə ym ətrofinə cijon əlovə bykən bə hargylə yštə ərizon."
 }

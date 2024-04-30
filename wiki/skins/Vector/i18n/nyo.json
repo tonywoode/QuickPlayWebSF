@@ -34,6 +34,7 @@
 	"vector-search-loader": "Obuhanuuzi bw'okuserra nibwolekwa",
 	"vector-searchsuggest-containing": "Serra empapura eziina <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
 	"vector-intro-page": "Help:Okutaahya",
+	"vector-toc-label": "Ebinyakurumu",
 	"vector-toc-beginning": "Embanza",
 	"vector-toc-toggle-button-label": "Hinduliza $1 akacweka",
 	"vector-anon-user-menu-pages": "Empapura z'abakozesa abarugiizeemu",
@@ -43,5 +44,13 @@
 	"vector-toc-menu-tooltip": "Omusorongo gw'ebirumu",
 	"vector-toc-collapsible-button-label": "Hinduliza omusorongo gw'ebirumu",
 	"vector-site-nav-label": "Entemburo",
-	"tooltip-vector-anon-user-menu-title": "Emirimo endi"
+	"vector-main-menu-label": "Omusorongo rw'emirimo omukuru",
+	"vector-limited-width-toggle": "Hinduliza obugazi bw'ebinyakurumu obutangwa",
+	"vector-page-tools-label": "Ebikwatwa",
+	"vector-page-tools-general-label": "Ebya byona",
+	"vector-page-tools-actions-label": "Ebikorwa",
+	"vector-pin-element-label": "irizaayo omusorongo ha rubaju",
+	"vector-unpin-element-label": "sereka",
+	"tooltip-vector-anon-user-menu-title": "Emirimo endi",
+	"empty-language-selector-body": "Tiharoho birumu by'orupapura omu ndimi ezindi."
 }

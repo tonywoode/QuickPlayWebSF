@@ -21,5 +21,10 @@
 	"vector-view-viewsource": "Намоиши манбаъ",
 	"vector-more-actions": "Бештар",
 	"vector-searchsuggest-containing": "Ҷустуҷӯи саҳифаҳои дорои <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-beginning": "Ибтидо"
+	"vector-toc-label": "Муҳтавоҳо",
+	"vector-toc-beginning": "Ибтидо",
+	"vector-main-menu-label": "Менюи асосӣ",
+	"vector-page-tools-label": "Абзорҳо",
+	"vector-page-tools-general-label": "Умумӣ",
+	"vector-unpin-element-label": "Пинҳон кардан"
 }

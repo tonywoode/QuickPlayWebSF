@@ -59,7 +59,7 @@ local function to_dec(hex)
   error("non-string type passed in.")
  end
 
- head = string.sub(hex, 1, 2)
+ local head = string.sub(hex, 1, 2)
 
  if( head ~= "0x" and head ~= "0X") then
   error("wrong hex format, should lead by 0x or 0X.")

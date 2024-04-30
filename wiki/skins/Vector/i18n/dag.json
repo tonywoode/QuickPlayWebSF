@@ -44,6 +44,7 @@
 	"vector-search-loader": "Vihigu yoobu buɣisibu",
 	"vector-searchsuggest-containing": "Yuli bo yaɣ'shɛŋa din mali <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
 	"vector-intro-page": "Sɔŋsim:Piligu",
+	"vector-toc-label": "Yaɣa",
 	"vector-toc-beginning": "Piligibu",
 	"vector-toc-toggle-button-label": "Toogili $1 zaɣ' bihibihi pubu",
 	"vector-anon-user-menu-pages": "Sabbu yaɣa zaŋ ti mali niŋ nima ban yi maliniŋ kpanjɔri ni",
@@ -53,6 +54,16 @@
 	"vector-toc-menu-tooltip": "Sabbu pubupubu teebuli",
 	"vector-toc-collapsible-button-label": "Cham gili yaɣayaɣa ŋan be teebuli maa puuni",
 	"vector-site-nav-label": "Saati",
+	"vector-main-menu-label": "Yiŋa dundɔŋ ni",
+	"vector-limited-width-toggle": "Guugili yaɣa ŋan bi galisi",
+	"vector-page-tools-label": "Tuma nɛma",
+	"vector-page-tools-general-label": "Di bɔbigbaai",
+	"vector-page-tools-actions-label": "Tumbu",
+	"vector-pin-element-label": "Taɣi chaŋ yaɣili ŋɔ",
+	"vector-unpin-element-label": "Sɔɣima",
 	"vector-2022-prefs-talkpage": "[[mw:Talk:Reading/Web/Desktop_Improvements|Discussion]]",
-	"tooltip-vector-anon-user-menu-title": "Soya pam bɛni"
+	"tooltip-vector-anon-user-menu-title": "Soya pam bɛni",
+	"vector-prefs-limited-width": "Yoomi soli din dii bɛ galisi yaɣili maa",
+	"vector-prefs-limited-width-help": "Yoomi soli din dii bɛ galisi maa din yɛn sɔŋ ka karimbu tooi kpaŋsi",
+	"empty-language-selector-body": "Paaji maa yaɣa maa bɛ saɣi dee zuliya nima zaa"
 }

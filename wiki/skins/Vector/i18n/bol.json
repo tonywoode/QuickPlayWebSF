@@ -14,5 +14,10 @@
 	"vector-view-history": "Beyi ewe tarihi",
 	"vector-more-actions": "Sauwadi",
 	"vector-searchsuggest-containing": "Inne ngafeka lagani gah<strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-beginning": "Zalshe"
+	"vector-toc-label": "Kanu labar",
+	"vector-toc-beginning": "Zalshe",
+	"vector-main-menu-label": "Bayin usul",
+	"vector-page-tools-label": "Karai ruta",
+	"vector-page-tools-general-label": "Lele",
+	"vector-unpin-element-label": "bunku"
 }

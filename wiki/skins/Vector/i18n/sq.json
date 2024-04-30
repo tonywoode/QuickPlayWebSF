@@ -25,5 +25,8 @@
 	"vector-view-view": "Lexo",
 	"vector-view-viewsource": "Shihni burimin",
 	"vector-more-actions": "Më tepër",
-	"vector-toc-beginning": "Fillim"
+	"vector-toc-beginning": "Fillim",
+	"vector-page-tools-label": "Mjete",
+	"vector-page-tools-general-label": "Të përgjithshme",
+	"vector-unpin-element-label": "fshihe"
 }

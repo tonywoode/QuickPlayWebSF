@@ -3,12 +3,12 @@
 		"authors": [
 			"Bdijkstra",
 			"Mainframe98",
+			"McDutchie",
 			"PonkoSasuke",
 			"Romaine",
 			"SPQRobin",
 			"Siebrand",
-			"Tvdm",
-			"McDutchie"
+			"Tvdm"
 		]
 	},
 	"syntaxhighlight-desc": "Voorziet in syntaxiskleuring van [http://pygments.org/ Pygments – Python syntax highlighter] middels de tag <code>&lt;syntaxhighlight&gt;</code>",

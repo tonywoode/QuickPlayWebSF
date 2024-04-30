@@ -20,5 +20,9 @@
 	"vector-view-view": "ဗှ်",
 	"vector-more-actions": "ဆက်ဗှ်",
 	"vector-searchsuggest-containing": "ဂၠာဲသွက်မုက်လိက်လုပ်အဝေါၚ် <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>ဂမၠိုၚ်",
-	"vector-toc-beginning": "စနူကၠာ"
+	"vector-toc-label": "မာတိကာ",
+	"vector-toc-beginning": "စနူကၠာ",
+	"vector-page-tools-label": "ကြိယာဂမၠိုၚ်",
+	"vector-page-tools-general-label": "နာနာ",
+	"vector-unpin-element-label": "ပၞုက်"
 }

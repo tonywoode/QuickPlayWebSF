@@ -351,6 +351,7 @@
 	"rev-delundel": "اوبه کترليهتن",
 	"revdelete-show-file-submit": "يا",
 	"revdelete-hide-comment": "ريڠکسن سونتيڠن",
+	"revdelete-radio-same": "جاڠن اوبه",
 	"revdelete-log": "سبب:",
 	"revdelete-offender": "ڤڠارڠ سيمقن:",
 	"mergehistory-reason": "سبب:",
@@ -839,5 +840,8 @@
 	"skin-view-edit-local": "سونتيڠ هوراين تمڤتن",
 	"skin-action-protect": "ليندوڠ",
 	"skin-action-delete": "هاڤوس",
-	"skin-action-move": "ڤينده"
+	"skin-action-move": "ڤينده",
+	"blockedtext-made-by": "سکتن تله دبوات اوليه $1.",
+	"blockedtext-reason-comment": "سبب يڠ دبري اياله <em>$1</em>",
+	"blockedtext-start-time": "مولا سکت: $1"
 }

@@ -87,6 +87,7 @@
 	"math_unknown_function": "descoñécese a función \"$1\"",
 	"mw_math_latexml": "LaTeXML (experimental; usa MathML)",
 	"mw_math_mathml": "SVG (MathML pódese activar mediante un complemento do navegador)",
+	"mw_math_native": "MathML (experimental; sen imaxes)",
 	"mw_math_source": "Código LaTeX (para os navegadores de texto)",
 	"prefs-math": "Fórmulas matemáticas",
 	"mathstatus": "Estado das fórmulas matemáticas",

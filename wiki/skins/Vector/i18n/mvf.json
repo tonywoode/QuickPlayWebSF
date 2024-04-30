@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Enkhsaihan2005",
-			"Wikibilig",
-			"Nikki"
+			"Nikki",
+			"Wikibilig"
 		]
 	},
 	"vector-languages": "ᢈᠡᠯᠡ ᠨᠦ᠋ᢉᠦᠳ",
@@ -16,5 +16,10 @@
 	"vector-view-view": "ᠤᠩᠰᠢᠬᠤ",
 	"vector-more-actions": "ᠳᠡᠯᠭᠡᠷᠡᠩᠭᠦᠢ",
 	"vector-searchsuggest-containing": "<strong class=\"cdx᠓᠆typeahead᠓᠆search__search᠓᠆footer__query\">$1</strong> ᠪᠢᠴᠢᠪᠦᠷᠢ ᠶ᠋ᠢ ᠠᠭᠤᠯᠤᠭᠰᠠᠨ ᠬᠠᠭᠤᠳᠠᠰᠤ ᠶ᠋ᠢ ᠬᠠᠶᠢᠬᠤ",
-	"vector-toc-beginning": "ᠡᢈᠢᠯᠡᠯ"
+	"vector-toc-label": "ᠭᠠᠷᠴᠠᠭ",
+	"vector-toc-beginning": "ᠡᢈᠢᠯᠡᠯ",
+	"vector-main-menu-label": "ᠦᠨᠳᠦᠰᠦᠨ ᠼᠧᠰᠧ",
+	"vector-page-tools-label": "ᠬᠡᠷᠡᠭᠯᠡᠭᠦᠷ",
+	"vector-page-tools-general-label": "ᠶᠡᠷᠦᠩᢈᠡᠢ",
+	"vector-unpin-element-label": "ᠬᠤᠮᠢᠬᠤ"
 }

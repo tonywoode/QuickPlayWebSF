@@ -1,15 +1,19 @@
 <?php
 
+namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
+
 use MediaWiki\Interwiki\ClassicInterwikiLookup;
 use MediaWiki\Page\PageIdentityValue;
 use MediaWiki\Parser\ParserOutputFlags;
 use MediaWiki\Permissions\RestrictionStore;
+use Title;
+use WikitextContent;
 
 /**
- * @covers Scribunto_LuaTitleLibrary
+ * @covers \MediaWiki\Extension\Scribunto\Engines\LuaCommon\TitleLibrary
  * @group Database
  */
-class Scribunto_LuaTitleLibraryTest extends Scribunto_LuaEngineTestBase {
+class TitleLibraryTest extends LuaEngineTestBase {
 	/** @inheritDoc */
 	protected static $moduleName = 'TitleLibraryTests';
 

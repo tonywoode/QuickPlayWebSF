@@ -3,16 +3,15 @@
 namespace MediaWiki\Extension\Scribunto\Engines\LuaSandbox;
 
 use Html;
-use Language;
 use LuaSandbox;
+use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaEngine;
+use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaInterpreterBadVersionError;
+use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaInterpreterNotFoundError;
 use MediaWiki\MediaWikiServices;
 use ParserOutput;
-use Scribunto_LuaEngine;
-use Scribunto_LuaInterpreterBadVersionError;
-use Scribunto_LuaInterpreterNotFoundError;
 use Title;
 
-class LuaSandboxEngine extends Scribunto_LuaEngine {
+class LuaSandboxEngine extends LuaEngine {
 	/** @var array */
 	public $options;
 	/** @var bool */
@@ -36,12 +35,12 @@ class LuaSandboxEngine extends Scribunto_LuaEngine {
 	public function getSoftwareInfo( array &$software ) {
 		try {
 			LuaSandboxInterpreter::checkLuaSandboxVersion();
-		} catch ( Scribunto_LuaInterpreterNotFoundError $e ) {
+		} catch ( LuaInterpreterNotFoundError $e ) {
 			// They shouldn't be using this engine if the extension isn't
 			// loaded. But in case they do for some reason, let's not have
 			// Special:Version fatal.
 			return;
-		} catch ( Scribunto_LuaInterpreterBadVersionError $e ) {
+		} catch ( LuaInterpreterBadVersionError $e ) {
 			// @phan-suppress-previous-line PhanPluginDuplicateCatchStatementBody
 			// Same for if the extension is too old.
 			return;
@@ -144,7 +143,7 @@ class LuaSandboxEngine extends Scribunto_LuaEngine {
 	 * @return string
 	 */
 	private function fixTruncation( $s ) {
-		$lang = Language::factory( 'en' );
+		$lang = MediaWikiServices::getInstance()->getLanguageFactory()->getLanguage( 'en' );
 		return $lang->iconv( 'UTF-8', 'UTF-8', $s );
 	}
 

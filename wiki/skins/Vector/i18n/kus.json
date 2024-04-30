@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Bugirbiig",
 			"Amire80",
+			"Bugirbiig",
 			"Agurwin Isaac",
 			"Mozanky",
 			"Poasana Anabah"
@@ -38,6 +38,7 @@
 	"vector-search-loader": "La'asidi pʋtɛn'ɛr ieeb",
 	"vector-searchsuggest-containing": "Iem lakir banɛ mɔri <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
 	"vector-intro-page": "Help:Zaŋi pa'al",
+	"vector-toc-label": "Yɛlkpana",
 	"vector-toc-beginning": "Pin'ilʋgʋn",
 	"vector-toc-toggle-button-label": "Diinm $1 pʋdigbil",
 	"vector-anon-user-menu-pages": "Ayiisi-mɛŋ sɔbidib lakir zin'is",
@@ -47,6 +48,16 @@
 	"vector-toc-menu-tooltip": "Yɛlmɛŋa teebul",
 	"vector-toc-collapsible-button-label": "Diinm yɔ'ɔg yɛlmɛŋa teebul la",
 	"vector-site-nav-label": "Zin'ig",
+	"vector-main-menu-label": "Yɛlkpan zin'ig",
+	"vector-limited-width-toggle": "Diinm yɛlmɛŋir yalʋŋbil",
+	"vector-page-tools-label": "La'ad",
+	"vector-page-tools-general-label": "Li wʋsa",
+	"vector-page-tools-actions-label": "Tʋʋma nam",
+	"vector-pin-element-label": "Vurigim keŋ kpikpɛŋ",
+	"vector-unpin-element-label": "su'am",
 	"vector-2022-prefs-talkpage": "[[mw:Talk:Reading/Web/Desktop_Improvements|Sɔnsʋg]]",
-	"tooltip-vector-anon-user-menu-title": "Gaansʋg bɛdegʋ"
+	"tooltip-vector-anon-user-menu-title": "Gaansʋg bɛdegʋ",
+	"vector-prefs-limited-width": "Sʋŋim yalʋŋ giŋ suodɔllisim",
+	"vector-prefs-limited-width-help": "Sʋŋim yalʋŋ giŋ suodɔllisim ka li nɔbig karʋŋ baŋir",
+	"empty-language-selector-body": "Lakir yɛlkpana pʋ siak sʋŋ bɛ buudi pian'ad sieba nam nii"
 }

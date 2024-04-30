@@ -15,5 +15,10 @@
 	"vector-view-history": "Тарих",
 	"vector-more-actions": "Бала",
 	"vector-searchsuggest-containing": "Мид-кид джарбыр ахтармиш <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-beginning": "Сифте"
+	"vector-toc-label": "Китабад-кьул",
+	"vector-toc-beginning": "Сифте",
+	"vector-main-menu-label": "Кьёхьды меню",
+	"vector-page-tools-label": "Инструментбыр",
+	"vector-page-tools-general-label": "Уртахды",
+	"vector-unpin-element-label": "гиркIа"
 }

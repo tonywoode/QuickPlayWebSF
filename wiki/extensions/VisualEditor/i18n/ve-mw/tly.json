@@ -2,9 +2,9 @@
 	"@metadata": {
 		"authors": [
 			"Ganbarzada",
+			"Patriot Kor",
 			"Patriot Kur",
-			"Гусейн",
-			"Patriot Kor"
+			"Гусейн"
 		]
 	},
 	"collabpad-doctitle": "CollabPad: $1",
@@ -157,6 +157,7 @@
 	"visualeditor-dialog-transclusion-add-param-placeholder": "Parametri nom",
 	"visualeditor-dialog-transclusion-add-param-save": "Əlovə kardej",
 	"visualeditor-dialog-transclusion-add-template": "Šabloni əlovə karde",
+	"visualeditor-dialog-transclusion-add-template-button": "Šabloni əlovə karde",
 	"visualeditor-dialog-transclusion-add-template-save": "Əlovə kardej",
 	"visualeditor-dialog-transclusion-add-undocumented-param": "Besənədə parametri əlovə karde",
 	"visualeditor-dialog-transclusion-back-confirmation-prompt": "Bə nəve ogarde? Šymə ovaxtə cijon gin bəben ijən ymi pešo ovaxte əbyni.",
@@ -187,6 +188,7 @@
 	"visualeditor-dialog-transclusion-param-example-long": "Nymunə: $1",
 	"visualeditor-dialog-transclusion-param-selection-aria-description": "Vyžgə egətən bo parametron əlovə karde ja mole. Egətən Enter bo parametri əlovə karde ijən əcəj məno ovaxte. Kejnə parametr vyžnijə byə, egətən Enter bo məno sərost kardejro.",
 	"visualeditor-dialog-transclusion-param-selection-aria-label": "$1 parametron",
+	"visualeditor-dialog-transclusion-param-undocumented": "(sənəd nybyə paramert)",
 	"visualeditor-dialog-transclusion-placeholder-input-placeholder": "Šabloni pəjdo karde",
 	"visualeditor-dialog-transclusion-required-parameter": "Lozim byə mərə",
 	"visualeditor-dialog-transclusion-required-parameter-description": "Ym mərə lozim bejdə.",

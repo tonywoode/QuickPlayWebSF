@@ -22,5 +22,10 @@
 	"vector-view-viewsource": "Quelltext oonzeiche",
 	"vector-more-actions": "Meh",
 	"vector-searchsuggest-containing": "Suche noh Seite wo <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong> enthelld.",
-	"vector-toc-beginning": "Aanfang"
+	"vector-toc-label": "Inhaltsferzeichnis",
+	"vector-toc-beginning": "Aanfang",
+	"vector-main-menu-label": "Hauptmenu",
+	"vector-page-tools-label": "Fërramente",
+	"vector-page-tools-general-label": "Allgemeen",
+	"vector-unpin-element-label": "Fersteckle"
 }

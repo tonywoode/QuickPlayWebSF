@@ -26,7 +26,6 @@ use HTMLFormField;
 use HTMLMultiSelectField;
 use IContextSource;
 use InvalidArgumentException;
-use Language;
 use LanguageCode;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
@@ -72,9 +71,6 @@ class UserOptionsManager extends UserOptionsLookup {
 	/** @var UserFactory */
 	private $userFactory;
 
-	/** @var Language */
-	private $contentLanguage;
-
 	/** @var LoggerInterface */
 	private $logger;
 
@@ -108,7 +104,6 @@ class UserOptionsManager extends UserOptionsLookup {
 	 * @param LoggerInterface $logger
 	 * @param HookContainer $hookContainer
 	 * @param UserFactory $userFactory
-	 * @param Language $contentLanguage
 	 */
 	public function __construct(
 		ServiceOptions $options,
@@ -117,8 +112,7 @@ class UserOptionsManager extends UserOptionsLookup {
 		ILoadBalancer $loadBalancer,
 		LoggerInterface $logger,
 		HookContainer $hookContainer,
-		UserFactory $userFactory,
-		Language $contentLanguage
+		UserFactory $userFactory
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->serviceOptions = $options;
@@ -128,7 +122,6 @@ class UserOptionsManager extends UserOptionsLookup {
 		$this->logger = $logger;
 		$this->hookRunner = new HookRunner( $hookContainer );
 		$this->userFactory = $userFactory;
-		$this->contentLanguage = $contentLanguage;
 	}
 
 	/**
@@ -381,7 +374,7 @@ class UserOptionsManager extends UserOptionsLookup {
 				$mapping[$key] = 'registered-checkmatrix';
 			} elseif ( isset( $specialOptions[$key] ) ) {
 				$mapping[$key] = 'special';
-			} elseif ( substr( $key, 0, 7 ) === 'userjs-' ) {
+			} elseif ( str_starts_with( $key, 'userjs-' ) ) {
 				$mapping[$key] = 'userjs';
 			} else {
 				$mapping[$key] = 'unused';
@@ -443,15 +436,18 @@ class UserOptionsManager extends UserOptionsLookup {
 			$defaultValue = $this->defaultOptionsLookup->getDefaultOption( $key );
 			$oldValue = $this->optionsFromDb[$userKey][$key] ?? null;
 			if ( $value === null || $this->isValueEqual( $value, $defaultValue ) ) {
-				$keysToDelete[] = $key;
+				if ( array_key_exists( $key, $this->optionsFromDb[$userKey] ) ) {
+					// Delete the default value from the database
+					$keysToDelete[] = $key;
+				}
 			} elseif ( !$this->isValueEqual( $value, $oldValue ) ) {
-				// Update by deleting and reinserting
+				// Update by deleting (if old value exists) and reinserting
 				$rowsToInsert[] = [
 					'up_user' => $user->getId(),
 					'up_property' => $key,
-					'up_value' => $this->contentLanguage->truncateForDatabase( $value, self::MAX_BYTES_OPTION_VALUE ),
+					'up_value' => mb_strcut( $value, 0, self::MAX_BYTES_OPTION_VALUE ),
 				];
-				if ( $oldValue !== null ) {
+				if ( array_key_exists( $key, $this->optionsFromDb[$userKey] ) ) {
 					$keysToDelete[] = $key;
 				}
 			}
@@ -662,7 +658,7 @@ class UserOptionsManager extends UserOptionsLookup {
 	 * @return array [ IDatabase $db, array $options ]
 	 */
 	private function getDBAndOptionsForQueryFlags( $queryFlags ): array {
-		list( $mode, $options ) = DBAccessObjectUtils::getDBOptions( $queryFlags );
+		[ $mode, $options ] = DBAccessObjectUtils::getDBOptions( $queryFlags );
 		return [ $this->loadBalancer->getConnectionRef( $mode, [] ), $options ];
 	}
 

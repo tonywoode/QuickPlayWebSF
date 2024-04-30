@@ -23,5 +23,12 @@
 	"vector-view-viewsource": "Кодха къара",
 	"vector-more-actions": "Энтда",
 	"vector-searchsuggest-containing": "<strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong> ичинде болгъан бетлени изле",
-	"vector-toc-beginning": "Башланыу"
+	"vector-toc-label": "Ичиндегиле",
+	"vector-toc-beginning": "Башланыу",
+	"vector-main-menu-label": "Баш меню",
+	"vector-limited-width-toggle": "Чекленнген контентни кенглигин алмашдыр",
+	"vector-page-tools-label": "Адырла",
+	"vector-page-tools-general-label": "Баш",
+	"vector-unpin-element-label": "джашыр",
+	"vector-prefs-limited-width-help": "Джазылгъан тынч окъулурча, кенгликни чеклениу режимин джандырыгъыз."
 }

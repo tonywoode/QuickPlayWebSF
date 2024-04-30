@@ -18,5 +18,10 @@
 	"vector-view-view": "Bala",
 	"vector-more-actions": "Bontsi",
 	"vector-searchsuggest-containing": "Batla ditsebe tse di naleng <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-beginning": "Tshimologo"
+	"vector-toc-label": "Diteng",
+	"vector-toc-beginning": "Tshimologo",
+	"vector-main-menu-label": "Dintlha tsa konokono",
+	"vector-page-tools-label": "Didirisiwa",
+	"vector-page-tools-general-label": "Kakaretso",
+	"vector-unpin-element-label": "fitlha"
 }

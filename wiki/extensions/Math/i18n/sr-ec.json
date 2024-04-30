@@ -9,9 +9,9 @@
 			"Prevodim",
 			"Rancher",
 			"Srdjan m",
+			"Zenfiric",
 			"Zoranzoki21",
-			"Милан Јелисавчић",
-			"Zenfiric"
+			"Милан Јелисавчић"
 		]
 	},
 	"math-desc": "Рендерује математичке формуле између ознака <code>&lt;math&gt;</code> … <code>&lt;/math&gt;</code>",
@@ -74,6 +74,7 @@
 	"math_unknown_function": "непозната функција „$1“",
 	"mw_math_latexml": "LaTeXML (експриментално; користи MathML)",
 	"mw_math_mathml": "SVG (MathML се може укључити преко плугина за прегледач)",
+	"mw_math_native": "MathML (експериментално; без слика)",
 	"mw_math_source": "LaTeX извор (за текстуалне прегледаче)",
 	"prefs-math": "Приказ математичких формула",
 	"mathstatus": "Стање приказа математичких формула",
@@ -86,7 +87,7 @@
 	"math-wikibase-formula-information": "Информације о математичкој формули",
 	"math-wikibase-formula-link-header": "Извор податка",
 	"math-wikibase-formula-elements-header": "Елементи формуле",
-	"math-wikibase-special-form-header": "Наведи име формуле:",
+	"math-wikibase-special-form-header": "Име формуле:",
 	"math-wikibase-special-form-placeholder": "Назив формуле",
 	"math-wikibase-special-form-button": "Затражи информацију",
 	"math-wikibase-special-error-header": "Грешка"

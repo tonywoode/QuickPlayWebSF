@@ -11,5 +11,6 @@
 	"apihelp-query+oath-example-2": "Gauti informaciją apie naudoją <kbd>Example</kbd>",
 	"apihelp-oathvalidate-summary": "Patvirtinti dviejų faktorių autentifikavimo (OATH) prieigos raktą.",
 	"apihelp-oathvalidate-param-user": "Naudotojas, kurio prieigos raktą patvirtinti. Numatytasis – dabartinis naudotojas.",
+	"apihelp-oathvalidate-example-1": "Patvirtinti dabartinio naudotojo JSON duomenis",
 	"apihelp-oathvalidate-example-3": "Patvirtinti naudotojo <kbd>Example</kbd> JSON duomenis"
 }

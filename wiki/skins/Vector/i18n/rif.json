@@ -26,9 +26,15 @@
 	"vector-more-actions": "Arni",
 	"vector-search-loader": "yetɛemmar",
 	"vector-searchsuggest-containing": "Arzu x tisnawin i daysent <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
+	"vector-toc-label": "Tirsitin",
 	"vector-toc-beginning": "Amezwaru",
 	"vector-toc-toggle-button-label": "Seḍhar/snuffar $1 subsection",
 	"vector-anon-user-menu-pages-learn": "Arni deg ařmad",
 	"vector-anon-user-menu-pages-label": "Řmed abeddeř n tasniwin",
-	"vector-main-menu-tooltip": "Tasna tamezwarut"
+	"vector-main-menu-tooltip": "Tasna tamezwarut",
+	"vector-main-menu-label": "Tasna tamezwarut",
+	"vector-page-tools-label": "Imassen",
+	"vector-page-tools-actions-label": "Tigawin",
+	"vector-pin-element-label": "smutti ɣar uɣezdis",
+	"vector-unpin-element-label": "snuffar"
 }

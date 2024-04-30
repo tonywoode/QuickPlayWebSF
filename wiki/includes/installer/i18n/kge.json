@@ -38,6 +38,7 @@
 	"config-env-good": "Kondisi kok tipariksa.\nNiku pandai nginstal MediaWiki.",
 	"config-env-bad": "Kondisi kok tipariksa.\nNiku mak pandai nginstal MediaWiki.",
 	"config-env-php": "PHP $1 tipasang.",
+	"config-env-icu": "ICU $1 tiinstal (ndukung Unicode $2).",
 	"config-db-type": "Jenis basis data:",
 	"config-db-host": "Ngka basis data",
 	"config-db-wiki-settings": "Konali wiki hasa",

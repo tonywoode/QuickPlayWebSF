@@ -4,11 +4,11 @@
 			"Abdeaitali",
 			"Amire80",
 			"Enzoreg",
+			"Ideophagous",
 			"Reda Benkhadra",
 			"SADI9I",
 			"SADIQUI",
-			"Zanatos",
-			"Ideophagous"
+			"Zanatos"
 		]
 	},
 	"vector-opt-out": "رجع ل الشكل لقديم",
@@ -27,5 +27,7 @@
 	"vector-view-view": "قرا",
 	"vector-view-viewsource": "شوف لمصدر",
 	"vector-more-actions": "كتر",
-	"vector-searchsuggest-containing": "قلب علا صفاحي فيهم <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>"
+	"vector-searchsuggest-containing": "قلب علا صفاحي فيهم <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
+	"vector-pin-element-label": "حوّل ل لبانضة د الجنب",
+	"vector-unpin-element-label": "خبّي"
 }

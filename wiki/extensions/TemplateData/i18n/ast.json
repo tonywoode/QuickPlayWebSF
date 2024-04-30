@@ -38,7 +38,7 @@
 	"templatedata-doc-param-type-wiki-user-name": "Usuariu",
 	"templatedata-doc-params": "Parámetros de la plantía",
 	"templatedata-editbutton": "Alministrar TemplateData",
-	"templatedata-errormsg-jsonbadformat": "Formatu JSON incorreutu. Puedes encaboxar esta operación pa poder correxilu, desaniciar les etiquetes <templatedata> actuales y volver a intentalo, o siguir y trocar la TemplateData actual con una nueva.",
+	"templatedata-errormsg-jsonbadformat": "Formatu JSON incorreutu. Puedes zarrar esta operación pa poder correxilu, desaniciar les etiquetes <templatedata> actuales y volver a intentalo, o siguir y trocar la TemplateData actual con una nueva.",
 	"templatedata-errormsg-insertblank": "¿Tas seguru de que quies amestar TemplateData ensin información?",
 	"templatedata-exists-on-related-page": "Nota: yá hai un bloque TemplateData na páxina rellacionada «[[$1]]».",
 	"templatedata-helplink": "Información sobro TemplateData",

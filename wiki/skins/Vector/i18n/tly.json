@@ -3,9 +3,9 @@
 		"authors": [
 			"Amire80",
 			"Ganbarzada",
+			"Patriot Kor",
 			"Patriot Kur",
-			"Гусейн",
-			"Patriot Kor"
+			"Гусейн"
 		]
 	},
 	"vector-skin-desc": "Bo rec žəj 2 gylə vektorə myžori dojdəː\n* 2011: ''Ysətnəni'' — MonoBook versijə de nujə kardə byə reci ijən de ištirokəkon pije xəjrinə cijon.\n* 2022: ''Vektorə'' — WMF «[[mw:Desktop Improvements]]» projektədə soxtə byə.",
@@ -38,6 +38,7 @@
 	"vector-search-loader": "Iglə nəvə tovsijon əlovə kardə bejdən",
 	"vector-searchsuggest-containing": "Səhifon nəve končo heste <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
 	"vector-intro-page": "Help:Navsyxan",
+	"vector-toc-label": "Myndəričot",
 	"vector-toc-beginning": "Bino",
 	"vector-toc-toggle-button-label": "Nišo doj/Nijo karde žinə ǧysmədə $1",
 	"vector-anon-user-menu-pages": "Səhifon bo ǧejd nybə sərost kardəkəson",
@@ -47,6 +48,16 @@
 	"vector-toc-menu-tooltip": "Myndəričot",
 	"vector-toc-collapsible-button-label": "Myndəričoti nijo/nišo karde",
 	"vector-site-nav-label": "Sajt",
+	"vector-main-menu-label": "Əsosə menju",
+	"vector-limited-width-toggle": "Kontenti məhdudə hovuži ovaxte",
+	"vector-page-tools-label": "Diləgon",
+	"vector-page-tools-general-label": "Umumi",
+	"vector-page-tools-actions-label": "Hərəkəton",
+	"vector-pin-element-label": "bə kəno paneli dəvarde",
+	"vector-unpin-element-label": "nijo karde",
 	"vector-2022-prefs-talkpage": "[[mw:Talk:Reading/Web/Desktop_Improvements|No-pegət]]",
-	"tooltip-vector-anon-user-menu-title": "Ve imkonon"
+	"tooltip-vector-anon-user-menu-title": "Ve imkonon",
+	"vector-prefs-limited-width": "Məhdud kardə byə hovuži režimi pekarde",
+	"vector-prefs-limited-width-help": "Məhdud kardə byə hovuži režimi pekən bo handə səryštə təkmil karde",
+	"empty-language-selector-body": "Səhifə myndəričot dastrəs ni bə čo zyvononədə."
 }

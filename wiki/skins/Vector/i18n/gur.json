@@ -40,6 +40,7 @@
 	"vector-search-loader": "Ba boti la pakirɛ bisega puti'irɛ",
 	"vector-searchsuggest-containing": "Ɛ pɛgesi'a n tari <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
 	"vector-intro-page": "Help:Introduction",
+	"vector-toc-label": "Yelezuo",
 	"vector-toc-beginning": "Pɔsega",
 	"vector-toc-toggle-button-label": "Toggle $1 bɔberɛpika",
 	"vector-anon-user-menu-pages": "Pɛgera n bɔ'ɔra leregere duma la ti ŋmɛ yese ba",
@@ -49,6 +50,16 @@
 	"vector-toc-menu-tooltip": "Yelezuoto",
 	"vector-toc-collapsible-button-label": "Toggle la n de yelezuoto la",
 	"vector-site-nav-label": "Kaɛ",
+	"vector-main-menu-label": "Di'a la miŋa n wana",
+	"vector-limited-width-toggle": "Toggle ŋmaa yelezuo la mɛ ti la karegɛ",
+	"vector-page-tools-label": "Lɔgerɔ",
+	"vector-page-tools-general-label": "Zanɛ",
+	"vector-page-tools-actions-label": "Tuuma",
+	"vector-pin-element-label": "Vurega kiŋɛ kinkiliŋa",
+	"vector-unpin-element-label": "Sɔŋɛ",
 	"vector-2022-prefs-talkpage": "[[mw:Talk:Reading/Web/Desktop_Improvements|Discussion]]",
-	"tooltip-vector-anon-user-menu-title": "Loosego zo'e zo'e"
+	"tooltip-vector-anon-user-menu-title": "Loosego zo'e zo'e",
+	"vector-prefs-limited-width": "Basɛ ti gu'a bɔna yalegerɛ la puan",
+	"vector-prefs-limited-width-help": "Basɛ ti gu'a bɔna yalegerɛ la puan ti la suŋɛ kaalegɔ tole nɛŋa",
+	"empty-language-selector-body": "Pɛgerɛ la yelezuto ka sugerɛ bɔna yeletɔgum sɛba puan"
 }

@@ -21,9 +21,15 @@
 	"vector-view-viewsource": "ماخذ ݙیکھو",
 	"vector-more-actions": "ٻئے",
 	"vector-intro-page": "Help:تعارف",
+	"vector-toc-label": "شامل حصے",
 	"vector-anon-user-menu-pages-learn": "ٻیا سِکھو",
 	"vector-main-menu-tooltip": "اصل مینیو",
 	"vector-toc-menu-tooltip": "تندیر",
 	"vector-site-nav-label": "سائٹ",
+	"vector-main-menu-label": "اصل مینیو",
+	"vector-page-tools-label": "اوزار",
+	"vector-page-tools-general-label": "عمومی",
+	"vector-page-tools-actions-label": "عمل",
+	"vector-unpin-element-label": "لُکاؤ",
 	"tooltip-vector-anon-user-menu-title": "ٻئے اختیار"
 }

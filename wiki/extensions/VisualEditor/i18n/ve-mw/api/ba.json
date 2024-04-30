@@ -6,9 +6,9 @@
 			"Лилиә",
 			"Ләйсән",
 			"Янмурза Баки",
-			"Amire80",
 			"Айсар",
-			"З. ӘЙЛЕ"
+			"З. ӘЙЛЕ",
+			"Amire80"
 		]
 	},
 	"apihelp-visualeditor-description": "Возвращает  для страницы со сервиса \nParsoid сервисынан бит өсөн HTML5-ға ҡайтара",
@@ -31,7 +31,7 @@
 	"apihelp-visualeditoredit-param-html": "Вики-тексҡа әйләндереү өсөн Parsoid-ҡа ебәрелгән HTML.",
 	"apihelp-visualeditoredit-param-minor": "Әһәмиәте әҙ үҙгәртеү флагы.",
 	"apihelp-visualeditoredit-param-needcheck": "Әгәр өлгөнөң циклик проблемалары булыуы ихтимал икән, һаҡлағанда ошо параметрҙы ҡуйығыҙ. Был үҙгәртеүҙәрҙе билдәләй.",
-	"apihelp-visualeditoredit-param-oldid": "Ҡулланған версияның номеры. Һуңғы версияла һайланмайынса. Яңы биткә 0 ҡулланығыҙ.",
+	"apihelp-visualeditoredit-param-oldid": "Ҡулланылған өлгө номеры. Программа көйләүе буйынса һуңғы өлгө ҡулланыла.",
 	"apihelp-visualeditoredit-param-page": "Мотлаҡ ғәмәл бите.",
 	"apihelp-visualeditoredit-param-starttimestamp": "Һаҡлаған саҡта үҙгәртеү ваҡытын ҡуйығыҙ. Был мөхәррирләү конфликтын асыҡлау өсөн ҡулланыла.",
 	"apihelp-visualeditoredit-param-summary": "Үҙгәртеүҙәр тасуирламаһын мөхәррирләргә."

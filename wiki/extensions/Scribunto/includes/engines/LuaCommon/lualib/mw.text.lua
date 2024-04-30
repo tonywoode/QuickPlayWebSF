@@ -199,8 +199,12 @@ function mwtext.unstrip( s )
 	return php.unstrip( s )
 end
 
-function mwtext.unstripNoWiki( s )
-	return php.unstripNoWiki( s )
+-- getOrigTextWhenPreprocessing defaults to false since Lua modules
+-- expect to use the nowiki contents (innerXML) rather than the
+-- full tag source (outerXML). This flag is a workaround to support
+-- Parsoid and other clients that process preprocessed wikitext.
+function mwtext.unstripNoWiki( s, getOrigTextWhenPreprocessing )
+	return php.unstripNoWiki( s, getOrigTextWhenPreprocessing or false )
 end
 
 function mwtext.killMarkers( s )
@@ -322,7 +326,7 @@ function mwtext.jsonDecode( json, flags )
 	return php.jsonDecode( json, flags )
 end
 
--- Matches PHP Scribunto_LuaTextLibrary constants
+-- Matches PHP MediaWiki\Extension\Scribunto\Engines\LuaCommon\TextLibrary constants
 mwtext.JSON_PRESERVE_KEYS = 1
 mwtext.JSON_TRY_FIXING = 2
 mwtext.JSON_PRETTY = 4

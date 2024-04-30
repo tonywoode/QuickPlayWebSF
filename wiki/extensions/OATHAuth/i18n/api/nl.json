@@ -11,6 +11,7 @@
 	"apihelp-query+oath-example-2": "Informatie opvragen over de gebruiker <kbd>Example</kbd>",
 	"apihelp-oathvalidate-summary": "Een token voor tweefactorauthenticatie (OATH) valideren.",
 	"apihelp-oathvalidate-param-user": "Gebruiker voor wie het token moet worden gevalideerd. Bij weglating wordt van de huidige gebruiker uitgegaan.",
+	"apihelp-oathvalidate-example-1": "JSON-gegevens valideren voor de huidige gebruiker",
 	"apihelp-oathvalidate-example-3": "JSON-gegevens valideren voor de gebruiker <kbd>Example</kbd>",
 	"apihelp-oathvalidate-param-data": "In JSON gecodeerde gegevens die door de momenteel voor de te authenticeren gebruiker geactiveerde module worden verwacht"
 }

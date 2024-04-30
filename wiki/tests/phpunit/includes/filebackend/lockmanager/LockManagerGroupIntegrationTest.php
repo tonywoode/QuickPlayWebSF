@@ -1,6 +1,7 @@
 <?php
 
 use MediaWiki\MainConfigNames;
+use MediaWiki\WikiMap\WikiMap;
 
 /**
  * Most of the file is covered by the unit test and/or FileBackendTest. Here we fill in the missing

@@ -8,8 +8,8 @@
 			"Lloffiwr",
 			"Muddyb",
 			"Muddyb Blast Producer",
-			"Yasen igra",
 			"Wangombe",
+			"Yasen igra",
 			"Kisare"
 		]
 	},
@@ -36,9 +36,19 @@
 	"vector-jumptocontent": "Nenda kwa yaliyomo",
 	"vector-more-actions": "Zaidi",
 	"vector-searchsuggest-containing": "Tafuta kurasa zilizo na <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
+	"vector-toc-label": "Yaliyomo",
 	"vector-toc-beginning": "Mwanzo",
 	"vector-main-menu-tooltip": "Menyu kuu",
 	"vector-toc-menu-tooltip": "Yaliyomo",
 	"vector-toc-collapsible-button-label": "Geuza uonekanaji wa yaliyomo",
-	"tooltip-vector-anon-user-menu-title": "Chaguo zaidi"
+	"vector-main-menu-label": "Menyu kuu",
+	"vector-page-tools-label": "Zana",
+	"vector-page-tools-general-label": "Kijumla",
+	"vector-page-tools-actions-label": "Vitendo",
+	"vector-pin-element-label": "hamishia kwenye mwambaa upande",
+	"vector-unpin-element-label": "ficha",
+	"tooltip-vector-anon-user-menu-title": "Chaguo zaidi",
+	"vector-prefs-limited-width": "Wezesha hali ya upana mdogo",
+	"vector-prefs-limited-width-help": "Wezesha hali ya upana mdogo kwa kusema bora.",
+	"empty-language-selector-body": "Yaliyomo ya ukurasa hayatumiki katika lugha nyingine."
 }

@@ -3,7 +3,8 @@
 		"authors": [
 			"Samatics",
 			"Emmikweok",
-			"Maryeren"
+			"Maryeren",
+			"Amire80"
 		]
 	},
 	"vector-languages": "Mme usem",
@@ -18,5 +19,10 @@
 	"vector-view-view": "Kot",
 	"vector-more-actions": "En̄wen",
 	"vector-searchsuggest-containing": "Yom mme ikpehe <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>ọdọn̄ọde",
-	"vector-toc-beginning": "Editọñọ"
+	"vector-toc-label": "Se Isịnede",
+	"vector-toc-beginning": "Editọñọ",
+	"vector-main-menu-label": "Main menu",
+	"vector-page-tools-label": "N̄kpọ utom",
+	"vector-page-tools-general-label": "Ke ofụri ofụri",
+	"vector-unpin-element-label": "dịbe"
 }

@@ -34,6 +34,7 @@
 	"vector-search-loader": "Ebihaburo by'okuserra nibyolekwa",
 	"vector-searchsuggest-containing": "Serra empapura eziina <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
 	"vector-intro-page": "Help:Okutaahya",
+	"vector-toc-label": "Ebirumu",
 	"vector-toc-beginning": "Okubanza",
 	"vector-toc-toggle-button-label": "Hinduliza $1 akacweka",
 	"vector-anon-user-menu-pages": "Empapura z'abakozesa abayesigisize",
@@ -43,6 +44,16 @@
 	"vector-toc-menu-tooltip": "Orukarra rw'ebirumu",
 	"vector-toc-collapsible-button-label": "Hinduliza orukarra rw'ebirumu",
 	"vector-site-nav-label": "Ekibanja",
+	"vector-main-menu-label": "Orukarra rw'emirimo orukuru",
+	"vector-limited-width-toggle": "Hinduliza obugazi bw'ebirumu obutangwa",
+	"vector-page-tools-label": "Ebikwato",
+	"vector-page-tools-general-label": "Ebya byona",
+	"vector-page-tools-actions-label": "Ebikorwa",
+	"vector-pin-element-label": "ihirayo orukarra harubaju",
+	"vector-unpin-element-label": "sereka",
 	"vector-2022-prefs-talkpage": "[[mw:Talk:Reading/Web/Desktop_Improvements|Okuhanuura]]",
-	"tooltip-vector-anon-user-menu-title": "Emirimo endi"
+	"tooltip-vector-anon-user-menu-title": "Emirimo endi",
+	"vector-prefs-limited-width": "Soboza omulingo gw'obugazi obutangwa",
+	"vector-prefs-limited-width-help": "Soboza omulingo gw'obugazi obutangwa habw'ensoma eyekira.",
+	"empty-language-selector-body": "Tiharoho birumu by'orupapura omu ndimi zindi."
 }

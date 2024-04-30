@@ -22,5 +22,10 @@
 	"vector-view-viewsource": "Kacta purtkehe",
 	"vector-more-actions": "Enamba",
 	"vector-searchsuggest-containing": "Eci lehtpoled, miččiš om <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-beginning": "Augotiž"
+	"vector-toc-label": "Südäimist",
+	"vector-toc-beginning": "Augotiž",
+	"vector-main-menu-label": "Pämenü",
+	"vector-page-tools-label": "Instrumentad",
+	"vector-page-tools-general-label": "Ühthine",
+	"vector-unpin-element-label": "peitta"
 }

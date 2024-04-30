@@ -3,11 +3,11 @@
 		"authors": [
 			"Aalam",
 			"Babanwalia",
+			"Bgo eiu",
+			"Jagseer S Sidhu",
 			"Raj Singh",
 			"TariButtar",
 			"Tow",
-			"Bgo eiu",
-			"Jagseer S Sidhu",
 			"Kuldeepburjbhalaike"
 		]
 	},
@@ -41,6 +41,7 @@
 	"vector-search-loader": "ਖੋਜ ਸੁਝਾਅ ਲੋਡ ਕੀਤੇ ਜਾ ਰਹੇ ਹਨ",
 	"vector-searchsuggest-containing": "<strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong> ਵਾਲੇ ਪੰਨਿਆਂ ਦੀ ਖੋਜ ਕਰੋ",
 	"vector-intro-page": "ਮਦਦ:ਜਾਣ-ਪਛਾਣ",
+	"vector-toc-label": "ਸਮੱਗਰੀ",
 	"vector-toc-beginning": "ਸ਼ੁਰੂਆਤ",
 	"vector-toc-toggle-button-label": "$1 ਉਪਭਾਗ ਨੂੰ ਟੌਗਲ ਕਰੋ",
 	"vector-anon-user-menu-pages": "ਲੌਗ ਆਊਟ ਕੀਤੇ ਸੰਪਾਦਕਾਂ ਲਈ ਪੰਨੇ",
@@ -50,6 +51,16 @@
 	"vector-toc-menu-tooltip": "ਸਮੱਗਰੀ ਸਾਰਨੀ",
 	"vector-toc-collapsible-button-label": "ਸਮੱਗਰੀ ਦੀ ਸਾਰਣੀ ਨੂੰ ਟੌਗਲ ਕਰੋ",
 	"vector-site-nav-label": "ਸਾਈਟ",
+	"vector-main-menu-label": "ਮੁੱਖ ਮੀਨੂ",
+	"vector-limited-width-toggle": "ਸੀਮਤ ਸਮੱਗਰੀ ਚੌੜਾਈ ਨੂੰ ਟੌਗਲ ਕਰੋ",
+	"vector-page-tools-label": "ਸੰਦ",
+	"vector-page-tools-general-label": "ਆਮ",
+	"vector-page-tools-actions-label": "ਕਾਰਵਾਈਆਂ",
+	"vector-pin-element-label": "ਸਾਈਡਬਾਰ 'ਤੇ ਜਾਓ",
+	"vector-unpin-element-label": "ਲੁਕਾਓ",
 	"vector-2022-prefs-talkpage": "[[mw:Talk:Reading/Web/Desktop_Improvements|ਚਰਚਾ]]",
-	"tooltip-vector-anon-user-menu-title": "ਹੋਰ ਚੋਣਾਂ"
+	"tooltip-vector-anon-user-menu-title": "ਹੋਰ ਚੋਣਾਂ",
+	"vector-prefs-limited-width": "ਛੋਟੀ ਚੌੜਾਈ ਚੋਣ ਨੂੰ ਚਾਲੂ ਕਰੋ",
+	"vector-prefs-limited-width-help": "ਪੜ੍ਹਨ ਦੇ ਬਿਹਤਰ ਅਨੁਭਵ ਲਈ ਸੀਮਤ ਚੌੜਾਈ ਮੋਡ ਨੂੰ ਵਰਤੋਂ।",
+	"empty-language-selector-body": "ਪੰਨਾ ਸਮੱਗਰੀ ਹੋਰ ਭਾਸ਼ਾਵਾਂ ਵਿੱਚ ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ।"
 }
