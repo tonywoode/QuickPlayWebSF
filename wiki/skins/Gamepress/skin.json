@@ -74,9 +74,6 @@
 				"resources/css/style.css": {
 					"media": "screen"
 				},
-				"resources/css/dark.css": {
-					"media": "screen"
-				},
 				"resources/css/mobile.css": {
 					"media": "screen and (max-width: 750px)"
 				},
