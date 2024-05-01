@@ -2,8 +2,8 @@ QuickplayWeb
 ============
 
 ## What's this?
-* Build and release tools for [QuickPlay Frontend] (https://github.com/tonywoode/QuickPlay) at sourceforge (https://sourceforge.net/projects/quickplay/)
-* A website management tool (using MAMP) for [The Quickplay Hosted Website] (http://quickplay.sourceforge.net/)
+* Build and release tools for [QuickPlay Frontend](https://github.com/tonywoode/QuickPlay) at [sourceforge](https://sourceforge.net/projects/quickplay/)
+* A website management tool (using MAMP) for [The Quickplay Hosted Website](http://quickplay.sourceforge.net/)
 * The code for the above website
 * MySQL backup and management for the above website
 
