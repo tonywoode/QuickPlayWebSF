@@ -51,23 +51,19 @@ if echo "$answer" | grep -q "^y"
 fi
 
 # Run tests
-echo "Test Batch 1 - replace AdminSettings.php"
-keys=('$wgDBadminpassword' '$wgDBadminuser')
-runABatch
-
-echo "Test Batch 2 - replace LocalSettings.php"
+echo "Test Batch 1 - replace LocalSettings.php"
 keys=('$wgDBserver' '$wgDBname' '$wgDBuser' '$wgDBpassword' '$wgDBprefix')
 runABatch
 
-echo "Test Batch 3 - replace Class.database.php"
+echo "Test Batch 2 - replace Class.database.php"
 keys=('$this->dbhost' '$this->dbport' '$this->dbusername' '$this->dbpassword' '$this->dbname')
 runABatch
 
-echo "Test Batch 4 - replace wp-config/php"
+echo "Test Batch 3 - replace wp-config/php"
 keys=('DB_NAME' 'DB_USER' 'DB_PASSWORD' 'DB_HOST') 
 runABatch
 
-echo "Test Batch 5- Replace with actual values from the secrets file"
+echo "Test Batch 4 - Replace with actual values from the secrets file"
 # let's start with Class.database.php
 secretsFile="${secretsDir}live.php"
 keys=('$this->dbhost' '$this->dbport' '$this->dbusername' '$this->dbpassword' '$this->dbname')

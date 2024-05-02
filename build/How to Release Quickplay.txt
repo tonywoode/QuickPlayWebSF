@@ -42,7 +42,7 @@
 
 9) Upload the website
 	* select option 6 in my menu
-		(the php binary reads the local and admin passwords from AdminSettings_Local.php and AdminSettings.php in my secrets folder)
+		(the php binary reads the local and admin passwords from AdminSettings_Local.php in my secrets folder)
 		(script is keeping a check on when i last pushed (in ../../../Release.dates.txt) It iterates through the files on the server finding any with a later
 		date, and gives you an opportunity to investigate if there are newer files on the server).
 		(script pushes website live after everyone is happy we aren’t overwriting anything, and saves the date it did so)

@@ -1,8 +1,4 @@
 <?php
-//AdminSettings.php
-$wgDBadminpassword  = '';
-$wgDBadminuser      = '';
-
 //LocalSettings.php
 $wgDBserver         = "myserver-yeah";
 $wgDBname           = "1234mydb";

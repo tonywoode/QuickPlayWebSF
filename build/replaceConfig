@@ -40,9 +40,6 @@ function getConfigKeysToChange {
 # TODO: shouldn't be passing all keys to all files
 # TODO: should be looking up the key names from the secrets file
 	keys=(
-		#AdminSettings.php
-		'$wgDBadminpassword'
-		'$wgDBadminuser'
 		#Local Settings.php
 		'$wgDBserver'
 		'$wgDBname' 
@@ -69,7 +66,6 @@ function getConfigKeysToChange {
 function replaceConfigInFiles { 
 	filesToReplace=(
 	"../includes/class.database.php"
-	"../wiki/AdminSettings.php"
 	"../wiki/LocalSettings.php"
 	"../blog/wp-config.php"
 	)
