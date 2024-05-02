@@ -1,5 +1,7 @@
 <?php
-error_reporting( E_ALL );
+ini_set('display_errors', 0);
+# comment above uncomment below for errors to SCREEN, see also wgShowExceptionDetails below
+#error_reporting( E_ALL );
 #ini_set( 'display_errors', 1 );
 # shows more granularity than "Exception encountered, of type "Error" with resource loading etc
 # $wgShowExceptionDetails = true;
@@ -146,8 +148,7 @@ $wgDiff3 = "/usr/bin/diff3";
 # When you make changes to this configuration file, this will make
 # sure that cached pages are cleared.
 $configdate = gmdate( 'YmdHis', @filemtime( __FILE__ ) );
-$wgCacheEpoch = max( $wgCacheEpoch, $configdate );
-$wgShowExceptionDetails = true;
+$wgCacheEpoch = max($wgCacheEpoch, $configdate);
 
 ?>
 <?php
