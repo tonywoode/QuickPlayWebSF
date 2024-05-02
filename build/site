@@ -20,7 +20,8 @@ echo "$datesText"
 # substring that to get a python campatible date
 lastDate=$(echo ${datesText:27})
 # http://unix.stackexchange.com/a/24636
-numdays=$(python -c "from datetime import date as d; print (d.today() - d($lastDate)).days")
+#TODO: implicit dependency on python 3 here! where is this stated!!!
+numdays=$(python -c "from datetime import date as d; print ((d.today() - d($lastDate)).days)")
 echo "last push was $numdays days ago"
 
 
