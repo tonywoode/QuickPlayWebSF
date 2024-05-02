@@ -15,17 +15,9 @@ ini_set('display_errors', 0);
 # file, not there.
 # If you customize your file layout, set $IP to the directory that contains
 
-# the other MediaWiki files. It will be used as a base to locate files.
-#if( defined( 'MW_INSTALL_PATH' ) ) {
-#	$IP = MW_INSTALL_PATH;
-#} else {
-#	$IP = dirname( __FILE__ );
-#}
-
 $path = array( $IP, "$IP/includes", "$IP/languages" );
 set_include_path( implode( PATH_SEPARATOR, $path ) );
 
-#require_once( "includes/DefaultSettings.php" );
 # added after locahost styles issue: https://www.mediawiki.org/wiki/Topic:Vfwzrueqzyqu2vqq
 require_once("$IP/includes/json/FormatJson.php");
 
